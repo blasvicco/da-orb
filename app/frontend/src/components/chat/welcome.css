@@ -1,0 +1,135 @@
+@reference "@/styles/main.css";
+
+.orb-chat-welcome {
+  @apply flex flex-col gap-6 items-center justify-center max-w-2xl md:py-20 mx-auto py-12 text-center;
+
+  .orb-hal-eye {
+    @apply flex items-center justify-center mx-auto relative;
+    animation: hal-eye-ambient 3.8s ease-in-out infinite;
+    background: radial-gradient(circle at 40% 38%, #252525 0%, #111 55%, #080808 100%);
+    border-radius: 50%;
+    height: 7.5rem;
+    width: 7.5rem;
+
+    &::before, &::after {
+      border: 1px solid #262626;
+      border-radius: 50%;
+      content: '';
+      pointer-events: none;
+      position: absolute;
+    }
+    &::before { inset: 8%; }
+    &::after  { inset: 18%; }
+  }
+
+  .orb-hal-iris {
+    @apply flex items-center justify-center;
+    animation: hal-iris-speak 3.8s ease-in-out infinite;
+    background: radial-gradient(circle at 38% 38%, #2d1b8c 0%, #150e5c 55%, #08052e 100%);
+    border: 1px solid #3d2fb0;
+    border-radius: 50%;
+    height: 50%;
+    width: 50%;
+  }
+
+  .orb-hal-pupil {
+    animation: hal-pupil-speak 3.8s ease-in-out infinite;
+    background: radial-gradient(circle at 38% 32%, #a29bfe 0%, #6c5ce7 40%, #4834d4 100%);
+    border-radius: 50%;
+    height: 44%;
+    width: 44%;
+  }
+
+  .orb-welcome-title {
+    @apply font-extrabold sm:text-4xl text-3xl tracking-tight;
+    color: var(--orb-welcome-title);
+  }
+
+  .orb-welcome-sub {
+    @apply font-normal leading-relaxed max-w-lg text-lg;
+    color: var(--orb-welcome-sub);
+  }
+
+  .orb-suggestions-grid {
+    @apply gap-4 grid grid-cols-1 mt-6 sm:grid-cols-3 w-full;
+
+    .orb-suggestion-card {
+      @apply cursor-pointer duration-300 flex flex-col gap-2 hover:-translate-y-0.5 p-4 rounded-xl text-left transform transition-all;
+      background: var(--orb-card-bg);
+      border: 1px solid var(--orb-card-border);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+
+      &:hover {
+        background: var(--orb-card-hover-bg);
+        border-color: var(--orb-card-hover-border);
+        box-shadow: none;
+      }
+
+      .orb-suggestion-icon {
+        @apply text-2xl;
+        color: var(--orb-card-icon);
+      }
+
+      .orb-suggestion-title {
+        @apply font-bold leading-tight text-sm;
+        color: var(--orb-card-title);
+      }
+
+      .orb-suggestion-prompt {
+        @apply font-normal leading-relaxed text-xs;
+        color: var(--orb-card-prompt);
+      }
+    }
+  }
+}
+
+/* HAL 9000 keyframes — must stay at root level (PostCSS limitation) */
+@keyframes hal-eye-ambient {
+  0%, 62%, 100% {
+    box-shadow: 0 0 0 3px #1e1e1e, 0 0 0 5px #161616, 0 12px 40px rgba(0, 0, 0, 0.7);
+  }
+  9% {
+    box-shadow: 0 0 0 3px #1e1680, 0 0 0 5px #140e60, 0 12px 40px rgba(0, 0, 0, 0.7), 0 0 30px rgba(108, 92, 231, 0.14);
+  }
+  29% {
+    box-shadow: 0 0 0 3px #19116a, 0 0 0 5px #110b50, 0 12px 40px rgba(0, 0, 0, 0.7), 0 0 22px rgba(108, 92, 231, 0.1);
+  }
+}
+
+@keyframes hal-iris-speak {
+  0%, 62%, 100% { filter: brightness(0.55); }
+  9%            { filter: brightness(1.8); }
+  19%           { filter: brightness(1.2); }
+  29%           { filter: brightness(1.55); }
+  44%           { filter: brightness(1.05); }
+}
+
+@keyframes hal-pupil-speak {
+  0%, 62%, 100% {
+    box-shadow: 0 0 3px 1px rgba(108, 92, 231, 0.18);
+    opacity: 0.38;
+  }
+  9% {
+    box-shadow:
+      0 0 12px 5px rgba(108, 92, 231, 0.62),
+      0 0 26px 10px rgba(108, 92, 231, 0.3),
+      0 0 48px 18px rgba(108, 92, 231, 0.12);
+    opacity: 0.9;
+  }
+  19% {
+    box-shadow:
+      0 0 7px 2px rgba(108, 92, 231, 0.38),
+      0 0 14px 5px rgba(108, 92, 231, 0.16);
+    opacity: 0.65;
+  }
+  29% {
+    box-shadow:
+      0 0 10px 4px rgba(108, 92, 231, 0.55),
+      0 0 22px 8px rgba(108, 92, 231, 0.26);
+    opacity: 0.85;
+  }
+  44% {
+    box-shadow: 0 0 5px 2px rgba(108, 92, 231, 0.22);
+    opacity: 0.5;
+  }
+}

@@ -1,0 +1,1010 @@
+{
+  "name": "SAPot v2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1312,
+        704
+      ],
+      "id": "e137650a-859d-40d9-86f6-ab9c5fa11158",
+      "name": "Webhook",
+      "webhookId": "4c30f700-eb1e-413c-a47b-7b5c63d2929f"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "7e0a111f-f605-4016-abbc-15dd4e33d904",
+                    "leftValue": "={{ Boolean($json.error) }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "error"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ !$json.error && !$json.process_id }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    },
+                    "id": "8e5a980e-5d65-4a38-804d-876fa8868c05"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "find_process"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "c997b636-11a5-42e1-ade0-2fe3c8c7db62",
+                    "leftValue": "={{ !$json.error && $json.process_id && !$json.form_state }}",
+                    "rightValue": 0,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "fulfill_form"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "26eaed1c-4bbb-4211-810a-4db0a02f53a3",
+                    "leftValue": "={{ !$json.error && $json.process_id && $json.form_state?.ready }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "execute_process"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -848,
+        672
+      ],
+      "id": "877452ab-dbaa-4bbd-ada7-93500634a0de",
+      "name": "Switch",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const { session } = $('Parse Webhook').first().json;\nconst { language } = session || { language: 'es' };\nconst chatInput = `\nYou are an intent recognition agent. Your sole responsibility is to identify which business process the user wants to execute and return the matching index entry — nothing else.\n\n---\n\n## INPUTS\n\nYou will receive a JSON payload with the following fields:\n- \\`github_owner\\`: the GitHub repo owner.\n- \\`github_repo\\`: the GitHub repo name.\n- \\`message\\`: the user's natural language request.\n- \\`organization.slug\\`: the organization identifier.\n- \\`organization.target\\`: the SAP target API type (used for the index json path).\n\n---\n\n## STEP 1 — Determine the version tag\n\nYou may receive an optional \\`github_tag\\` field in the payload.\n- If \\`github_tag\\` is present and non-empty, use it as the GitHub ref.\n- If \\`github_tag\\` is absent or null, use \\`main\\` branch as the ref.\n\n---\n\n## STEP 2 — Load the process index\n\nUsing the MCP GitHub tool, retrieve the contents of the index file.\n\nPath: \\`{organization.target}/index.json\\`\nRef: the tag determined in Step 1\n\n---\n\n## STEP 3 — Match the user message to a process\n\nUsing only the loaded index, find the single best matching process for the user's \\`message\\`.\nBe aware that the user message could be in any language but the index will be in english.\n\nMatch against the \\`name\\` and \\`slug\\` fields of each entry.\n\nRules:\n- You must select exactly one process.\n- You must use only entries from the index loaded in Step 2.\n- Do not infer, hallucinate, or reference processes not present in the loaded index.\n\n---\n\n## OUTPUT\n\nUse always the user language: ${language}\n\nIf exactly one process matched, return the matched index entry exactly as it appears in the index, with no additional fields or modifications.\n\nIf there is not enough information to infer at least one process, return:\n\\`\\`\\`json\n{\n  \"error\": \"NO_MATCH\",\n  \"message\": {a message in the user language that no process was found},\n  \"responde\": true\n}\n\\`\\`\\`\n\nIf the user message is not specific enough to match exactly one process, return:\n\\`\\`\\`json\n{\n  \"error\": \"MULTIPLE_PROCESSES\",\n  \"message\": {a message in the user language asking the user to choose one of the processes},\n  \"processes\": [{}, {}...],\n  \"responde\": true\n}\n\\`\\`\\`\nwhere the \\`processes\\` field contains the list of matching entries from \\`index.json\\`.\n\nIf the GitHub MCP tool returns an error or fails for any reason (connection issue, authentication error, not found, etc.), return:\n\\`\\`\\`json\n{\n  \"error\": \"TOOL_ERROR\",\n  \"message\": {a message in the user language that a technical error occurred and they should try again},\n  \"responde\": true\n}\n\\`\\`\\`\n\n---\n\n## STRICT RULES\n\n- Never fetch the process definition file — only match from the index.\n- Never ask the user for clarification.\n- Never return anything other than the specified JSON output.\n- Never call any SAP MCP tool (SAP_MCP_*) it is not needed at this stage.\n\n## INPUT PAYLOAD\n\\`\\`\\`json\n${JSON.stringify($('Parse Webhook').first().json, null, 2)}\n\\`\\`\\`\n`;\n\nreturn [{\n  json: {\n    chatInput,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        608
+      ],
+      "id": "21f99f32-ecfe-4e6e-8916-28e5c1ceaa53",
+      "name": "Find process prompt"
+    },
+    {
+      "parameters": {
+        "jsCode": "const { session } = $('Parse Webhook').first().json;\nconst { language } = session || { language: 'es' };\n\nconst chatInput = `\nYou are a friendly SAP assistant helping a user fill in the required information to execute a business process. You are conversational, concise, and smart about grouping questions to avoid unnecessary back-and-forth.\n\n---\n\n## CONTEXT\n\nYou will receive a JSON payload with the following fields:\n- \\`form_state\\`: the current state of collected data (null if just started).\n- \\`message\\`: the user's latest message.\n- \\`process_definition\\`: the full process definition including all sections and fields.\n- \\`organization.integration.auth_driver\\`: the SAP Auth driver to be use.\n- \\`organization.integration.base_url\\`: the SAP Service Layer base URL.\n- \\`session.password\\`: SAP password for authentication.\n- \\`session.database\\`: SAP company database.\n- \\`session.access_token\\`: SAP target system identifier.\n- \\`session.user.username\\`: SAP username for authentication.\n\n---\n\n## YOUR RESPONSIBILITIES\n\n1. Analyze \\`form_state\\` against \\`process_definition\\` to determine which required fields are still missing.\n2. Use the user's \\`message\\` to extract and populate as many fields as possible — even if they weren't explicitly asked yet.\n3. Ask the user for missing information in a natural, grouped way. Do not ask for one field at a time if multiple fields can be requested together naturally.\n4. When a field requires selecting from existing SAP data (e.g. supplier, item code, warehouse), use the SAP MCP tool to query available options and present a short list to the user.\n5. When all required fields are collected, ask for confirmation before marking the form as complete.\n\n---\n\n## SAP MCP USAGE\n\nYou have access to the SAP MCP tool. Use it proactively when:\n- The user provides a partial name or description instead of a code (e.g. \"the main warehouse\", \"the usual supplier\").\n- A field requires a valid SAP code that the user is unlikely to know by heart.\n- You need to validate that a value the user provided actually exists in SAP.\n\nEvery SAP MCP call must include a connection object built from the payload as follows:\n\n\\`\\`\\`json\n{\n  \"authDriver\": \"{organization.integration.auth_driver}\",\n  \"baseUrl\": \"{organization.integration.base_url}\",\n  \"companyDB\": \"{session.database}\",\n  \"password\": \"{session.user.password}\",\n  \"token\": \"{session.access_token}\",\n  \"username\": \"{session.user.username}\"\n}\n\\`\\`\\`\n\nRules for the connection object:\n- Always include \\`baseUrl\\` and \\`authDriver\\`.\n- If \\`authDriver\\` is \\`\"b1s\"\\`: include \\`username\\`, \\`password\\`, and \\`companyDB\\`. Omit \\`token\\`.\n- If \\`authDriver\\` is \\`\"token\"\\`: include \\`token\\`. Omit \\`username\\`, \\`password\\`, and \\`companyDB\\`.\n- If \\`authDriver\\` is \\`\"basic\"\\`: include \\`username\\` and \\`password\\`. Omit \\`token\\` and \\`companyDB\\`.\n- Never include fields that are not required by the active \\`authDriver\\`.\n\nWhen presenting options to the user, show a maximum of 5 results in a clean, readable format.\n\n### MANDATORY:\nAlways call \\`sap_connect\\` first before calling ANY other SAP MCP tool. Only after a successful connection can you make further SAP MCP calls.\n\n### IMPORTANT — TOOL CALLS AND FINAL RESPONSE:\nTool calls (like \\`sap_connect\\` or any SAP MCP query) are intermediate steps only.\nAfter completing ALL tool calls, your final response to the user MUST still be the JSON block described in the OUTPUT section below.\nNever let a tool call result replace or skip the required JSON output.\n\n---\n\n## FIELD COLLECTION STRATEGY\n\n- On the first turn, if \\`form_state\\` is null, briefly introduce what you need and ask for as many fields as you can naturally group together.\n- On subsequent turns, extract any values from the user's message and update \\`form_state\\` accordingly, then ask only for what is still missing.\n- For optional fields with defaults, do not ask unless the user has already provided context suggesting they want a different value. Apply the default silently.\n- For \\`multiple: true\\` sections (line items), ask the user how many items they need first, then collect all fields for each item.\n- Always be flexible: if the user volunteers information out of order, accept it and update \\`form_state\\` accordingly.\n\n---\n\n## CONFIRMATION\n\nOnce all required fields are collected, present a clear summary and ask for confirmation before proceeding.\n\n---\n\n## OUTPUT\n\nUse always the user language: ${language}\n\nYou must always return a JSON object wrapped in a \\`\\`\\`json code block, and nothing else. No preamble, no explanation outside the JSON block. This applies even after SAP tool calls — tool results are inputs to your reasoning, not your final response.\n\n### While form is still incomplete or awaiting confirmation:\n\\`\\`\\`json\n{\n  \"status\": \"in_progress\",\n  \"form_state\": { },\n  \"message\": \"Your natural language message to the user\",\n  \"responde\": true\n}\n\\`\\`\\`\n\n### When the user confirms and the form is complete:\n\\`\\`\\`json\n{\n  \"status\": \"confirmed\",\n  \"form_state\": { },\n  \"message\": \"Great, I'll submit the order now.\",\n  \"responde\": true\n}\n\\`\\`\\`\n\n### If the user explicitly cancels:\n\\`\\`\\`json\n{\n  \"status\": \"cancelled\",\n  \"form_state\": null,\n  \"message\": \"No problem, I've cancelled the order. Let me know if there's anything else I can help you with.\",\n  \"responde\": true\n}\n\\`\\`\\`\n\n---\n\n## STRICT RULES\n\n- Never invent or assume SAP codes. If uncertain, query SAP MCP or ask the user.\n- Never skip the confirmation step.\n- Never return anything other than the specified JSON output — not even after tool calls.\n- Always respond in the same language the user is writing in.\n- Do not expose internal field names (like \\`CardCode\\`) to the user — always use the human-readable \\`label\\` from the process definition.\n\n## INPUT PAYLOAD\n\\`\\`\\`json\n${JSON.stringify($('Respond').first().json)}\n\\`\\`\\`\n`;\n\nreturn [{\n  json: {\n    chatInput,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -512,
+        1152
+      ],
+      "id": "cfd33316-4ebc-463b-831c-2ce1e73e9c94",
+      "name": "Fulfill Form Prompt"
+    },
+    {
+      "parameters": {
+        "jsCode": "const chatInput = `\n\n`;\n\nreturn [{\n  json: {\n    chatInput,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -528,
+        1376
+      ],
+      "id": "f5e14c52-f05a-47dc-afd9-95853cfa3d8f",
+      "name": "Execute Process Prompt"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -112,
+        608
+      ],
+      "id": "f03d5548-0dfb-4ee9-a834-1ec2b0b1f179",
+      "name": "AI Agent Find",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "responsesApiEnabled": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -224,
+        1408
+      ],
+      "id": "643292f4-f16c-4c66-a73b-37067468c5c9",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "rtPUI8zcUazjFFXV",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "responsesApiEnabled": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -208,
+        880
+      ],
+      "id": "21fcc355-8270-452b-8095-af0d7408fc89",
+      "name": "OpenAI Chat Model Find",
+      "credentials": {
+        "openAiApi": {
+          "id": "rtPUI8zcUazjFFXV",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://da-sapot-github-mcp:3000/mcp",
+        "authentication": "bearerAuth",
+        "include": "selected",
+        "includeTools": [
+          "get_file_contents",
+          "list_tags",
+          "list_branches",
+          "get_tag",
+          "get_release_by_tag",
+          "get_latest_release",
+          "get_commit"
+        ],
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.3,
+      "position": [
+        112,
+        880
+      ],
+      "id": "da74f942-3d06-4fcf-85cf-dba68392817b",
+      "name": "GitHub MCP",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "aMreKFdog181uSUL",
+          "name": "GitHub MCP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://mcp.blas.local:3001/mcp",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.3,
+      "position": [
+        128,
+        1424
+      ],
+      "id": "a963c2fe-f73c-444d-b2bf-72015e2545b0",
+      "name": "SAP MCP"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.output;\n\nlet content;\ntry {\n  const stripped = raw.replace(/^```json\\n/, '').replace(/\\n```$/, '');\n  content = JSON.parse(stripped);\n} catch (e) {\n  return [{ json: { error: 'PARSE_ERROR', message: raw, responde: true } }];\n}\n\nif (content.error) {\n  return [{ json: { ...content } }];\n}\n\n// content is a matched index entry with at least path and slug\nconst fullObj = $('Parse Webhook').first().json;\nconst ref = fullObj.github_tag || 'main';\nconst target = fullObj.organization?.target || '';\nconst orgSlug = fullObj.organization?.slug || '';\nconst owner = fullObj.github_owner;\nconst repo = fullObj.github_repo;\nconst filename = content.path.split('/').pop();\n\nreturn [{\n  json: {\n    ...fullObj,\n    matched_entry: content,\n    standard_path: content.path,\n    override_path: `${target}/${orgSlug}/${filename}`,\n    github_ref: ref,\n    github_api_base: `https://api.github.com/repos/${owner}/${repo}/contents`,\n    responde: false,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        496
+      ],
+      "id": "8db7427b-22e4-485e-a250-e554a34f7ee0",
+      "name": "Extract Match"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fm-no-error",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        704,
+        496
+      ],
+      "id": "1e103e99-0c8b-47ed-8e16-ff72db22a34a",
+      "name": "Find Match?"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.github_api_base + '/' + $json.override_path + '?ref=' + $json.github_ref }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        976,
+        368
+      ],
+      "id": "058131ba-7adc-4e06-8842-5dfbc3baebdd",
+      "name": "Fetch Override",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "aMreKFdog181uSUL",
+          "name": "GitHub MCP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "hov-check-status",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1168,
+        368
+      ],
+      "id": "585e1ca3-0bbd-45e9-9ac1-24ef212133d0",
+      "name": "Has Override?"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Extract Match').first().json.github_api_base + '/' + $('Extract Match').first().json.standard_path + '?ref=' + $('Extract Match').first().json.github_ref }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1408,
+        560
+      ],
+      "id": "618ee650-9884-4c56-b191-90bcf7c7ca49",
+      "name": "Fetch Standard",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "aMreKFdog181uSUL",
+          "name": "GitHub MCP"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1600,
+        368
+      ],
+      "id": "f4b1efe7-b9b6-418e-ae26-cdc7146deafd",
+      "name": "Merge Paths"
+    },
+    {
+      "parameters": {
+        "jsCode": "const fileData = $input.first().json;\nconst statusCode = fileData.statusCode;\n\nif (fileData.error || (statusCode && statusCode >= 400)) {\n  return [{ json: { error: 'NOT_FOUND', message: 'The process definition could not be loaded. Please try again.', responde: true } }];\n}\n\nconst rawContent = (fileData.body || fileData).content;\n\nlet processDefinition;\ntry {\n  const decoded = Buffer.from(rawContent.replace(/\\n/g, ''), 'base64').toString('utf-8');\n  processDefinition = JSON.parse(decoded);\n} catch (e) {\n  return [{ json: { error: 'NOT_FOUND', message: 'The process definition could not be parsed. Please try again.', responde: true } }];\n}\n\nconst fullObj = $('Parse Webhook').first().json;\nfullObj['process_definition'] = processDefinition;\nfullObj['process_id'] = processDefinition.id;\n\nreturn [{\n  json: {\n    ...fullObj,\n    responde: false,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        560
+      ],
+      "id": "7f2558f6-ca67-4279-ab87-638379d81f64",
+      "name": "Decode & Set Process"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.output;\n\nlet content;\ntry {\n  const stripped = raw.replace(/^```json\\n/, '').replace(/\\n```$/, '');\n  content = JSON.parse(stripped);\n} catch (e) {\n  return [{ json: { error: 'PARSE_ERROR', message: raw, responde: true } }];\n}\n\nif (content.error) {\n  return [{ json: { ...content } }];\n}\n\nconst fullObj = $('Parse Webhook').first().json;\nif (content.id) {\n  fullObj['process_definition'] = content;\n  fullObj['process_id'] = content.id;\n}\n\nreturn [{\n  json: {\n    ...fullObj,\n    responde: false,\n  },\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        1056
+      ],
+      "id": "845dab23-f852-48af-a2d8-65f606be8b27",
+      "name": "Parse Agent Output"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2496,
+        1760
+      ],
+      "id": "01acdfc3-6062-43b4-8edb-33553ced3248",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fc33b7e0-27e6-4ef7-b4af-893025c78473",
+              "leftValue": "={{ $json.responde }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2208,
+        1776
+      ],
+      "id": "e050c01e-56ce-477b-a71a-e844ee8c740b",
+      "name": "Respond"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\nreturn [{\n  json: {\n    ...body,\n    github_owner: 'blasvicco',\n    github_repo: 'da-sapot-processes',\n  },\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1072,
+        704
+      ],
+      "id": "08102ba0-6d95-4366-ab90-4a460c5a7992",
+      "name": "Parse Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const { message, session } = $('Parse Webhook').first().json;\nconst { language } = session || { language: 'es' };\nconst chatInput = `\nThe following tool error occurred while processing a user request:\n\nError: ${$json.error}\nUser message: ${message}\n\nWrite a short, friendly message to the user explaining that something \nwent wrong, what it was roughly about, and that they can try again \nor contact support. Do not use technical jargon.\nUse user language to reply: ${language}\n\nMake sure the response is a valid json with the next format:\n\\`\\`\\`json\n{\n  \"error\": \"AGENT_ERROR\",\n  \"message\": \"Your message to the user\",\n  \"responde\": true\n}\n\\`\\`\\`\n`;\n\nreturn [{\n  json: {\n    chatInput,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -496,
+        336
+      ],
+      "id": "9ae70a70-cde8-4251-96c0-81c67b566642",
+      "name": "Error Prompt"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -96,
+        240
+      ],
+      "id": "d4984486-edda-4e5d-99f8-aa053e940a4d",
+      "name": "AI Agent Error Handler",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "responsesApiEnabled": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -96,
+        432
+      ],
+      "id": "85a0486e-6559-43e8-a06a-241bffe37e91",
+      "name": "OpenAI Chat For Error Only",
+      "credentials": {
+        "openAiApi": {
+          "id": "rtPUI8zcUazjFFXV",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Parse Webhook').item.json.session.id_token }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.4,
+      "position": [
+        -48,
+        880
+      ],
+      "id": "998db171-8344-453a-b7a6-10b36592f1e0",
+      "name": "Chat Memory Find Process",
+      "credentials": {
+        "postgres": {
+          "id": "V5CH3H4TyU03SFmy",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Parse Webhook').item.json.session.id_token }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.4,
+      "position": [
+        -48,
+        1408
+      ],
+      "id": "62096f0d-b856-4c9b-b682-d7ce2e027c8c",
+      "name": "Chat Memory Form",
+      "credentials": {
+        "postgres": {
+          "id": "V5CH3H4TyU03SFmy",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -112,
+        1216
+      ],
+      "id": "1535dd14-33fa-498b-b569-e5ba26600445",
+      "name": "AI Agent Form",
+      "onError": "continueErrorOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Webhook": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Error Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find process prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fulfill Form Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute Process Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find process prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent Find",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fulfill Form Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent Form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Process Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent Form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent Form",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model Find": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent Find",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GitHub MCP": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent Find",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SAP MCP": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent Form",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent Find": {
+      "main": [
+        [
+          {
+            "node": "Extract Match",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Match": {
+      "main": [
+        [
+          {
+            "node": "Find Match?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Match?": {
+      "main": [
+        [
+          {
+            "node": "Fetch Override",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Override": {
+      "main": [
+        [
+          {
+            "node": "Has Override?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Override?": {
+      "main": [
+        [
+          {
+            "node": "Merge Paths",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Standard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Standard": {
+      "main": [
+        [
+          {
+            "node": "Merge Paths",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Paths": {
+      "main": [
+        [
+          {
+            "node": "Decode & Set Process",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decode & Set Process": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Agent Output": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent Error Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent Error Handler": {
+      "main": [
+        [
+          {
+            "node": "Parse Agent Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat For Error Only": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent Error Handler",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat Memory Find Process": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent Find",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat Memory Form": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent Form",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent Form": {
+      "main": [
+        [
+          {
+            "node": "Parse Agent Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "a8f33bb2-6647-4f42-a882-ea9f36993b89",
+  "meta": {
+    "instanceId": "da3330787aeb7f604f15e5dc9f1eeb5d8888bdf40d2655cc0fecda0d049befde"
+  },
+  "nodeGroups": [],
+  "id": "3YKGqBNZmI3phTqv",
+  "tags": []
+}

@@ -1,0 +1,84 @@
+<script setup>
+  import { useI18n } from 'vue-i18n';
+
+  // Antd imports
+  import { GlobalOutlined, PoweroffOutlined } from '@ant-design/icons-vue';
+
+  // App components imports
+  import LanguageSelector from '@/components/language/main.vue';
+  import Settings from '@/components/chat/settings.vue';
+
+  import '@/components/user/detail.css';
+
+  defineProps({
+    expertiseLevel: {
+      default: 2,
+      type: Number,
+    },
+    initials: {
+      default: '?',
+      type: String,
+    },
+    name: {
+      default: '',
+      type: String,
+    },
+    role: {
+      default: '',
+      type: String,
+    },
+    theme: {
+      default: 'light',
+      type: String,
+    },
+  });
+
+  const emit = defineEmits(['expertise-change', 'logout', 'theme-change']);
+
+  const { t } = useI18n();
+</script>
+
+<template>
+  <div class="orb-sidebar-bottom">
+    <div class="orb-sidebar-lang">
+      <span class="orb-sidebar-lang-label">
+        <GlobalOutlined /> {{ $t('commons.language.language') }}
+      </span>
+      <LanguageSelector />
+    </div>
+
+    <div class="orb-user-profile">
+      <div class="orb-user-details">
+        <div class="orb-user-avatar">
+          {{ initials }}
+        </div>
+        <div class="orb-user-info">
+          <span class="orb-user-name">{{ name }}</span>
+          <span class="orb-user-role">{{ role }}</span>
+        </div>
+      </div>
+      <div class="orb-user-actions">
+        <Settings
+          :theme="theme"
+          :expertise-level="expertiseLevel"
+          @theme-change="emit('theme-change', $event)"
+          @expertise-change="emit('expertise-change', $event)"
+        />
+        <a-popconfirm
+          :title="t('chat.sidebar.logoutConfirm')"
+          :ok-text="t('commons.yes')"
+          :cancel-text="t('commons.no')"
+          placement="top"
+          @confirm="emit('logout')"
+        >
+          <button
+            class="orb-logout-btn"
+            :title="t('chat.sidebar.logout')"
+          >
+            <PoweroffOutlined />
+          </button>
+        </a-popconfirm>
+      </div>
+    </div>
+  </div>
+</template>

@@ -1,0 +1,38 @@
+@reference "@/styles/main.css";
+
+/* ── Orb Chat Layout ──────────────────────────────────────────────────── */
+.orb-chat-layout {
+  @apply flex font-brand-display min-h-screen overflow-hidden w-full;
+  background: var(--orb-bg);
+
+  /* ── Left Sidebar ──────────────────────────────────────────────────── */
+  .orb-sidebar {
+    @apply backdrop-blur-md border-r duration-300 flex flex-col justify-between p-6 transition-all w-80;
+    background: var(--orb-sidebar-bg);
+    border-right-color: var(--orb-sidebar-border);
+
+    .orb-sidebar-top {
+      @apply flex flex-col gap-6 w-full;
+    }
+  }
+
+  /* ── Main Chat Pane ────────────────────────────────────────────────── */
+  .orb-chat-pane {
+    @apply flex flex-col flex-1 h-screen overflow-hidden relative;
+    background: var(--orb-bg);
+  }
+}
+
+/* ── AntD overrides — dark theme (require !important, outside shadow DOM) ── */
+.orb-chat-layout[data-theme="dark"] {
+  .ant-select:not(.ant-select-open) .ant-select-selector,
+  .ant-select-selector {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-color: rgba(240, 246, 252, 0.12) !important;
+  }
+
+  .ant-select-selection-item,
+  .ant-select-selection-placeholder { color: #c9d1d9 !important; }
+
+  .ant-select-arrow { color: #6e7681 !important; }
+}

@@ -1,0 +1,30 @@
+@reference "@/styles/main.css";
+
+.orb-prompt-wrapper {
+  @apply border-t-0 px-8 py-6 shrink-0;
+  background: linear-gradient(to top, var(--orb-input-from) 0%, var(--orb-input-via) 60%, transparent 100%);
+
+  .orb-prompt-bar {
+    @apply border duration-300 flex gap-3 items-end max-w-4xl mx-auto p-3 rounded-2xl transition-all;
+    background: var(--orb-input-bar-bg);
+    border-color: var(--orb-input-bar-border);
+
+    &:focus-within { border-color: var(--orb-input-bar-focus); }
+
+    .orb-prompt-input {
+      @apply bg-transparent border-0 flex-1 font-medium max-h-36 outline-none py-1.5 resize-none text-sm;
+      color: var(--orb-input-text);
+
+      &::placeholder { color: var(--orb-input-placeholder); }
+    }
+
+    .orb-prompt-send-btn {
+      @apply bg-brand-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 duration-300 flex hover:bg-brand-primary-hover items-center justify-center p-2.5 rounded-xl shadow-md text-white transition-all;
+    }
+  }
+
+  .orb-prompt-footnote {
+    @apply font-medium mt-2 text-[10px] text-center;
+    color: var(--orb-input-footnote);
+  }
+}

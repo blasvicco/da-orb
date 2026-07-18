@@ -1,0 +1,20 @@
+@reference "@/styles/main.css";
+
+.orb-settings-panel {
+  width: 240px;
+
+  .orb-settings-row {
+    @apply flex gap-6 items-center justify-between py-1;
+
+    .orb-settings-label { @apply font-medium text-slate-700 text-sm; }
+
+    &.orb-settings-row--column {
+      @apply flex-col gap-1 items-start;
+
+      .ant-slider {
+        margin: 4px 0 0;
+        width: 100%;
+      }
+    }
+  }
+}

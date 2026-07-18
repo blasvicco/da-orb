@@ -1,0 +1,65 @@
+@reference "@/styles/main.css";
+
+.orb-history-section {
+  @apply flex flex-col gap-3 mt-4 w-full;
+
+  .orb-history-title {
+    @apply font-bold px-1 text-xs tracking-wider uppercase;
+    color: var(--orb-history-label);
+  }
+
+  .orb-history-list {
+    @apply flex flex-col gap-1 max-h-[40vh] overflow-y-auto pr-1 scrollbar-thin w-full;
+
+    .orb-history-item {
+      @apply cursor-pointer duration-200 flex font-medium gap-3 items-center px-3 py-2.5 rounded-lg text-sm transition-all;
+      color: var(--orb-history-text);
+
+      &:hover {
+        background: var(--orb-history-hover-bg);
+        color: var(--orb-history-hover-text);
+      }
+
+      .orb-history-icon {
+        @apply inline-flex items-center justify-center shrink-0;
+        width: 1em;
+
+        .orb-history-pending-dot {
+          @apply animate-pulse h-2 rounded-full w-2;
+          background: #22c55e;
+        }
+
+        .orb-session-dot--active {
+          color: #22c55e;
+        }
+
+        .orb-session-dot--inactive {
+          color: #94a3b8;
+        }
+      }
+
+      .orb-history-label {
+        @apply flex flex-col flex-1 min-w-0;
+
+        .orb-history-title {
+          @apply font-medium leading-tight normal-case text-sm;
+        }
+
+        .orb-history-date {
+          @apply leading-tight mt-0.5 text-[10px];
+          color: var(--orb-history-date);
+        }
+      }
+
+      .orb-history-delete {
+        @apply hover:text-rose-400 shrink-0 transition-colors;
+        color: var(--orb-history-date);
+      }
+    }
+
+    .orb-history-empty {
+      @apply italic px-3 py-2 text-xs;
+      color: var(--orb-history-empty);
+    }
+  }
+}

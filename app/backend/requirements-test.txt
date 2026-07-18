@@ -1,0 +1,8 @@
+allure-pytest
+pytest_asyncio
+pytest
+pytest-cov
+pytest-django
+pytest-factoryboy
+pytest-mock
+pytest-xdist

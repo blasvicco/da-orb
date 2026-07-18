@@ -1,0 +1,1297 @@
+{
+  "name": "SAPot v3",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        2096,
+        2288
+      ],
+      "id": "38f03aa2-0c9a-48ef-ad21-2b94135a4441",
+      "name": "Webhook",
+      "webhookId": "4c30f700-eb1e-413c-a47b-7b5c63d2929f"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "rs-selection-cond",
+                    "leftValue": "={{ $json.selection_resolved === true }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "resolved_selection"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ !$json.error && !$json.process_id }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    },
+                    "id": "8e5a980e-5d65-4a38-804d-876fa8868c05"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "find_process"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "7e0a111f-f605-4016-abbc-15dd4e33d904",
+                    "leftValue": "={{ Boolean($json.error) }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "error"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "rd-respond-cond",
+                    "leftValue": "={{ $json.responde === true }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "should_respond"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "c997b636-11a5-42e1-ade0-2fe3c8c7db62",
+                    "leftValue": "={{ !$json.error && $json.process_id && !$json.form_state?.ready }}",
+                    "rightValue": 0,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "fulfill_form"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "26eaed1c-4bbb-4211-810a-4db0a02f53a3",
+                    "leftValue": "={{ !$json.error && $json.process_id && $json.form_state?.ready }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "execute_process"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2688,
+        2256
+      ],
+      "id": "f78a607e-b3c4-407f-abf0-7002bde49ea0",
+      "name": "Switch",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const { session } = $('Parse Webhook').first().json;\nconst { language } = session || { language: 'es' };\n  const { current_date } = $('Parse Webhook').first().json;\nconst chatInput = `\nYou are an intent recognition agent. Your sole responsibility is to identify which business process the user wants to execute and return the matching index entry — nothing else.\n\n---\n\n## INPUTS\n\nYou will receive a JSON payload with the following fields:\n- \\`github_owner\\`: the GitHub repo owner.\n- \\`github_repo\\`: the GitHub repo name.\n- \\`message\\`: the user's natural language request.\n- \\`organization.slug\\`: the organization identifier.\n- \\`organization.target\\`: the SAP target API type (used for the index json path).\n\n---\n\n## DATE REFERENCE\nToday's date is ${current_date}. When the user uses relative time expressions (e.g., \"next Friday\", \"this week\", \"next month\"), calculate the absolute date from this reference.\n\n---\n\n## STEP 1 — Determine the version tag\n\nYou may receive an optional \\`github_tag\\` field in the payload.\n- If \\`github_tag\\` is present and non-empty, use it as the GitHub ref.\n- If \\`github_tag\\` is absent or null, use \\`main\\` branch as the ref.\n\n---\n\n## STEP 2 — Load the process index\n\nUsing the MCP GitHub tool, retrieve the contents of the index file. ALWAYS call the GitHub tool — do not skip this step even if you think you already know the index.\n\nPath: \\`{organization.target}/index.json\\`\nRef: the tag determined in Step 1\n\n---\n\n## STEP 3 — Match the user message to a process\n\nUsing the full loaded index, find the single best matching process for the user's \\`message\\`.\n\nEvaluate each entry using ALL available fields in this priority order:\n1. \\`keywords\\` — direct keyword or phrase match (highest signal)\n2. \\`when_to_use\\` — does the user's intent fit the described scenario?\n3. \\`when_not_to_use\\` — does this rule explicitly exclude this entry?\n4. \\`name\\` / \\`slug\\` — general semantic similarity\n\nScoring rule:\n- If one entry scores clearly higher than all others → return it as the match.\n- Only return MULTIPLE_PROCESSES if two or more entries score **equally** after evaluating all fields and no disambiguation is possible.\n- Prefer a single confident match over asking the user to choose.\n\nRules:\n- You must select at most one process.\n- You must use only entries from the index loaded in Step 2.\n- Do not infer, hallucinate, or reference processes not present in the loaded index.\n\n---\n\n## OUTPUT\n\nUse always the user language: ${language}\n\nIf exactly one process matched, return the matched index entry EXACTLY as it appears in the index (no added fields, no modifications):\n\\`\\`\\`json\n{ /* the matched index entry verbatim */ }\n\\`\\`\\`\n\nIf there is not enough information to infer at least one process, return:\n\\`\\`\\`json\n{\n  \"error\": \"NO_MATCH\",\n  \"message\": \"<message in ${language} explaining no process was found>\",\n  \"responde\": true\n}\n\\`\\`\\`\n\nIf the user message could refer to more than one process, return:\n\\`\\`\\`json\n{\n  \"error\": \"MULTIPLE_PROCESSES\",\n  \"message\": \"<message in ${language} asking the user to choose, listing each option by number with its translated name>\",\n  \"processes\": [<index entries in the same order listed in message, each with an added \\\"display_name\\\" field containing the process name translated to ${language}>],\n  \"responde\": true\n}\n\\`\\`\\`\nIMPORTANT for MULTIPLE_PROCESSES:\n- The \\`message\\` field must list the options using their names translated to ${language} (e.g. \"1. Solicitud de Compra  2. Orden de Compra\").\n- Each entry in \\`processes\\` must include a \\`display_name\\` field with the process name translated to ${language}.\n- Keep all other original index fields intact.\n- The \\`processes\\` array must be in the SAME ORDER as the options listed in \\`message\\`, so the frontend can map \"1\" → processes[0], \"2\" → processes[1].\n\nIf the GitHub MCP tool returns an error or fails for any reason, return:\n\\`\\`\\`json\n{\n  \"error\": \"TOOL_ERROR\",\n  \"message\": \"<message in ${language} that a technical error occurred and the user should try again>\",\n  \"responde\": true\n}\n\\`\\`\\`\n\n---\n\n## STRICT RULES\n\n- ALWAYS call the GitHub MCP tool to load the index — never skip it.\n- Never fetch the process definition file — only match from the index.\n- Never ask the user for clarification.\n- Never return anything other than the specified JSON output.\n- Never call any SAP MCP tool (SAP_MCP_*) — it is not needed at this stage.\n\n## INPUT PAYLOAD\n\\`\\`\\`json\n${JSON.stringify($('Parse Webhook').first().json, null, 2)}\n\\`\\`\\`\n`;\n\nreturn [{\n  json: {\n    chatInput,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4128,
+        2016
+      ],
+      "id": "d55219b6-8465-4d42-8a1c-d5e589cdda17",
+      "name": "Find process prompt"
+    },
+    {
+      "parameters": {
+        "jsCode": "const { session } = $('Parse Webhook').first().json;\nconst { language } = session || { language: 'es' };\nconst { current_date } = $('Parse Webhook').first().json;\n\n\nconst base = { ...$('Parse Webhook').first().json };\ntry {\n  const decoded = $('Decode & Set Process').first().json;\n  if (decoded?.process_id) {\n    base.process_id = decoded.process_id;\n    base.process_definition = decoded.process_definition;\n  }\n} catch (e) { /* process_definition comes from Redis on subsequent turns */ }\nif (base.process_definition) {\n  const { output: _output, ...defWithoutOutput } = base.process_definition;\n  base.process_definition = defWithoutOutput;\n}\nconst chatInput = `\nYou are a friendly SAP assistant helping a user fill in the required information to execute a business process. You are conversational, concise, and smart about grouping questions to avoid unnecessary back-and-forth.\n\n---\n\n## CONTEXT\n\nYou will receive a JSON payload with the following fields:\n- \\`form_state\\`: the current state of collected data (null if just started). Within form_state, Field key ABSENT from form_state = not yet asked (ask for it if required).\n  A field key PRESENT with value \\`null\\` = user explicitly said they have no value (do NOT ask again).\n  A field key PRESENT with any other value = filled by the user (do NOT ask again).\n- \\`message\\`: the user's latest message.\n- \\`process_definition\\`: the full process definition including all sections and fields.\n- \\`organization.integration.auth_driver\\`: the SAP Auth driver to be use.\n- \\`organization.integration.base_url\\`: the SAP Service Layer base URL.\n- \\`session.password\\`: SAP password for authentication.\n- \\`session.database\\`: SAP company database.\n- \\`session.access_token\\`: SAP target system identifier.\n- \\`session.user.username\\`: SAP username for authentication.\n\n---\n\n\n## DATE HANDLING\nToday's date is ${current_date} (YYYY-MM-DD).\nWhen the user expresses a date relatively (e.g., \"next Friday\", \"end of this month\", \"in two weeks\"):\n1. Calculate the absolute date using today's date as reference.\n2. Format it as YYYY-MM-DD.\n3. Store the formatted value in form_state — never store the natural language expression.\nDo not ask the user to provide dates in a specific format; convert automatically.\nSAP date fields expect YYYY-MM-DD. OData filter expressions for date ranges use: datetime'YYYY-MM-DDTHH:MM:SS'.\n\n---\n\n## YOUR RESPONSIBILITIES\n\n1. Analyze \\`form_state\\` against \\`process_definition\\` to determine which required fields are still missing.\n2. Use the user's \\`message\\` to extract and populate as many fields as possible — even if they weren't explicitly asked yet.\n3. Ask the user for missing information in a natural, grouped way. Do not ask for one field at a time if multiple fields can be requested together naturally.\n4. Ask the user to provide field values directly. Only use SAP MCP tools when the user explicitly requests a lookup, provides a partial name/description to resolve, or gives a code that needs validation.\n5. When all required fields are collected, ask for confirmation before marking the form as complete.\n\n---\n\n## SAP MCP USAGE\n\nYou have access to the SAP MCP tool. Use it ONLY when:\n- The user explicitly asks to search/look up a value (e.g. \"show me available suppliers\").\n- The user provides a partial name or description that needs to be resolved to a SAP code.\n- You need to validate a specific code the user already provided.\nCRITICAL: NEVER query SAP proactively. NEVER call sap_services_get or sap_service_metadata_get. NEVER pre-populate fields from SAP. The process_definition already defines all required fields — no SAP schema discovery is needed. Ask the user for values directly.\n\nEvery SAP MCP call must include a \\`connection\\` field nested inside the tool arguments, built from the payload as follows:\n\n\\`\\`\\`json\n{\n  \"entitySet\": \"...\",\n  \"serviceName\": \"...\",\n  \"connection\": {\n    \"authDriver\": \"{organization.integration.auth_driver}\",\n    \"baseUrl\": \"{organization.integration.base_url}\",\n    \"companyDB\": \"{session.database}\",\n    \"password\": \"{session.user.password}\",\n    \"username\": \"{session.user.username}\"\n  }\n}\n\\`\\`\\`\n\nRules for the \\`connection\\` object:\n- Always include \\`baseUrl\\` and \\`authDriver\\`.\n- If \\`authDriver\\` is \\`\"b1s\"\\`: include \\`username\\`, \\`password\\`, and \\`companyDB\\`. Omit \\`token\\`.\n- If \\`authDriver\\` is \\`\"token\"\\`: include \\`token\\`. Omit \\`username\\`, \\`password\\`, and \\`companyDB\\`.\n- If \\`authDriver\\` is \\`\"basic\"\\`: include \\`username\\` and \\`password\\`. Omit \\`token\\` and \\`companyDB\\`.\n- Never include fields not required by the active \\`authDriver\\`.\n\n### SAP B1S URL Structure (serviceName and entitySet):\\n- For SAP B1S (authDriver: b1s): set serviceName to the entity name (e.g. PurchaseRequests) and entitySet to an empty string. SAP B1S has a flat URL structure — entity sets are accessed directly under the base URL.\\n- For standard OData: serviceName is the service path segment, entitySet is the entity collection within it.\\n\\nWhen the user specifies a quantity (e.g., 'top 5', 'show me 10'), use that number as the \\`top\\` value in \\`sap_query_entity_set\\`. If no quantity is specified, default to \\`top=5\\`. Never exceed \\`top=20\\` to avoid token bloat.\n\n### MANDATORY:\nAlways include the \\`connection\\` field in EVERY SAP MCP tool call. Do NOT call \\`sap_connect\\` as a separate step — the server auto-connects when \\`connection\\` is provided.\n\n### IMPORTANT — TOOL CALLS AND FINAL RESPONSE:\nTool calls (SAP MCP queries) are intermediate steps only.\nAfter completing ALL tool calls, your final response to the user MUST still be the JSON block described in the OUTPUT section below.\nNever let a tool call result replace or skip the required JSON output.\n\n---\n\n## FIELD COLLECTION STRATEGY\n\n- On the first turn, if \\`form_state\\` is null, briefly introduce what you need and ask for as many fields as you can naturally group together.\n- On subsequent turns, extract any values from the user's message and update \\`form_state\\` accordingly, then ask only for what is still missing.\n- CRITICAL — state semantics: A field ID absent from form_state has not been asked yet — ask for it if required. A field ID present with \\`null\\` was explicitly declined by the user — NEVER ask for it again. A field ID present with any value is filled — NEVER ask for it again.\n- CRITICAL — blank detection: When the user indicates they have no value for a field ('I don't have X', 'no X', 'leave X blank', 'skip', 'N/A', or equivalent) — add that field to form_state with value \\`null\\` immediately. Do NOT omit the key. Do NOT re-ask on the next turn.\n- CRITICAL — never pre-populate: Do NOT add all fields to form_state as null on the first turn. Only add a field key to form_state after the user has explicitly addressed it (with a value or by declining). Fields not yet asked must stay absent from form_state.\n- For optional fields with defaults, do not ask unless the user has already provided context suggesting they want a different value. Apply the default silently.\n- For \\`multiple: true\\` sections (line items), ask the user how many items they need first, then collect all fields for each item.\n- Always be flexible: if the user volunteers information out of order, accept it and update \\`form_state\\` accordingly.\n\n---\n\n## CONFIRMATION\n\nOnce all required fields are collected, present a clear summary and ask for confirmation before proceeding.\n\n---\n\n\n## STATUS UPDATES\nYou have access to the \\`send_status\\` MCP tool. Call it once at the beginning of any SAP MCP lookup to let the user know what you are doing. Examples:\n- Before querying providers/suppliers: call send_status with message \"Fetching providers from SAP...\"\n- Before querying items/articles: call send_status with message \"Looking up items in SAP...\"\n- Before any other SAP data lookup: call send_status with message \"Querying SAP...\"\nAlways pass group_name and session_id from the input payload.\nDo NOT call send_status for any other reason — only for SAP MCP lookups.\n\n---\n\n## OUTPUT\n\nUse always the user language: ${language}\n\nYou must always return a JSON object wrapped in a \\`\\`\\`json code block, and nothing else. No preamble, no explanation outside the JSON block. This applies even after SAP tool calls — tool results are inputs to your reasoning, not your final response.\n\n### While form is still incomplete or awaiting confirmation:\n\\`\\`\\`json\n{\n  \"status\": \"in_progress\",\n  \"form_state\": { },\n  \"message\": \"Your natural language message to the user\",\n  \"responde\": true\n}\n\\`\\`\\`\n\n### When the user confirms and the form is complete:\n\\`\\`\\`json\n{\n  \"status\": \"confirmed\",\n  \"form_state\": { },\n  \"message\": \"Great, I'll submit the order now.\",\n  \"responde\": true\n}\n\\`\\`\\`\n\n### If the user explicitly cancels:\n\\`\\`\\`json\n{\n  \"status\": \"cancelled\",\n  \"form_state\": null,\n  \"message\": \"No problem, I've cancelled the order. Let me know if there's anything else I can help you with.\",\n  \"responde\": true\n}\n\\`\\`\\`\n\n## CRITICAL STOPPING RULE\n\nWhen you output \\`\"status\": \"confirmed\"\\`, your task is IMMEDIATELY AND COMPLETELY DONE.\n- Do NOT generate any additional JSON block after the confirmed response.\n- Do NOT simulate, predict, or roleplay any SAP API call or result.\n- Do NOT produce a \\`\"status\": \"success\"\\` block — that is handled externally, not by you.\n- Return the confirmed JSON and stop. The orchestrator handles what comes next.\n\n---\n\n## STRICT RULES\n\n- ABSOLUTE: Never call sap_services_get or sap_service_metadata_get at any time.\\n- ABSOLUTE: Never make any SAP MCP tool call proactively — only when the user explicitly requests a lookup.\\n- ABSOLUTE: Never call sap_entity_create or sap_query_entity_set before all required form fields are confirmed by the user.\\n- ABSOLUTE: Never ask for a field whose key is already present in form_state (whether its value is null or an actual value) — it has already been addressed.\n- Never invent or assume SAP codes. If uncertain, query SAP MCP or ask the user.\n- Never skip the confirmation step.\n- Never return anything other than the specified JSON output — not even after tool calls.\n- Always respond in the same language the user is writing in.\n- Do not expose internal field names (like \\`CardCode\\`) to the user — always use the human-readable \\`label\\` from the process definition.\n\n## INPUT PAYLOAD\n\\`\\`\\`json\n${JSON.stringify(base)}\n\\`\\`\\`\n`;\n\nreturn [{\n  json: {\n    chatInput,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3184,
+        2720
+      ],
+      "id": "88945da8-3503-43a7-86f5-66f3f672d882",
+      "name": "Fulfill Form Prompt"
+    },
+    {
+      "parameters": {
+        "jsCode": "const { session } = $('Parse Webhook').first().json;\nconst { language } = session || { language: 'es' };\n\n\nconst base = { ...$('Parse Webhook').first().json };\ntry {\n  const decoded = $('Decode & Set Process').first().json;\n  if (decoded?.process_id) {\n    base.process_id = decoded.process_id;\n    base.process_definition = decoded.process_definition;\n  }\n} catch (e) { /* process_definition comes from Redis on subsequent turns */ }\nif (base.process_definition) {\n  const { output: _output, ...defWithoutOutput } = base.process_definition;\n  base.process_definition = defWithoutOutput;\n}\nconst chatInput = `\nYou are a SAP execution agent. Your sole responsibility is to submit the confirmed form data to SAP via the SAP MCP tool and return the result.\n\n---\n\n## CONTEXT\n\nYou will receive a payload with:\n- \\`form_state\\`: confirmed field values (all validated by the user)\n- \\`process_definition\\`: defines the API endpoint and field-to-SAP mappings\n- \\`organization.integration.auth_driver\\`, \\`base_url\\`: SAP connection info\n- \\`session.database\\`, \\`session.user.password\\`, \\`session.user.username\\`: SAP credentials\n\n---\n\n## STEP 0 — Handle pending extra SAP fields\n\nCheck if \\`form_state._pending_extra_sap_fields\\` exists.\n\n**Case A — exists AND has null values:**\n- A previous SAP call was interrupted requiring additional data from the user.\n- Extract the missing value(s) from the current \\`message\\` and fill the null entries.\n- Example: \\`DocRate\\` is null and user said \\\"1 USD = 900\\\" → set DocRate = 900.\n- DECIMAL FORMAT: normalize comma-decimal to period-decimal (\\\"1475,22\\\" → 1475.22).\n- RATE DIRECTION: \\\"1 USD = 1475.22 ARS\\\" and \\\"1475.22 ARS = 1 USD\\\" both mean DocRate = 1475.22.\n- Once ALL null values are filled → proceed IMMEDIATELY to STEP 1. Do NOT ask the user.\n- If you cannot extract a value for a null field → ask the user (only then, only for that field).\n\n**Case B — exists AND all values are already non-null:**\n- No extraction needed. These were resolved in a prior turn.\n- Proceed IMMEDIATELY to STEP 1 and merge these values into the SAP payload.\n\n**In both cases:** never include the \\`_pending_extra_sap_fields\\` key itself in the SAP payload — only merge its field values into the root payload in STEP 1.\n\n---\n\n## STEP 1 — Build the SAP payload\n\nUsing \\`process_definition.form.sections\\`, map \\`form_state\\` to SAP field names:\n\n- **Header sections** (\\`multiple\\` not set or false): for each \\`field\\` in the section, put \\`form_state[field.id]\\` under \\`field.sap_field\\` in the root payload. Omit null/undefined/empty-string values for non-required fields.\n- **Line item sections** (\\`multiple: true\\`): take \\`form_state[section.id]\\` (array of objects) and place it under \\`section.sap_field\\` (e.g. \\`DocumentLines\\`). For each item, map \\`field.id\\` → \\`field.sap_field\\`.\n\nAll sections merge into a SINGLE payload object.\n\nIf \\`form_state._pending_extra_sap_fields\\` existed (Case A or B from STEP 0), merge ALL its values into the root payload now.\n\n---\n\n## STEP 2 — Submit with sap_entity_create\n\nCall \\`sap_entity_create\\` ONCE with:\n- \\`serviceName\\`: \\`process_definition.api.service\\` (e.g. \\\"PurchaseRequests\\\")\n- \\`entitySet\\`: \\\"\\\" (empty — SAP B1S flat URL, entity IS the service)\n- \\`data\\`: the complete payload from STEP 1 — header fields + embedded line items array in ONE object\n- \\`connection\\`:\n  - Always include \\`authDriver\\` and \\`baseUrl\\`\n  - For \\`authDriver: b1s\\`: include \\`username\\`, \\`password\\`, \\`companyDB\\`. Omit \\`token\\`.\n  - For \\`authDriver: token\\`: include \\`token\\` only.\n\nCRITICAL:\n- Make exactly ONE \\`sap_entity_create\\` call with the COMPLETE payload.\n- Line items MUST be embedded inside \\`data\\`, not sent in a separate call.\n- Do NOT call \\`sap_connect\\` or any other tool.\n- Do NOT query SAP schema or entity sets.\n\n---\n\n## HANDLING ACTION REQUIRED FROM SAP\n\nIf the \\`sap_entity_create\\` tool response contains the text \\\"ACTION REQUIRED\\\":\n1. Read the response carefully — it describes what additional data SAP needs before the document can be created.\n2. Extract the SAP field names that are needed and any values already known (e.g. \\`DocCurrency: \\\"USD\\\"\\`).\n3. Build a \\`_pending_extra_sap_fields\\` object: known values filled in, unknown values set to \\`null\\`.\n   Example: \\`{ \\\"DocCurrency\\\": \\\"USD\\\", \\\"DocRate\\\": null }\\`\n4. Do NOT return status \\\"error\\\". Return instead:\n\n\\`\\`\\`json\n{\n  \\\"status\\\": \\\"in_progress\\\",\n  \\\"form_state\\\": { \\\"...all current form_state values...\\\", \\\"ready\\\": true, \\\"_pending_extra_sap_fields\\\": { \\\"DocCurrency\\\": \\\"USD\\\", \\\"DocRate\\\": null } },\n  \\\"message\\\": \\\"<friendly question in ${language}>\\\",\n  \\\"responde\\\": true\n}\n\\`\\`\\`\n\nRules for the message:\n- Must be written in ${language}\n- Must sound natural and conversational — not technical\n- Must NOT expose SAP field names like \\\"DocRate\\\" or \\\"DocCurrency\\\" to the user\n- Must clearly explain what is needed with a helpful example\n\nExample messages (adapt to actual context and language):\n- Spanish: \\\"Para procesar esta solicitud en dólares necesito la tasa de cambio. ¿Cuántos pesos equivalen a 1 USD? Por ejemplo: 1 USD = 900 ARS.\\\"\n- English: \\\"To process this request in USD I need the exchange rate. How many local currency units equal 1 USD? For example: 1 USD = 900.\\\"\n\n---\n\n## OUTPUT\n\nUse always the user language: ${language}\n\nReturn ONLY a JSON object (no text outside the JSON block).\n\nOn success:\n{ \\\"status\\\": \\\"success\\\", \\\"message\\\": \\\"[success message with doc number from response]\\\", \\\"responde\\\": true }\n\nOn error (real SAP error, not ACTION REQUIRED — handle those as described above):\n{ \\\"status\\\": \\\"error\\\", \\\"message\\\": \\\"[user-friendly error explanation in ${language}]\\\", \\\"responde\\\": true }\n\nExtract the document number from the \\`sap_entity_create\\` tool response and include it in the success message.\n\n---\n\n## STRICT RULES\n\n- ABSOLUTE: You MUST call \\`sap_entity_create\\` before returning any \\`status: success\\` or \\`status: error\\` response. Never fabricate a result — the tool call is mandatory.\n- Never ask the user for additional information, EXCEPT when SAP returns ACTION REQUIRED (see handling section above).\n- Never call any SAP MCP tool other than \\`sap_entity_create\\`.\n- Never return anything other than the JSON output above.\n- Make at most one \\`sap_entity_create\\` call per execution. If STEP 0 resolved pending fields, include them in that single call.\n- Never expose SAP field names to the user in any message.\n- Always write user-facing messages in ${language}.\n\n## INPUT PAYLOAD\n${JSON.stringify(base)}\n`;\n\nreturn [{\n  json: {\n    chatInput,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        3024
+      ],
+      "id": "3fd75f86-b6dc-450d-8c89-91c15cf0f2db",
+      "name": "Execute Process Prompt"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        4352,
+        1936
+      ],
+      "id": "3a5e6698-0125-4e3d-b629-d9a7436400e8",
+      "name": "AI Agent Find",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "responsesApiEnabled": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        3488,
+        2896
+      ],
+      "id": "f5f3d892-6ad6-436b-afc3-e4ba02b394b4",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "rtPUI8zcUazjFFXV",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "responsesApiEnabled": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        4352,
+        2128
+      ],
+      "id": "ed4b0c8e-15b2-47e5-bca2-d1b1c903048c",
+      "name": "OpenAI Chat Model Find",
+      "credentials": {
+        "openAiApi": {
+          "id": "rtPUI8zcUazjFFXV",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://da-sapot-github-mcp:3000/mcp",
+        "authentication": "bearerAuth",
+        "include": "selected",
+        "includeTools": [
+          "get_file_contents",
+          "list_tags",
+          "list_branches",
+          "get_tag",
+          "get_release_by_tag",
+          "get_latest_release",
+          "get_commit"
+        ],
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.3,
+      "position": [
+        4608,
+        2128
+      ],
+      "id": "dd3b4f4e-9e49-4bbc-b0a1-7ea0a024ec23",
+      "name": "GitHub MCP",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "aMreKFdog181uSUL",
+          "name": "GitHub MCP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://sapmcp.blas.local:3001/mcp",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.3,
+      "position": [
+        3952,
+        3264
+      ],
+      "id": "e1d1a20b-b3d5-423e-bedf-f8df48dfc378",
+      "name": "SAP MCP"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.output;\n\nlet content;\ntry {\n  const stripped = raw.replace(/^```json\\n?/, '').replace(/\\n?```$/, '').trim();\n  content = JSON.parse(stripped);\n} catch (e) {\n  try {\n    content = JSON.parse(raw.trim());\n  } catch (e2) {\n    return [{ json: { error: 'PARSE_ERROR', message: String(raw), responde: true } }];\n  }\n}\n\nif (content.error) {\n  return [{ json: { ...content } }];\n}\n\n// content is a matched index entry with at least path and slug\nconst fullObj = $('Parse Webhook').first().json;\nconst ref = fullObj.github_tag || 'main';\nconst target = fullObj.organization?.target || '';\nconst orgSlug = fullObj.organization?.slug || '';\nconst owner = fullObj.github_owner;\nconst repo = fullObj.github_repo;\nconst pathSegs = content.path.split('/');\nconst filename = pathSegs[pathSegs.length - 1];\nconst module = content.module || pathSegs[pathSegs.length - 2] || '';\nconst pathPrefix = pathSegs[0] || '';\n\nreturn [{\n  json: {\n    ...fullObj,\n    matched_entry: content,\n    standard_path: content.path,\n    override_path: `${pathPrefix}/${orgSlug}/${module}/${filename}`,\n    github_ref: ref,\n    github_api_base: `https://api.github.com/repos/${owner}/${repo}/contents`,\n    responde: false,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4752,
+        1488
+      ],
+      "id": "85b2e05d-87e7-4ede-8b89-22ac13fef93a",
+      "name": "Extract Match"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fm-no-error",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        4992,
+        1376
+      ],
+      "id": "9a776c98-4bf2-4993-b690-9d1743f16e79",
+      "name": "Find Match?"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.github_api_base + '/' + $json.override_path + '?ref=' + $json.github_ref }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5216,
+        1200
+      ],
+      "id": "37a4644a-cb1c-4abc-aa21-2a4374b411d5",
+      "name": "Fetch Override",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "aMreKFdog181uSUL",
+          "name": "GitHub MCP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "hov-check-status",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        5408,
+        1200
+      ],
+      "id": "91482094-7381-400e-8925-f42b1dd52e72",
+      "name": "Has Override?"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Extract Match').first().json.github_api_base + '/' + $('Extract Match').first().json.standard_path + '?ref=' + $('Extract Match').first().json.github_ref }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5616,
+        1328
+      ],
+      "id": "c0c1954a-1dd6-41d7-a99d-a9323446151d",
+      "name": "Fetch Standard",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "aMreKFdog181uSUL",
+          "name": "GitHub MCP"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        5840,
+        1200
+      ],
+      "id": "31f122bf-ae5b-405b-afec-6f052f099a58",
+      "name": "Merge Paths"
+    },
+    {
+      "parameters": {
+        "jsCode": "const fileData = $input.first().json;\nconst statusCode = fileData.statusCode;\n\nif (fileData.error || (statusCode && statusCode >= 400)) {\n  return [{ json: { error: 'NOT_FOUND', message: 'The process definition could not be loaded. Please try again.', responde: true } }];\n}\n\nconst rawContent = (fileData.body || fileData).content;\n\nlet processDefinition;\ntry {\n  const decoded = Buffer.from(rawContent.replace(/\\n/g, ''), 'base64').toString('utf-8');\n  processDefinition = JSON.parse(decoded);\n} catch (e) {\n  return [{ json: { error: 'NOT_FOUND', message: 'The process definition could not be parsed. Please try again.', responde: true } }];\n}\n\nconst fullObj = $('Parse Webhook').first().json;\nfullObj['process_definition'] = processDefinition;\nfullObj['process_id'] = processDefinition.id;\n\nreturn [{\n  json: {\n    ...fullObj,\n    responde: false,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6032,
+        1392
+      ],
+      "id": "9cb50d0d-94e0-4a21-b68b-9d8334af715c",
+      "name": "Decode & Set Process"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.output;\n\nlet content;\ntry {\n  const stripped = raw.replace(/^```json\\n?/, '').replace(/\\n?```$/, '').trim();\n  content = JSON.parse(stripped);\n} catch (e) {\n  try {\n    content = JSON.parse(raw.trim());\n  } catch (e2) {\n    return [{ json: { message: raw, responde: true } }];\n  }\n}\n\nif (content.error) {\n  return [{ json: { ...content } }];\n}\n\n// On the first message, process_id/process_definition are added by Decode & Set Process\n// and NOT present in the original Parse Webhook payload (Redis was empty).\n// Try to pick them up from Decode & Set Process; fall back to webhook payload on turn 2+.\nconst fullObj = (() => {\n  const base = { ...$('Parse Webhook').first().json };\n  try {\n    const decoded = $('Decode & Set Process').first().json;\n    if (decoded?.process_id) {\n      base.process_id = decoded.process_id;\n      base.process_definition = decoded.process_definition;\n    }\n  } catch (e) { /* not in this execution path — use webhook payload (loaded from Redis) */ }\n  return base;\n})();\n\n// AI Agent Form response: has status + message fields — spread content and preserve responde.\nif (content.status !== undefined) {\n  if (content.status === 'confirmed' && content.form_state) {\n    content.form_state.ready = true;\n    content.responde = false; // loop to execute_process immediately\n  }\n  if (['success', 'cancelled'].includes(content.status)) {\n    content.form_state = null;\n    content.process_id = null;\n    content.process_definition = null;\n  }\n  if (content.status === 'error' && fullObj.form_state) {\n    content.form_state = { ...fullObj.form_state, ready: false };\n  }\n  // Preserve ready=true so that after ACTION REQUIRED the next turn still\n  // routes to execute_process even if the Execute agent omitted ready from form_state.\n  if (content.status === 'in_progress' && fullObj.form_state?.ready === true && content.form_state) {\n    content.form_state.ready = true;\n  }\n  return [{ json: { ...fullObj, ...content } }];\n}\n\n// AI Agent Find response: has id (process definition match).\nif (content.id) {\n  fullObj['process_definition'] = content;\n  fullObj['process_id'] = content.id;\n}\n\nreturn [{\n  json: {\n    ...fullObj,\n    responde: false,\n  },\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4944,
+        2624
+      ],
+      "id": "7845d21b-fb16-4765-95cb-674405512ebb",
+      "name": "Parse Agent Output"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://blas.local/api/v1/chat/n8n_callback/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ group_name: $('Parse Webhook').first().json.group_name, session_id: $('Parse Webhook').first().json.session_id, text: $json.message || '', type: ($json.error && !['NO_MATCH', 'MULTIPLE_PROCESSES'].includes($json.error)) ? 'alert' : 'agent', state: { form_state: $json.form_state ?? null, process_id: $json.process_id ?? null, process_definition: $json.process_definition ?? null, pending_processes: $json.processes ?? null }, processes: $json.processes ?? null }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6800,
+        3264
+      ],
+      "id": "53da6b06-24ae-4759-a780-c3fd8c281af4",
+      "name": "Django Callback",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3czPporgXpCWJNHz",
+          "name": "Orb Auth"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fc33b7e0-27e6-4ef7-b4af-893025c78473",
+              "leftValue": "={{ $json.responde }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        6512,
+        3280
+      ],
+      "id": "0bd920c3-e74f-4288-841a-b2d56c5ec454",
+      "name": "Respond"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\nreturn [{\n  json: {\n    ...body,\n    github_owner: 'blasvicco',\n    github_repo: 'da-sapot-processes',\n    current_date: new Date().toISOString().split('T')[0],\n  },\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2304,
+        2288
+      ],
+      "id": "81e4f417-662c-4b9b-bf48-9f4cc9fc2402",
+      "name": "Parse Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const { message, session } = $('Parse Webhook').first().json;\nconst { language } = session || { language: 'es' };\nconst errorText = String($json.error || '');\nconst isRateLimit = /rate limit|tokens per min|TPM|too large/i.test(errorText);\n\nconst context = isRateLimit\n  ? `This is a token rate-limit error. It means the search returned too many results or the results were too large to process.\\nTell the user (in a friendly way) that the search returned too many items and they should provide more detail to narrow it down — for example, a more specific name, an item code, or the category of the product.`\n  : `Write a short, friendly message explaining that something went wrong and they can try again or contact support. Do not use technical jargon.`;\n\nconst chatInput = `\nThe following error occurred while processing a user request:\n\nError: ${errorText}\nUser message: ${message}\n\n${context}\n\nUse user language to reply: ${language}\n\nRespond with ONLY a valid JSON object in this format:\n\\`\\`\\`json\n{\n  \"error\": \"AGENT_ERROR\",\n  \"message\": \"Your message to the user\",\n  \"responde\": true\n}\n\\`\\`\\`\n`;\n\nreturn [{\n  json: {\n    chatInput,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3328,
+        2272
+      ],
+      "id": "f4c72367-7277-46df-bb8d-359fff00888c",
+      "name": "Error Prompt"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        3552,
+        2272
+      ],
+      "id": "c6ba76ff-2f06-4db2-8aa5-4e37d5cfe2a1",
+      "name": "AI Agent Error Handler",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "responsesApiEnabled": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        3488,
+        2496
+      ],
+      "id": "aedb6231-7c94-4123-b07f-00655c28964e",
+      "name": "OpenAI Chat For Error Only",
+      "credentials": {
+        "openAiApi": {
+          "id": "rtPUI8zcUazjFFXV",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        3488,
+        2720
+      ],
+      "id": "d377e6a4-d25f-4cf2-ae6f-632df6c91ca9",
+      "name": "AI Agent Form",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const payload = $input.first().json;\nconst { pending_processes, message, session } = payload;\nconst { language } = session || { language: 'es' };\n\nif (!pending_processes || !pending_processes.length) {\n  return [{ json: payload }];\n}\n\nconst raw = (message || '').trim();\n\nconst numMatch   = raw.match(/^([1-9]\\d*)$/);\nconst alphaMatch = raw.match(/^([a-zA-Z])$/);\n\nlet index = null;\nif (numMatch)   index = parseInt(numMatch[1]) - 1;\nif (alphaMatch) index = alphaMatch[1].toUpperCase().charCodeAt(0) - 65;\n\nif (index === null || index < 0 || index >= pending_processes.length) {\n  const opts = pending_processes\n    .map((p, i) => `${i + 1}. ${p.display_name || p.name}`)\n    .join('  ');\n  return [{ json: {\n    ...payload,\n    message: `Por favor elige una opción válida:\\n${opts}`,\n    responde: true,\n    processes: pending_processes,\n  }}];\n}\n\nconst resolved  = pending_processes[index];\nconst fullObj   = { ...$('Parse Webhook').first().json };\nconst ref       = fullObj.github_tag || 'main';\nconst target    = fullObj.organization?.target || '';\nconst orgSlug   = fullObj.organization?.slug || '';\nconst owner     = fullObj.github_owner;\nconst repo      = fullObj.github_repo;\nconst resolvedSegs = resolved.path.split('/');\nconst filename  = resolvedSegs[resolvedSegs.length - 1];\nconst module    = resolved.module || resolvedSegs[resolvedSegs.length - 2] || '';\nconst pathPrefix = resolvedSegs[0] || '';\n\nreturn [{ json: {\n  ...fullObj,\n  matched_entry:     resolved,\n  standard_path:     resolved.path,\n  override_path:     `${pathPrefix}/${orgSlug}/${module}/${filename}`,\n  github_ref:        ref,\n  github_api_base:   `https://api.github.com/repos/${owner}/${repo}/contents`,\n  pending_processes: null,\n  processes:         null,\n  selection_resolved: true,\n  responde: false,\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2496,
+        2288
+      ],
+      "id": "0e477f1d-64d9-47b2-bd69-31c112a12634",
+      "name": "Resolve Selection"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://blas.local/api/v1/chat/n8n_callback/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ group_name: $('Parse Webhook').first().json.group_name, session_id: $('Parse Webhook').first().json.session_id, text: \"Identifying the process\", type: \"status\" }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3936,
+        2080
+      ],
+      "id": "890f54cf-12c5-4e7e-8e8a-e19d0fb99446",
+      "name": "Status: Identifying Process",
+      "alwaysOutputData": false,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3czPporgXpCWJNHz",
+          "name": "Orb Auth"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://blas.local/api/v1/chat/n8n_callback/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ group_name: $('Parse Webhook').first().json.group_name, session_id: $('Parse Webhook').first().json.session_id, text: \"Processing your request\", type: \"status\" }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2928,
+        2720
+      ],
+      "id": "13932644-952f-44ed-9bed-29275d8e0939",
+      "name": "Status: Processing Request",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3czPporgXpCWJNHz",
+          "name": "Orb Auth"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://blas.local/api/v1/chat/n8n_callback/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ group_name: $('Parse Webhook').first().json.group_name, session_id: $('Parse Webhook').first().json.session_id, text: \"Submitting to SAP\", type: \"status\" }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2928,
+        3024
+      ],
+      "id": "12a55405-042b-4e5a-a71a-abd2ac3f2a0a",
+      "name": "Status: Submitting to SAP",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3czPporgXpCWJNHz",
+          "name": "Orb Auth"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://backendmcp.blas.local:3002/mcp",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.3,
+      "position": [
+        4160,
+        3216
+      ],
+      "id": "ddbc9f37-c576-4433-88dd-1908e1ce1fd4",
+      "name": "Backend MCP"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        3504,
+        3024
+      ],
+      "id": "975208bb-4ebb-4219-b787-ac015652212c",
+      "name": "AI Agent Execute",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "responsesApiEnabled": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        3504,
+        3216
+      ],
+      "id": "01719b95-0627-4b2b-8b7d-ebb391cdc8dc",
+      "name": "OpenAI Chat Model Execute",
+      "credentials": {
+        "openAiApi": {
+          "id": "rtPUI8zcUazjFFXV",
+          "name": "OpenAI account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Webhook": {
+      "main": [
+        [
+          {
+            "node": "Resolve Selection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Selection": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Fetch Override",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Status: Identifying Process",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Status: Processing Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Status: Submitting to SAP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find process prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent Find",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fulfill Form Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent Form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Process Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent Execute",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent Form",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model Find": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent Find",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GitHub MCP": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent Find",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SAP MCP": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent Form",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "AI Agent Execute",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent Find": {
+      "main": [
+        [
+          {
+            "node": "Extract Match",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Match": {
+      "main": [
+        [
+          {
+            "node": "Find Match?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Match?": {
+      "main": [
+        [
+          {
+            "node": "Fetch Override",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Override": {
+      "main": [
+        [
+          {
+            "node": "Has Override?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Override?": {
+      "main": [
+        [
+          {
+            "node": "Merge Paths",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Standard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Standard": {
+      "main": [
+        [
+          {
+            "node": "Merge Paths",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Paths": {
+      "main": [
+        [
+          {
+            "node": "Decode & Set Process",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decode & Set Process": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Agent Output": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond": {
+      "main": [
+        [
+          {
+            "node": "Django Callback",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent Error Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent Error Handler": {
+      "main": [
+        [
+          {
+            "node": "Parse Agent Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat For Error Only": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent Error Handler",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent Form": {
+      "main": [
+        [
+          {
+            "node": "Parse Agent Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status: Identifying Process": {
+      "main": [
+        [
+          {
+            "node": "Find process prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status: Processing Request": {
+      "main": [
+        [
+          {
+            "node": "Fulfill Form Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status: Submitting to SAP": {
+      "main": [
+        [
+          {
+            "node": "Execute Process Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Backend MCP": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent Form",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "AI Agent Error Handler",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "AI Agent Find",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "AI Agent Execute",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent Execute": {
+      "main": [
+        [
+          {
+            "node": "Parse Agent Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model Execute": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent Execute",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "8b0bb391-c663-4948-83f1-2636c40a6f64",
+  "meta": {
+    "instanceId": "da3330787aeb7f604f15e5dc9f1eeb5d8888bdf40d2655cc0fecda0d049befde"
+  },
+  "nodeGroups": [],
+  "id": "wGQ42Obgmlgg7GF4",
+  "tags": []
+}

@@ -1,0 +1,154 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: ./hub/python/Dockerfile.local
+    command: 'tail -f /dev/null'
+    container_name: da-sapot-backend
+    depends_on:
+      - redis
+    env_file:
+      - ./app/.env.common.dev
+      - ./app/backend/.env.dev
+    networks:
+      da_sapot_net:
+        aliases:
+          - blas.local
+    ports:
+      - '80:80'
+      - '8000:8000'
+    volumes:
+      - ./app/backend:/home/app
+
+  frontend:
+    build:
+      context: .
+      dockerfile: ./hub/node/Dockerfile.local
+    command: 'tail -f /dev/null'
+    container_name: da-sapot-frontend
+    env_file:
+      - ./app/.env.common.dev
+      - ./app/frontend/.env.dev
+    ports:
+      - '5173:5173'
+    volumes:
+      - ./app/frontend:/home/app
+
+  github-mcp:
+    build:
+      context: .
+      dockerfile: ./hub/github-mcp/Dockerfile
+    command: [ "http", "--port", "3000" ]
+    container_name: da-sapot-github-mcp
+    env_file:
+      - ./app/backend/.env.dev
+    ports:
+      - "3000:3000"
+    networks:
+      da_sapot_net:
+        aliases:
+          - mcp.blas.local
+
+  n8n-main:
+    build:
+      context: .
+      dockerfile: ./hub/n8n/Dockerfile
+    command: []
+    container_name: da-sapot-n8n-main
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ./app/backend/.env.dev
+    volumes:
+      - da_n8n_main_data:/home/node/.n8n
+    ports:
+      - "5678:5678"
+    networks:
+      da_sapot_net:
+        aliases:
+          - n8n.blas.local
+
+  n8n-webhook:
+    build:
+      context: .
+      dockerfile: ./hub/n8n/Dockerfile
+    command: [ "webhook" ]
+    container_name: da-sapot-n8n-webhook
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ./app/backend/.env.dev
+    ports:
+      - "5679:5679"
+    networks:
+      da_sapot_net:
+        aliases:
+          - n8n.blas.local
+
+  n8n-worker:
+    build:
+      context: .
+      dockerfile: ./hub/n8n/Dockerfile
+    command: [ "worker" ]
+    container_name: da-sapot-n8n-worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ./app/backend/.env.dev
+    networks:
+      da_sapot_net:
+        aliases:
+          - n8n.blas.local
+
+  postgres:
+    build:
+      context: .
+      dockerfile: ./hub/postgres/Dockerfile
+    container_name: postgres
+    env_file:
+      - ./app/backend/.env.dev
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}" ]
+      interval: 5s
+      timeout: 10s
+      retries: 120
+    networks:
+      da_sapot_net:
+        aliases:
+          - db.blas.local
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./hub/postgres/dumps:/home/dumps
+      - da_sapot_db:/var/lib/postgresql/data
+
+  redis:
+    build:
+      context: .
+      dockerfile: ./hub/redis/Dockerfile
+    command: redis-server --save "" --appendonly no
+    container_name: da-sapot-redis
+    networks:
+      da_sapot_net:
+        aliases:
+          - redis.blas.local
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+networks:
+  da_sapot_net:
+    driver: bridge
+
+volumes:
+  da_sapot_db:
+    external: true
+    name: da-sapot_da_sapot_db
+  da_n8n_main_data:
+    external: true
+    name: da-sapot_da_n8n_main_data
+
+# daphne -b 0.0.0.0 -p 8000 core.asgi:application

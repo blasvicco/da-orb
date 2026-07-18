@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 100">
+  <g>
+    <circle cx="50" cy="50" r="50" fill="#0d0b2e"/>
+    <circle cx="50" cy="50" r="36" fill="none" stroke="#3730a3" stroke-width="3"/>
+    <circle cx="50" cy="50" r="22" fill="#2d1b8c"/>
+    <circle cx="50" cy="50" r="13" fill="#6c5ce7"/>
+    <circle cx="44" cy="44" r="3.5" fill="#ffffff" opacity="0.3"/>
+  </g>
+  <text x="118" y="70" font-family="Arial, Helvetica, sans-serif" font-size="62" font-weight="700" fill="#0d0b2e" letter-spacing="-1">Orb</text>
+</svg>

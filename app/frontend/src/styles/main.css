@@ -1,0 +1,238 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-brand-primary: #0F52BA;
+  --color-brand-primary-hover: #0c4399;
+  --color-brand-accent: #6366F1;
+  --color-brand-bg: #FFF8F0;
+  --color-brand-bg-dark: #0B0F19;
+  --color-brand-card: rgba(255, 255, 255, 0.7);
+  --color-brand-card-border: rgba(15, 82, 186, 0.1);
+  --color-brand-text: #1e293b;
+  --color-brand-text-muted: #64748b;
+  --font-brand-display: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
+
+:root {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  font-weight: 400;
+
+  color-scheme: light;
+  background-color: var(--color-brand-bg);
+  color: var(--color-brand-text);
+
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* ── Light theme palette ─────────────────────────────── */
+
+  /* Layout */
+  --orb-bg:                    #FFF8F0;
+  --orb-sidebar-bg:            rgba(255, 255, 255, 0.7);
+  --orb-sidebar-border:        rgba(15, 82, 186, 0.1);
+  --orb-header-bg:             rgba(255, 255, 255, 0.6);
+  --orb-header-border:         rgba(15, 82, 186, 0.1);
+  --orb-header-title:          #1e293b;
+
+  /* Sidebar items */
+  --orb-history-label:         #64748b;
+  --orb-history-text:          #334155;
+  --orb-history-hover-bg:      rgba(15, 82, 186, 0.05);
+  --orb-history-hover-text:    #0F52BA;
+  --orb-history-date:          #94a3b8;
+  --orb-history-empty:         #94a3b8;
+  --orb-lang-label:            #64748b;
+
+  /* User profile */
+  --orb-user-profile-bg:       rgba(255, 255, 255, 0.8);
+  --orb-user-profile-border:   rgba(15, 82, 186, 0.05);
+  --orb-user-name:             #1e293b;
+  --orb-user-role:             #94a3b8;
+  --orb-logout-text:           #94a3b8;
+  --orb-logout-hover-bg:       #f1f5f9;
+  --orb-logout-hover-text:     #ef4444;
+
+  /* Welcome screen */
+  --orb-welcome-title:         #1e293b;
+  --orb-welcome-sub:           #64748b;
+
+  /* Suggestion cards */
+  --orb-card-bg:               #ffffff;
+  --orb-card-border:           rgba(15, 82, 186, 0.1);
+  --orb-card-hover-bg:         rgba(15, 82, 186, 0.05);
+  --orb-card-hover-border:     rgba(15, 82, 186, 0.3);
+  --orb-card-icon:             #0F52BA;
+  --orb-card-title:            #1e293b;
+  --orb-card-prompt:           #64748b;
+
+  /* Message bubbles */
+  --orb-bubble-user-bg:        #0F52BA;
+  --orb-bubble-user-border:    transparent;
+  --orb-bubble-user-shadow:    0 4px 12px rgba(15, 82, 186, 0.2);
+  --orb-bubble-user-text:      #ffffff;
+
+  --orb-bubble-agent-bg:       #ffffff;
+  --orb-bubble-agent-border:   #f1f5f9;
+  --orb-bubble-agent-text:     #1e293b;
+
+  --orb-bubble-system-bg:      #fffbeb;
+  --orb-bubble-system-border:  #fde68a;
+  --orb-bubble-system-text:    #b45309;
+
+  --orb-bubble-alert-bg:       #fff1f2;
+  --orb-bubble-alert-border:   #fecdd3;
+  --orb-bubble-alert-text:     #be123c;
+
+  /* Process list — agent */
+  --orb-process-bg:            #ffffff;
+  --orb-process-border:        #e2e8f0;
+  --orb-process-text:          #334155;
+  --orb-process-hover-bg:      #f8fafc;
+  --orb-process-hover-border:  #94a3b8;
+  --orb-process-idx-bg:        #f1f5f9;
+  --orb-process-idx-border:    #cbd5e1;
+  --orb-process-idx-text:      #475569;
+  --orb-process-hint:          #94a3b8;
+
+  /* Process list — alert */
+  --orb-alert-proc-bg:         #ffffff;
+  --orb-alert-proc-border:     #fecdd3;
+  --orb-alert-proc-text:       #be123c;
+  --orb-alert-proc-hover-bg:   #fff1f2;
+  --orb-alert-proc-hover-bdr:  #fda4af;
+  --orb-alert-proc-idx-bg:     #ffe4e6;
+  --orb-alert-proc-idx-bdr:    #fecdd3;
+  --orb-alert-proc-idx-text:   #e11d48;
+  --orb-alert-proc-hint:       #fb7185;
+
+  /* Typing indicator */
+  --orb-typing-bg:             #ffffff;
+  --orb-typing-border:         #f1f5f9;
+  --orb-typing-dot:            #94a3b8;
+  --orb-typing-text:           #94a3b8;
+
+  /* Input area */
+  --orb-input-from:            #FFF8F0;
+  --orb-input-via:             rgba(255, 248, 240, 0.97);
+  --orb-input-bar-bg:          #ffffff;
+  --orb-input-bar-border:      rgba(15, 82, 186, 0.15);
+  --orb-input-bar-focus:       rgba(15, 82, 186, 0.4);
+  --orb-input-text:            #1e293b;
+  --orb-input-placeholder:     #94a3b8;
+  --orb-input-footnote:        #94a3b8;
+  --orb-input-tool:            #94a3b8;
+  --orb-input-tool-hover-bg:   #f1f5f9;
+  --orb-input-tool-hover:      #0F52BA;
+
+  /* Misc */
+  --orb-msg-time:              #94a3b8;
+  --orb-new-chat-shadow:       0 1px 3px rgba(0, 0, 0, 0.18), 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* ── Dark theme palette ──────────────────────────────── */
+[data-theme="dark"] {
+  /* Layout */
+  --orb-bg:                    #0d1117;
+  --orb-sidebar-bg:            rgba(13, 17, 23, 0.94);
+  --orb-sidebar-border:        rgba(240, 246, 252, 0.08);
+  --orb-header-bg:             rgba(13, 17, 23, 0.85);
+  --orb-header-border:         rgba(240, 246, 252, 0.08);
+  --orb-header-title:          #e6edf3;
+
+  /* Sidebar items */
+  --orb-history-label:         #6e7681;
+  --orb-history-text:          #8b949e;
+  --orb-history-hover-bg:      rgba(255, 255, 255, 0.06);
+  --orb-history-hover-text:    #f0f6fc;
+  --orb-history-date:          #484f58;
+  --orb-history-empty:         #484f58;
+  --orb-lang-label:            #6e7681;
+
+  /* User profile */
+  --orb-user-profile-bg:       rgba(255, 255, 255, 0.04);
+  --orb-user-profile-border:   rgba(255, 255, 255, 0.07);
+  --orb-user-name:             #f0f6fc;
+  --orb-user-role:             #6e7681;
+  --orb-logout-text:           #6e7681;
+  --orb-logout-hover-bg:       rgba(255, 255, 255, 0.06);
+  --orb-logout-hover-text:     #f87171;
+
+  /* Welcome screen */
+  --orb-welcome-title:         #f0f6fc;
+  --orb-welcome-sub:           #8b949e;
+
+  /* Suggestion cards */
+  --orb-card-bg:               rgba(255, 255, 255, 0.07);
+  --orb-card-border:           rgba(255, 255, 255, 0.14);
+  --orb-card-hover-bg:         rgba(255, 255, 255, 0.12);
+  --orb-card-hover-border:     rgba(255, 255, 255, 0.22);
+  --orb-card-icon:             #94a3b8;
+  --orb-card-title:            #f8fafc;
+  --orb-card-prompt:           #cbd5e1;
+
+  /* Message bubbles */
+  --orb-bubble-user-bg:        rgba(108, 92, 231, 0.22);
+  --orb-bubble-user-border:    rgba(108, 92, 231, 0.3);
+  --orb-bubble-user-shadow:    none;
+  --orb-bubble-user-text:      #f0f6fc;
+
+  --orb-bubble-agent-bg:       rgba(255, 255, 255, 0.04);
+  --orb-bubble-agent-border:   rgba(240, 246, 252, 0.07);
+  --orb-bubble-agent-text:     #c9d1d9;
+
+  --orb-bubble-system-bg:      rgba(120, 80, 0, 0.15);
+  --orb-bubble-system-border:  rgba(180, 120, 0, 0.2);
+  --orb-bubble-system-text:    #fbbf24;
+
+  --orb-bubble-alert-bg:       rgba(180, 30, 30, 0.12);
+  --orb-bubble-alert-border:   rgba(200, 50, 50, 0.2);
+  --orb-bubble-alert-text:     #fca5a5;
+
+  /* Process list — agent */
+  --orb-process-bg:            rgba(255, 255, 255, 0.03);
+  --orb-process-border:        rgba(255, 255, 255, 0.08);
+  --orb-process-text:          #c9d1d9;
+  --orb-process-hover-bg:      rgba(255, 255, 255, 0.07);
+  --orb-process-hover-border:  rgba(255, 255, 255, 0.15);
+  --orb-process-idx-bg:        rgba(255, 255, 255, 0.06);
+  --orb-process-idx-border:    rgba(255, 255, 255, 0.1);
+  --orb-process-idx-text:      #8b949e;
+  --orb-process-hint:          #484f58;
+
+  /* Process list — alert */
+  --orb-alert-proc-bg:         rgba(255, 255, 255, 0.03);
+  --orb-alert-proc-border:     rgba(200, 50, 50, 0.15);
+  --orb-alert-proc-text:       #fca5a5;
+  --orb-alert-proc-hover-bg:   rgba(180, 30, 30, 0.2);
+  --orb-alert-proc-hover-bdr:  rgba(200, 50, 50, 0.3);
+  --orb-alert-proc-idx-bg:     rgba(180, 30, 30, 0.2);
+  --orb-alert-proc-idx-bdr:    rgba(200, 50, 50, 0.25);
+  --orb-alert-proc-idx-text:   #fb7185;
+  --orb-alert-proc-hint:       #9f1239;
+
+  /* Typing indicator */
+  --orb-typing-bg:             rgba(255, 255, 255, 0.04);
+  --orb-typing-border:         rgba(240, 246, 252, 0.07);
+  --orb-typing-dot:            #484f58;
+  --orb-typing-text:           #8b949e;
+
+  /* Input area */
+  --orb-input-from:            #0d1117;
+  --orb-input-via:             rgba(13, 17, 23, 0.97);
+  --orb-input-bar-bg:          #161b22;
+  --orb-input-bar-border:      rgba(240, 246, 252, 0.1);
+  --orb-input-bar-focus:       rgba(240, 246, 252, 0.2);
+  --orb-input-text:            #c9d1d9;
+  --orb-input-placeholder:     #484f58;
+  --orb-input-footnote:        #484f58;
+  --orb-input-tool:            #6e7681;
+  --orb-input-tool-hover-bg:   rgba(255, 255, 255, 0.06);
+  --orb-input-tool-hover:      #c9d1d9;
+
+  /* Misc */
+  --orb-msg-time:              #484f58;
+  --orb-new-chat-shadow:       0 2px 10px rgba(0, 0, 0, 0.5);
+}

@@ -1,0 +1,16 @@
+@reference "@/styles/main.css";
+
+.orb-chat-pane-header {
+  @apply backdrop-blur-md border-b flex items-center justify-between px-8 py-4;
+  background: var(--orb-header-bg);
+  border-bottom-color: var(--orb-header-border);
+
+  .orb-header-title {
+    @apply flex font-bold gap-2 items-center text-lg;
+    color: var(--orb-header-title);
+  }
+
+  .orb-header-status {
+    @apply flex gap-4 items-center;
+  }
+}

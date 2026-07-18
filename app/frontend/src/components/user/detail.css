@@ -1,0 +1,57 @@
+@reference "@/styles/main.css";
+
+.orb-sidebar-bottom {
+  @apply border-t flex flex-col gap-4 mt-auto pt-4 w-full;
+  border-top-color: var(--orb-sidebar-border);
+
+  .orb-sidebar-lang {
+    @apply flex items-center justify-between px-1;
+
+    .orb-sidebar-lang-label {
+      @apply font-medium text-sm;
+      color: var(--orb-lang-label);
+    }
+  }
+
+  .orb-user-profile {
+    @apply flex items-center justify-between p-3 rounded-xl;
+    background: var(--orb-user-profile-bg);
+    border: 1px solid var(--orb-user-profile-border);
+
+    .orb-user-details {
+      @apply flex gap-3 items-center;
+
+      .orb-user-avatar {
+        @apply bg-brand-primary/10 border border-brand-primary/20 flex font-bold h-10 items-center justify-center rounded-full text-brand-primary text-lg w-10;
+      }
+
+      .orb-user-info {
+        @apply flex flex-col;
+
+        .orb-user-name {
+          @apply font-bold leading-none text-sm;
+          color: var(--orb-user-name);
+        }
+
+        .orb-user-role {
+          @apply font-semibold leading-none mt-1 text-[10px];
+          color: var(--orb-user-role);
+        }
+      }
+    }
+
+    .orb-user-actions {
+      @apply flex gap-1 items-center;
+    }
+
+    .orb-logout-btn {
+      @apply cursor-pointer flex items-center justify-center p-1.5 rounded-lg transition-colors;
+      color: var(--orb-logout-text);
+
+      &:hover {
+        background: var(--orb-logout-hover-bg);
+        color: var(--orb-logout-hover-text);
+      }
+    }
+  }
+}

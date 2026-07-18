@@ -1,0 +1,15 @@
+@reference "@/styles/main.css";
+
+.orb-export-panel {
+  @apply flex flex-col gap-1;
+  width: 180px;
+
+  .orb-export-option {
+    @apply cursor-pointer font-medium px-3 py-2 rounded-lg text-left text-sm transition-all;
+    color: var(--orb-header-title, #1e293b);
+
+    &:hover {
+      background: var(--orb-input-tool-hover-bg);
+    }
+  }
+}

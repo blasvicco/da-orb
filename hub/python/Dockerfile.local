@@ -1,0 +1,14 @@
+FROM python:3.13-rc-alpine
+
+ENV ESSENTIAL_PACKAGES="curl-dev gcc musl-dev" \
+    UTILITY_PACKAGES="git mlocate sqlite vim"
+
+RUN apk update && \
+    apk --no-cache --progress add $ESSENTIAL_PACKAGES $UTILITY_PACKAGES
+
+COPY app/backend/requirements.txt /tmp/requirements.txt
+RUN cd /tmp && \
+    pip install --upgrade pip && \
+    pip install -r requirements.txt
+
+WORKDIR /home/app

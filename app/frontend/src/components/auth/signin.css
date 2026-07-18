@@ -1,0 +1,72 @@
+@reference "@/styles/main.css";
+
+/* Signin Component Styles */
+.orb-signin {
+
+  /* Open ID CTA strip */
+  .orb-signin-ctas {
+    @apply flex flex-wrap gap-4 justify-center lg:justify-start pt-4;
+  }
+
+  /* B1S Credential Form */
+  .orb-b1s-form {
+    @apply flex flex-col gap-5 pt-4 text-left w-full;
+
+    .orb-b1s-form-title {
+      @apply font-bold mb-1 text-center text-slate-800 text-xl tracking-tight;
+    }
+
+    .orb-b1s-field {
+      @apply flex flex-col gap-1.5;
+
+      .orb-b1s-label {
+        @apply font-semibold text-slate-600 text-sm;
+      }
+
+      .orb-b1s-input {
+        @apply bg-white border border-brand-primary/20 duration-200 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 font-medium px-4 py-2.5 rounded-xl text-slate-800 text-sm transition-all w-full;
+      }
+    }
+
+    .orb-b1s-error {
+      @apply bg-red-50 border border-red-200 flex gap-2 items-start px-4 py-3 rounded-xl text-red-600 text-sm;
+    }
+
+    .orb-b1s-submit {
+      @apply justify-center mt-1 w-full;
+    }
+  }
+}
+
+/* Auth Loading Overlay */
+.orb-auth-overlay {
+  @apply backdrop-blur-xl bg-slate-900/60 fixed flex inset-0 items-center justify-center z-[9999];
+}
+
+.orb-auth-card {
+  @apply backdrop-blur-2xl bg-white/95 border border-brand-primary/10 flex flex-col items-center max-w-md p-10 rounded-3xl shadow-2xl space-y-6 text-center w-full;
+}
+
+.orb-auth-icon {
+  @apply absolute flex font-semibold items-center justify-center text-4xl;
+}
+
+.orb-auth-spinner {
+  @apply animate-spin border-4 border-brand-primary border-t-transparent h-20 rounded-full w-20;
+}
+
+.orb-auth-spinner-container {
+  @apply flex h-24 items-center justify-center relative w-24;
+}
+
+.orb-auth-spinner-glow {
+  @apply absolute bg-brand-primary/20 blur-xl h-24 rounded-full w-24;
+}
+
+.orb-auth-status {
+  @apply duration-300 font-medium min-h-6 text-brand-primary text-sm transition-all;
+}
+
+.orb-auth-title {
+  @apply font-brand-display font-extrabold text-2xl text-slate-800 tracking-tight;
+}

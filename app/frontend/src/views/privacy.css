@@ -1,0 +1,31 @@
+@reference "@/styles/main.css";
+
+.orb-legal {
+  @apply font-brand-display max-w-3xl mx-auto px-6 py-16 sm:px-8 md:py-24 w-full;
+
+  .orb-legal-header {
+    @apply mb-8;
+
+    .orb-legal-title {
+      @apply font-extrabold md:text-4xl text-3xl text-brand-text tracking-tight;
+    }
+
+    .orb-legal-updated {
+      @apply mt-2 text-brand-text-muted text-sm;
+    }
+  }
+
+  .orb-legal-prose {
+    @apply space-y-8;
+
+    .orb-legal-section {
+      .orb-legal-section-body {
+        @apply leading-relaxed text-base text-brand-text-muted;
+      }
+
+      .orb-legal-section-title {
+        @apply font-bold mb-2 text-brand-text text-xl;
+      }
+    }
+  }
+}

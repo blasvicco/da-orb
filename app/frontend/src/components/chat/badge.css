@@ -1,0 +1,17 @@
+@reference "@/styles/main.css";
+
+.orb-status-badge {
+  @apply border font-semibold gap-1.5 inline-flex items-center px-3 py-1 rounded-full text-xs;
+
+  &.orb-status-badge--connected {
+    background: rgba(108, 92, 231, 0.1);
+    border-color: rgba(108, 92, 231, 0.25);
+    color: #6c5ce7;
+  }
+
+  .orb-status-indicator {
+    @apply animate-pulse h-2 rounded-full w-2;
+
+    &.orb-status-indicator--connected { background: #6c5ce7; }
+  }
+}

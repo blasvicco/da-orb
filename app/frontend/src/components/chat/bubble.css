@@ -1,0 +1,111 @@
+@reference "@/styles/main.css";
+
+.orb-msg-row {
+  @apply flex max-w-4xl mx-auto w-full;
+
+  &.orb-row-user  { @apply justify-end; }
+  &.orb-row-agent { @apply justify-start; }
+
+  .orb-msg-bubble {
+    @apply flex flex-col gap-1.5 max-w-[80%];
+
+    /* Alert variant overrides the process list colours */
+    &.orb-bubble-alert .orb-process-list {
+      .orb-process-option {
+        background: var(--orb-alert-proc-bg);
+        border-color: var(--orb-alert-proc-border);
+        color: var(--orb-alert-proc-text);
+
+        &:hover {
+          background: var(--orb-alert-proc-hover-bg);
+          border-color: var(--orb-alert-proc-hover-bdr);
+        }
+
+        .orb-process-option-index {
+          background: var(--orb-alert-proc-idx-bg);
+          border-color: var(--orb-alert-proc-idx-bdr);
+          color: var(--orb-alert-proc-idx-text);
+        }
+      }
+
+      .orb-process-hint { color: var(--orb-alert-proc-hint); }
+    }
+
+    /* Bubble variants */
+    &.orb-bubble-user {
+      @apply font-medium px-5 py-3 rounded-2xl rounded-tr-none text-sm;
+      background: var(--orb-bubble-user-bg);
+      border: 1px solid var(--orb-bubble-user-border);
+      box-shadow: var(--orb-bubble-user-shadow);
+      color: var(--orb-bubble-user-text);
+      white-space: pre-wrap;
+    }
+
+    &.orb-bubble-agent {
+      @apply font-medium leading-relaxed px-5 py-3 rounded-2xl rounded-tl-none shadow-sm text-sm;
+      background: var(--orb-bubble-agent-bg);
+      border: 1px solid var(--orb-bubble-agent-border);
+      color: var(--orb-bubble-agent-text);
+      max-width: 90%;
+    }
+
+    &.orb-bubble-system {
+      @apply font-medium italic leading-relaxed px-5 py-3 rounded-2xl rounded-tl-none shadow-sm text-sm;
+      background: var(--orb-bubble-system-bg);
+      border: 1px solid var(--orb-bubble-system-border);
+      color: var(--orb-bubble-system-text);
+    }
+
+    &.orb-bubble-alert {
+      @apply font-medium leading-relaxed px-5 py-3 rounded-2xl rounded-tl-none shadow-sm text-sm;
+      background: var(--orb-bubble-alert-bg);
+      border: 1px solid var(--orb-bubble-alert-border);
+      color: var(--orb-bubble-alert-text);
+    }
+
+    /* Markdown prose rendered inside bubbles */
+    .orb-md {
+      @apply leading-relaxed;
+
+      p        { @apply first:mt-0 last:mb-0 my-1; }
+      h1, h2   { @apply first:mt-0 font-bold mb-1 mt-2 text-base; }
+      h3, h4   { @apply first:mt-0 font-semibold mb-1 mt-2 text-sm; }
+      ul, ol   { @apply my-1 pl-5 space-y-0.5; }
+      ul       { @apply list-disc; }
+      ol       { @apply list-decimal; }
+      li       { @apply leading-relaxed; }
+      strong   { @apply font-semibold; }
+      em       { @apply italic; }
+      a        { @apply underline; color: var(--orb-bubble-agent-text); }
+      code     { @apply font-mono px-1 py-0.5 rounded text-[0.8em]; background: rgba(0,0,0,.08); }
+      pre      { @apply font-mono my-2 overflow-x-auto p-3 rounded-lg text-sm; background: rgba(0,0,0,.12); }
+      pre code { @apply bg-transparent p-0; }
+      blockquote {
+        @apply border-l-4 italic my-2 pl-3;
+        border-color: currentColor;
+        opacity: .7;
+      }
+      hr { @apply border-t my-2; border-color: currentColor; opacity: .2; }
+      table      { @apply border-collapse my-2 text-xs; display: block; overflow-x: auto; }
+      th, td     { @apply border px-2 py-1 text-left; border-color: currentColor; opacity: .6; white-space: nowrap; }
+      th         { @apply font-semibold; opacity: 1; }
+    }
+
+    /* SAP data panel (always dark — terminal style) */
+    .orb-msg-sap-data {
+      @apply bg-slate-900 border border-slate-800 font-mono max-w-full mt-2 overflow-x-auto p-4 rounded-xl shadow-inner space-y-2 text-teal-400 text-xs;
+
+      .orb-msg-sap-data-header {
+        @apply border-b border-slate-800 flex font-sans items-center justify-between mb-1.5 pb-1.5 text-slate-400;
+      }
+    }
+
+    .orb-msg-time {
+      @apply mt-0.5 px-1 text-[9px];
+      color: var(--orb-msg-time);
+
+      &.orb-time-user  { @apply self-end; }
+      &.orb-time-agent { @apply self-start; }
+    }
+  }
+}

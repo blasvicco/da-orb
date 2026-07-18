@@ -1,0 +1,343 @@
+export default {
+  commons: {
+    accept: 'Aceptar',
+    cancel: 'Cancelar',
+    close: 'Cerrar',
+    footerText: 'Una conversación. Todos los sistemas de tu empresa.',
+    language: {
+      en: 'Inglés',
+      es: 'Español',
+      language: 'Idioma',
+    },
+    no: 'No',
+    poweredBy: 'Orb es un producto de',
+    privacyPolicy: 'Política de Privacidad',
+    success: 'ÉXITO',
+    termsOfService: 'Términos de Servicio',
+    yes: 'Sí',
+    contactForm: {
+      company: 'Empresa',
+      companyPlaceholder: 'Tu empresa',
+      consent: 'Acepto la {link} y consiento ser contactado sobre mi consulta.',
+      consentLink: 'Política de Privacidad',
+      email: 'Correo electrónico laboral',
+      emailPlaceholder: "tu{'@'}empresa.com",
+      error: 'Algo salió mal. Inténtalo nuevamente, o escríbenos directamente.',
+      message: '¿En qué te gustaría que Orb te ayude?',
+      messagePlaceholder: 'Cuéntanos brevemente sobre tus sistemas y qué te gustaría automatizar.',
+      name: 'Nombre',
+      namePlaceholder: 'Tu nombre',
+      role: 'Cargo',
+      roleOptions: [
+        'Dirección ejecutiva',
+        'Operaciones',
+        'Tecnología / TI',
+        'Finanzas',
+        'Otro',
+      ],
+      rolePlaceholder: 'Selecciona tu cargo (opcional)',
+      submit: 'Solicitar Acceso',
+      submitting: 'Enviando…',
+      success: '→ Solicitud recibida. Nos pondremos en contacto a la brevedad.',
+      title: 'Consigue Orb para tu Organización',
+    },
+  },
+  component: {
+    signin: {
+      description: 'Accede a tu espacio de trabajo conversacional seguro de SAP iniciando sesión con tus credenciales corporativas.',
+      loadingDesc: 'Redireccionando al proveedor de identidad de SAP…',
+      loadingTitle: 'Autenticación Segura de SAP',
+    },
+  },
+  landing: {
+    title: 'Orb',
+    tagline: 'Una conversación. Todos los sistemas de tu empresa.',
+    description: 'Orb le da a cada persona de tu organización una única interfaz en lenguaje natural para resolver tareas en cualquier herramienta que uses — sin menús, sin cambiar de sistema, sin depender de la única persona que sabe cómo hacerlo. Cada acción se revisa y confirma antes de ejecutarse.',
+    badge: 'Plataforma Conversacional de Ejecución',
+    authError: {
+      desc: 'No pudimos completar tu inicio de sesión. Por favor, inténtalo de nuevo o ponte en contacto con tu administrador de TI.',
+      title: 'Error de autenticación',
+    },
+    cta: {
+      signin: 'Iniciar Sesión en Orb',
+      signup: 'Regístrate',
+      learnMore: 'Saber Más',
+    },
+    hero: {
+      liveScope: 'Disponible hoy con SAP Business One — más sistemas próximamente.',
+      titleAccent: 'Una conversación.',
+      titleRest: 'Todos los sistemas de tu empresa.',
+    },
+    b1s: {
+      formTitle: 'Iniciar sesión con SAP Business One',
+      username: 'Usuario SAP',
+      usernamePlaceholder: 'Ingresa tu usuario SAP',
+      password: 'Contraseña',
+      passwordPlaceholder: 'Ingresa tu contraseña',
+      database: 'Base de Datos de Empresa',
+      databasePlaceholder: 'CompanyDB (opcional)',
+      submit: 'Iniciar Sesión',
+      submitting: 'Iniciando sesión…',
+      errorTitle: 'Error de autenticación',
+      errorDesc: 'No pudimos verificar tus credenciales SAP. Por favor intenta de nuevo.',
+    },
+    nav: {
+      features: 'Características',
+      security: 'Seguridad',
+    },
+    features: {
+      title: 'Todos los procesos. Una sola conversación.',
+      subtitle: 'Orb convierte flujos complejos y multi-sistema en una sola conversación guiada — empezando por SAP, y expandiéndose a todo lo demás que uses.',
+      naturalLanguage: {
+        title: 'Operaciones en Lenguaje Natural',
+        desc: 'Consulta inventarios, crea una solicitud de compra o revisa el estado de un proveedor hablando normal. Sin menús, sin códigos de transacción, sin depender de un especialista.',
+      },
+      mcp: {
+        title: 'Arquitectura Basada en MCP',
+        desc: 'Cada sistema conectado — empezando por SAP Business One — se integra mediante el Model Context Protocol, para incorporar nuevas herramientas y procesos por configuración, sin escribir código.',
+      },
+      realtime: {
+        title: 'Información en Tiempo Real',
+        desc: 'Obtén datos y estados actualizados directamente desde tus sistemas conectados en segundos, sin iniciar sesión en otra plataforma.',
+      },
+      secure: {
+        title: 'Gobernado y Auditable',
+        desc: 'Cada acción se revisa y confirma antes de enviarse, y cada conversación queda registrada — así nada se ejecuta sin aprobación, y nada queda sin trazabilidad.',
+      },
+    },
+    security: {
+      title: 'Seguridad de Nivel Empresarial',
+      subtitle: 'Diseñado para superar la revisión de TI y satisfacer la debida diligencia a nivel directivo — infraestructura aislada, auditorías independientes y exposición cero de tus sistemas internos.',
+      privateByDesign: {
+        title: 'Privado por Diseño',
+        desc: 'Orb funciona dentro de una red privada aislada en la nube. Lo único expuesto a internet es la interfaz de chat — la base de datos, el caché y los servicios internos son inaccesibles desde el exterior.',
+      },
+      encrypted: {
+        title: 'Cifrado en Todas Partes',
+        desc: 'Cada conversación, sesión y valor de configuración se cifra en reposo y en tránsito, de forma automática y sin excepciones. Las credenciales se guardan en una bóveda segura, nunca en el código o en archivos de configuración.',
+      },
+      audited: {
+        title: 'Auditado de Forma Independiente',
+        desc: 'Orb funciona sobre infraestructura de AWS certificada bajo SOC 1 Type II, SOC 2 Type II e ISO 27001/27017/27018 — auditada por terceros acreditados, no autoevaluada.',
+      },
+      zeroExposure: {
+        title: 'Integraciones sin Exposición',
+        desc: 'Conectar Orb a SAP o a tus sistemas internos nunca requiere abrir tu red a internet. VPN, Direct Connect, PrivateLink o VPC Peering mantienen cada conexión privada y revocable en cualquier momento.',
+      },
+    },
+    chat: {
+      simulator: {
+        agentName: 'Orb AI',
+        online: 'En línea',
+        plant: 'Planta 1000',
+      },
+      step1: {
+        user: 'Muéstrame el estado actual del stock para el conjunto de cojinete de zafiro #SH-9821.',
+      },
+      step2: {
+        agent: 'Conectando a tu ERP a través del servidor MCP... 🔍 Comprobando almacén central (Planta 1000, Loc 0001)...',
+      },
+      step3: {
+        title: 'ERP - Resumen de Stock',
+        material: 'Material',
+        materialVal: 'SH-9821 (Cojinete de Zafiro)',
+        plant: 'Planta',
+        plantVal: '1000 (Heidelberg Central)',
+        sloc: 'Almacén',
+        slocVal: '0001 (Stock Principal)',
+        unrestricted: 'Stock Libre',
+        unrestrictedVal: '142 unidades',
+        blocked: 'Stock Bloqueado',
+        blockedVal: '0 unidades',
+        reorder: 'Punto de Pedido',
+        reorderVal: '150 unidades (⚠️ BAJO MÍNIMO)',
+      },
+      step4: {
+        user: 'Crea una solicitud de pedido preliminar por 100 unidades del proveedor aprobado #V-8827.',
+      },
+      step5: {
+        agent: 'Procesando transacción ME21N en tu ERP... 🤖 Creando estructura de solicitud de pedido...',
+      },
+      step6: {
+        title: 'ERP - Documento Creado',
+        docType: 'Tipo Doc',
+        docTypeVal: 'Solicitud de Pedido (SolPed)',
+        docNumber: 'Número Doc',
+        docNumberVal: 'PR-10049283',
+        status: 'Estado',
+        statusVal: 'Creado (Esperando Flujo de Liberación)',
+        qty: 'Posición/Cant',
+        qtyVal: 'SH-9821 / 100 unidades',
+        vendor: 'Proveedor',
+        vendorVal: 'V-8827 (Heidelberg Ind.)',
+        value: 'Valor',
+        valueVal: '12.500,00 €',
+      },
+    },
+  },
+  legal: {
+    privacy: {
+      title: 'Política de Privacidad',
+      updated: 'Última actualización 18 de julio de 2026',
+      s1: {
+        body: "D'Arch Systems opera Orb y es el responsable del tratamiento de la información procesada a través de él. Orb es el propio producto conversacional de D'Arch, que conecta las herramientas de tu organización en una única interfaz de lenguaje natural.",
+        title: 'Quiénes Somos',
+      },
+      s2: {
+        body: 'Para operar el espacio de trabajo de Orb de tu organización, procesamos: tu identidad, provista por el proveedor de identidad de SAP (OAuth2 / OpenID Connect) o tus credenciales de SAP Business One; los mensajes e historial de conversación que intercambias con Orb; y la configuración de conectores de tu organización (como credenciales de sistemas conectados), que se almacena cifrada.',
+        title: 'Qué Recopilamos',
+      },
+      s3: {
+        body: 'Usamos esta información para dirigir tu solicitud al proceso correcto, recopilar lo necesario mediante una conversación guiada, ejecutar la acción que confirmes, y mantener un registro que puedas revisar o auditar después.',
+        title: 'Cómo la Usamos',
+      },
+      s4: {
+        body: 'Cada organización que usa Orb tiene su propio entorno aislado. Tus conversaciones, configuración de conectores y datos no son accesibles para otras organizaciones en la plataforma.',
+        title: 'Aislamiento Multi-Tenant',
+      },
+      s5: {
+        body: 'Orb utiliza los modelos Claude de Anthropic para comprender solicitudes y guiar la ejecución, y se conecta a los sistemas que tu organización haya configurado (actualmente SAP Business One, con más previstos). No vendemos tus datos ni los compartimos con terceros más allá de lo necesario para operar el servicio.',
+        title: 'Terceros y Subencargados',
+      },
+      s6: {
+        body: '[Marcador de posición — período de retención por definir.] El historial de conversación se conserva según la configuración de tu organización, para que puedas revisar o auditar operaciones pasadas.',
+        title: 'Retención de Datos',
+      },
+      s7: {
+        body: 'El acceso a Orb se autentica mediante el proveedor de identidad de SAP (OAuth2 / OpenID Connect) o, cuando aplique, tus credenciales de SAP Business One. La configuración de conectores de la organización se almacena cifrada. Cada acción que Orb realiza en tu nombre se revisa y confirma antes de ejecutarse.',
+        title: 'Medidas de Seguridad',
+      },
+      s8: {
+        body: 'Orb no utiliza cookies. Tu sesión se guarda únicamente en el almacenamiento de sesión local de tu navegador, y se elimina al cerrar sesión o cerrar la pestaña.',
+        title: 'Cookies y Almacenamiento Local',
+      },
+      s9: {
+        body: "Puedes solicitar acceso, corrección, eliminación o una copia de tus datos, y oponerte a su tratamiento, escribiendo a privacy{'@'}darchsystems.com. Procuramos responder dentro de los 30 días.",
+        title: 'Tus Derechos',
+      },
+      s10: {
+        body: "Actualizaremos esta política si nuestras prácticas cambian, e indicaremos la fecha de la última revisión al inicio de esta página. Las consultas pueden enviarse a privacy{'@'}darchsystems.com.",
+        title: 'Cambios a Esta Política',
+      },
+    },
+    terms: {
+      title: 'Términos de Servicio',
+      updated: 'Última actualización 18 de julio de 2026',
+      s1: {
+        body: 'Orb es una plataforma conversacional de ejecución construida por D\'Arch Systems ("D\'Arch", "nosotros"). Le da a los usuarios de tu organización una interfaz en lenguaje natural para acceder y ejecutar procesos en tus sistemas conectados. Orb está disponible hoy con SAP Business One, con más sistemas sumándose con el tiempo.',
+        title: 'Sobre Orb',
+      },
+      s2: {
+        body: 'El acceso a Orb se otorga a través de tu organización, usando el proveedor de identidad de SAP (OAuth2 / OpenID Connect) o, cuando aplique, tus credenciales de SAP Business One. Eres responsable de mantener la confidencialidad de tus credenciales y de la actividad realizada bajo tu cuenta.',
+        title: 'Cuentas y Acceso',
+      },
+      s3: {
+        body: 'Orb recopila la información necesaria para una solicitud mediante una conversación guiada, y luego presenta un resumen para que lo revises. Ninguna acción se envía a un sistema conectado hasta que la confirmes.',
+        title: 'Cómo se Ejecutan las Acciones',
+      },
+      s4: {
+        body: 'Aceptas usar Orb únicamente para fines comerciales legítimos dentro de tu organización, y no intentar eludir sus controles de revisión, confirmación o seguridad.',
+        title: 'Uso Aceptable',
+      },
+      s5: {
+        body: 'Nuestra Política de Privacidad describe cómo recopilamos, usamos y protegemos la información procesada a través de Orb.',
+        title: 'Datos y Privacidad',
+      },
+      s6: {
+        body: 'Orb se provee "tal cual", sin garantías de ningún tipo, expresas o implícitas, hasta el máximo permitido por la ley.',
+        title: 'Servicio Provisto "Tal Cual"',
+      },
+      s7: {
+        body: "El nombre Orb, su marca y el software subyacente son propiedad de D'Arch Systems, LLC, salvo que se indique lo contrario.",
+        title: 'Propiedad Intelectual',
+      },
+      s8: {
+        body: 'Podemos suspender o terminar el acceso a Orb de una organización o usuario, incluso por uso indebido real o sospechado, o por incumplimiento de estos términos.',
+        title: 'Terminación',
+      },
+      s9: {
+        body: 'Estos términos se rigen por las leyes de Estados Unidos, sin considerar sus principios de conflicto de leyes.',
+        title: 'Ley Aplicable',
+      },
+      s10: {
+        body: "Podemos actualizar estos términos de vez en cuando e indicaremos la fecha de la última revisión al inicio de esta página. Las consultas pueden enviarse a info{'@'}darchsystems.com.",
+        title: 'Cambios y Contacto',
+      },
+    },
+  },
+  chat: {
+    system: {
+      agentSlow: 'Esto está tardando más de lo esperado, por favor espera…',
+      agentUnavailable: 'Lo sentimos, el asistente está tardando demasiado en responder. Intenta enviar tu mensaje de nuevo — si el problema persiste, contacta con soporte.',
+      agentError: 'Ocurrió un error al comunicarse con el agente. Por favor, inténtalo de nuevo.',
+      queued: 'Esperando la respuesta anterior antes de continuar…',
+    },
+    processes: {
+      hint: 'Responde con un número (1, 2…) o una letra (A, B…) para elegir, o haz clic en una opción.',
+    },
+    sidebar: {
+      newChat: 'Nuevo Chat',
+      historyTitle: 'Chats Recientes',
+      logout: 'Cerrar Sesión',
+      logoutConfirm: '¿Cerrar sesión?',
+      history: {
+        empty: 'Sin chats recientes',
+        untitled: 'Chat sin título',
+        deleteConfirm: '¿Eliminar este chat?',
+        yesterday: 'Ayer',
+        pending: 'El agente está trabajando en este chat',
+      },
+    },
+    header: {
+      activeWorkflow: 'Flujo de trabajo conversacional',
+      connected: 'Orb Conectado',
+      connecting: 'Conectando a Orb...',
+      disconnected: 'Desconectado de Orb',
+      mcpActive: 'servidor mcp-sap activo',
+    },
+    export: {
+      title: 'Exportar conversación',
+      text: 'Texto plano (.txt)',
+      markdown: 'Markdown (.md)',
+      pdf: 'PDF',
+      json: 'JSON',
+      untitled: 'Conversación',
+      exportedOn: 'Exportado el',
+      you: 'Tú',
+    },
+    welcome: {
+      greeting: '¡Bienvenido de nuevo, {name}!',
+      sub: '¿Cómo puedo ayudarte hoy?',
+    },
+    suggestions: {
+      createPR: {
+        title: 'Crear Solicitud de Compra',
+        prompt: 'Quiero crear una solicitud de compra',
+      },
+      openPRs: {
+        title: 'Solicitudes de Compra Abiertas',
+        prompt: 'Listame las últimas 5 solicitudes de compra abiertas',
+      },
+      myRecentPR: {
+        title: 'Mi Última Solicitud',
+        prompt: 'Listame la última solicitud de compra que yo haya creado',
+      },
+    },
+    settings: {
+      title: 'Configuración',
+      darkMode: 'Modo Oscuro',
+      expertiseLevel: 'Nivel de experiencia SAP',
+      expertise: {
+        novice: 'Guiado',
+        intermediate: 'Fluido',
+        expert: 'Experto',
+      },
+    },
+    input: {
+      chooseTools: 'Elegir herramientas MCP',
+      placeholder: 'Pídele a Orb consultar inventario o ejecutar flujos...',
+      info: 'Conector Orb. Ejecución conversacional auditada.',
+      sendInquiry: 'Enviar consulta',
+    },
+  },
+};

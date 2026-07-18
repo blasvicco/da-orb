@@ -1,0 +1,54 @@
+@reference "@/styles/main.css";
+
+/* ── Sidebar logo & new chat button (remain in views/chat.vue template) ── */
+.orb-sidebar-logo-wrap {
+  @apply flex gap-3 items-center no-underline;
+
+  .orb-sidebar-logo-icon {
+    @apply flex h-9 items-center justify-center p-1 rounded-xl w-9;
+    background: rgba(108, 92, 231, 0.1);
+  }
+
+  .orb-sidebar-logo-text {
+    @apply flex font-extrabold items-center text-2xl tracking-tight;
+    color: #6c5ce7;
+  }
+}
+
+.orb-new-chat-btn {
+  @apply bg-brand-primary cursor-pointer duration-200 flex font-semibold gap-2 hover:bg-brand-primary-hover hover:-translate-y-px items-center justify-center px-4 py-2.5 rounded-lg text-sm text-white transition-all w-full;
+  box-shadow: var(--orb-new-chat-shadow);
+}
+
+/* ── Messages scroll area ─────────────────────────────────────────────── */
+.orb-chat-pane-messages {
+  @apply flex-1 overflow-y-auto p-8 pb-6 scrollbar-thin space-y-6;
+}
+
+/* ── Typing indicator ─────────────────────────────────────────────────── */
+.orb-chat-typing {
+  @apply border flex gap-1 items-end max-w-max px-4 py-3 rounded-2xl rounded-tl-none self-start shadow-sm;
+  background: var(--orb-typing-bg);
+  border-color: var(--orb-typing-border);
+
+  .orb-typing-status {
+    @apply font-medium mr-1 text-xs;
+    color: var(--orb-typing-text);
+  }
+
+  .orb-typing-dot {
+    @apply animate-bounce h-1.5 rounded-full w-1.5;
+    background: var(--orb-typing-dot);
+  }
+}
+
+/* ── Shared tool button (used by export & settings) ──────────────────── */
+.orb-prompt-tool-btn {
+  @apply cursor-pointer flex items-center justify-center p-2.5 rounded-xl transition-all;
+  color: var(--orb-input-tool);
+
+  &:hover {
+    background: var(--orb-input-tool-hover-bg);
+    color: var(--orb-input-tool-hover);
+  }
+}

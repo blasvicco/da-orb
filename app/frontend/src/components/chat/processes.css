@@ -1,0 +1,29 @@
+@reference "@/styles/main.css";
+
+.orb-process-list {
+  @apply flex flex-col gap-2 mt-3;
+
+  .orb-process-option {
+    @apply cursor-pointer duration-200 flex gap-3 items-center px-4 py-2 rounded-lg text-left text-sm transition-all;
+    background: var(--orb-process-bg);
+    border: 1px solid var(--orb-process-border);
+    color: var(--orb-process-text);
+
+    &:hover {
+      background: var(--orb-process-hover-bg);
+      border-color: var(--orb-process-hover-border);
+    }
+
+    .orb-process-option-index {
+      @apply font-bold h-6 inline-flex items-center justify-center rounded-full shrink-0 text-xs w-6;
+      background: var(--orb-process-idx-bg);
+      border: 1px solid var(--orb-process-idx-border);
+      color: var(--orb-process-idx-text);
+    }
+  }
+
+  .orb-process-hint {
+    @apply italic mt-1 text-xs;
+    color: var(--orb-process-hint);
+  }
+}

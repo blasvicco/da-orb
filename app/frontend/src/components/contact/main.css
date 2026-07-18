@@ -1,0 +1,48 @@
+@reference "@/styles/main.css";
+
+/* Contact Form Component Styles */
+.orb-contact {
+  .orb-contact-form {
+    @apply flex flex-col gap-5 text-left w-full;
+
+    .orb-contact-form-title {
+      @apply font-bold mb-1 text-center text-slate-800 text-xl tracking-tight;
+    }
+
+    .orb-contact-field {
+      @apply flex flex-col gap-1.5;
+
+      .orb-contact-label {
+        @apply font-semibold text-slate-600 text-sm;
+      }
+
+      .orb-contact-input {
+        @apply bg-white border border-brand-primary/20 duration-200 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 font-medium px-4 py-2.5 rounded-xl text-slate-800 text-sm transition-all w-full;
+      }
+    }
+
+    .orb-contact-consent {
+      @apply flex gap-2 items-start text-slate-500 text-sm;
+
+      a {
+        @apply text-brand-primary underline;
+      }
+
+      input[type='checkbox'] {
+        @apply mt-0.5;
+      }
+    }
+
+    .orb-contact-error {
+      @apply bg-red-50 border border-red-200 flex gap-2 items-start px-4 py-3 rounded-xl text-red-600 text-sm;
+    }
+
+    .orb-contact-submit {
+      @apply justify-center mt-1 w-full;
+    }
+  }
+
+  .orb-contact-success {
+    @apply font-semibold py-8 text-brand-primary text-center text-lg;
+  }
+}

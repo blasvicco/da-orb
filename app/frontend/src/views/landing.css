@@ -1,0 +1,342 @@
+@reference "@/styles/main.css";
+
+/* Landing Page Component Styles */
+.orb-page {
+  @apply bg-brand-bg flex flex-col font-brand-display min-h-screen text-brand-text;
+
+  .orb-container {
+    @apply lg:px-12 max-w-7xl mx-auto px-6 sm:px-8 w-full;
+  }
+
+  /* Header Section */
+  .orb-header {
+    @apply backdrop-blur-md bg-brand-bg/85 border-b border-brand-primary/10 py-4 sticky top-0 transition-all duration-300 z-50;
+
+    .orb-header-inner {
+      @apply flex items-center justify-between;
+    }
+
+    .orb-logo-wrap {
+      @apply cursor-pointer flex gap-3 items-center no-underline;
+
+      .orb-logo-icon {
+        @apply flex font-bold items-center justify-center p-1 rounded-xl w-9 h-9;
+        background: rgba(108, 92, 231, 0.1);
+      }
+
+      .orb-logo-text {
+        @apply flex font-extrabold items-center text-2xl tracking-tight;
+        color: #6c5ce7;
+      }
+    }
+
+    .orb-header-right {
+      @apply flex gap-8 items-center;
+    }
+
+    .orb-nav {
+      @apply gap-8 hidden items-center md:flex;
+
+      .orb-nav-link {
+        @apply cursor-pointer duration-200 font-semibold hover:text-brand-primary text-brand-text-muted transition-colors;
+      }
+    }
+
+    .orb-actions-wrap {
+      @apply flex gap-4 items-center;
+    }
+  }
+
+  /* Utility Buttons */
+  .orb-btn-primary {
+    @apply bg-brand-primary cursor-pointer duration-300 flex font-bold gap-2 hover:bg-brand-primary-hover hover:shadow-brand-primary/30 hover:shadow-lg hover:-translate-y-0.5 items-center px-6 py-2.5 rounded-full shadow-brand-primary/20 shadow-md transform transition-all text-white;
+  }
+
+  .orb-btn-secondary {
+    @apply bg-white/70 border border-brand-primary/20 cursor-pointer duration-300 flex font-bold gap-2 hover:bg-white hover:border-brand-primary/40 hover:-translate-y-0.5 items-center px-6 py-2.5 rounded-full text-brand-primary transform transition-all;
+  }
+
+  /* Hero Section */
+  .orb-hero-layout {
+    @apply flex flex-col gap-12 items-center lg:flex-row lg:gap-16 pb-12 md:pb-20 md:pt-24 pt-16 w-full;
+
+    .orb-hero-content {
+      @apply flex-1 lg:text-left max-w-2xl space-y-6 text-center;
+
+      .orb-hero-badge {
+        @apply bg-brand-primary/10 border border-brand-primary/20 gap-2 inline-flex items-center mb-2 px-4 py-1.5 rounded-full text-brand-primary text-sm font-semibold;
+
+        .orb-hero-badge-dot {
+          @apply animate-pulse bg-brand-accent h-2 rounded-full w-2;
+        }
+      }
+
+      .orb-hero-title {
+        @apply font-extrabold leading-tight lg:text-6xl sm:text-5xl text-4xl text-brand-text tracking-tight;
+
+        .orb-hero-gradient {
+          @apply bg-clip-text bg-gradient-to-r from-brand-primary text-transparent to-sky-600 via-brand-accent;
+        }
+      }
+
+      .orb-hero-description {
+        @apply font-normal leading-relaxed sm:text-xl text-lg text-brand-text-muted;
+      }
+
+      .orb-hero-ctas {
+        @apply flex flex-wrap gap-4 justify-center lg:justify-start pt-4;
+      }
+
+      .orb-hero-live-scope {
+        @apply flex gap-2 items-center justify-center lg:justify-start pt-2 text-brand-text-muted text-sm;
+
+        .orb-hero-live-scope-dot {
+          @apply animate-pulse bg-green-500 h-1.5 rounded-full w-1.5;
+        }
+      }
+    }
+
+    /* Live Chat Preview Simulator */
+    .orb-hero-preview {
+      @apply flex-1 max-w-xl w-full;
+
+      .orb-chat-mock {
+        @apply backdrop-blur-xl bg-white/90 border border-brand-primary/10 duration-500 flex flex-col h-[400px] hover:shadow-2xl hover:shadow-brand-primary/10 overflow-hidden p-6 relative rounded-2xl shadow-brand-primary/5 shadow-xl transition-all;
+
+        .orb-chat-header {
+          @apply border-b border-slate-100 flex items-center justify-between mb-4 pb-4;
+
+          .orb-chat-agent-info {
+            @apply flex items-center gap-3;
+
+            .orb-chat-avatar {
+              @apply flex h-10 items-center justify-center rounded-xl w-10 p-1;
+              background: rgba(108, 92, 231, 0.1);
+              border: 1px solid rgba(108, 92, 231, 0.2);
+            }
+
+            .orb-chat-name {
+              @apply flex flex-col font-bold text-slate-800 text-sm;
+
+              .orb-chat-status {
+                @apply flex gap-1.5 font-normal items-center text-slate-400 text-xs;
+
+                .orb-chat-indicator {
+                  @apply animate-pulse bg-green-500 h-2 rounded-full w-2;
+                }
+              }
+            }
+          }
+        }
+
+        .orb-chat-messages {
+          @apply flex-1 overflow-y-auto pr-1 scrollbar-thin space-y-4;
+
+          .orb-msg-bubble {
+            @apply flex flex-col gap-1 w-full;
+
+            .orb-msg-user {
+              @apply bg-brand-primary duration-300 font-medium max-w-[85%] px-4 py-2.5 rounded-2xl rounded-tr-none shadow-brand-primary/10 shadow-md transition-all text-white text-sm self-end;
+            }
+
+            .orb-msg-agent {
+              @apply bg-slate-50 border border-slate-100 duration-300 font-medium max-w-[85%] px-4 py-2.5 rounded-2xl rounded-tl-none shadow-sm text-slate-800 text-sm transition-all self-start;
+            }
+
+            .orb-msg-sap-data {
+              @apply bg-slate-900 border border-slate-800 font-mono mt-2 max-w-full overflow-x-auto p-4 rounded-xl shadow-inner space-y-2 text-teal-400 text-xs;
+
+              .orb-msg-sap-data-header {
+                @apply border-b border-slate-800 flex font-sans items-center justify-between mb-1.5 pb-1.5 text-slate-400;
+              }
+            }
+
+            .orb-msg-time {
+              @apply px-1 text-[10px] text-slate-400 self-end;
+            }
+          }
+
+          .orb-chat-typing {
+            @apply bg-slate-50 border border-slate-100 flex gap-1 items-center px-4 py-3 rounded-2xl rounded-tl-none shadow-sm self-start;
+
+            .orb-typing-dot {
+              @apply animate-bounce bg-slate-400 h-1.5 rounded-full w-1.5;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /* Features Grid Section */
+  .orb-features {
+    @apply border-t border-brand-primary/5 md:py-24 py-16 w-full;
+
+    .orb-features-title {
+      @apply font-extrabold mb-4 md:text-4xl text-3xl text-brand-text tracking-tight text-center;
+    }
+
+    .orb-features-subtitle {
+      @apply font-normal mb-16 max-w-2xl mx-auto text-lg text-brand-text-muted text-center;
+    }
+
+    .orb-features-grid {
+      @apply gap-8 grid grid-cols-1 lg:grid-cols-4 md:grid-cols-2 w-full;
+
+      .orb-feature-card {
+        @apply backdrop-blur-md bg-white/80 border border-brand-primary/5 duration-300 flex flex-col gap-4 hover:border-brand-primary/20 hover:shadow-brand-primary/5 hover:shadow-xl hover:-translate-y-1 p-6 rounded-2xl shadow-sm transform transition-all;
+
+        .orb-feature-icon {
+          @apply bg-brand-primary/10 flex h-12 items-center justify-center mb-1 rounded-xl text-3xl text-brand-primary w-12;
+        }
+
+        .orb-feature-title {
+          @apply font-bold text-slate-800 text-xl;
+        }
+
+        .orb-feature-desc {
+          @apply font-normal leading-relaxed text-brand-text-muted text-sm;
+        }
+      }
+    }
+  }
+
+  /* Footer */
+  .orb-footer {
+    @apply bg-white/40 border-t border-brand-primary/5 backdrop-blur-sm mt-auto py-10 w-full;
+
+    .orb-footer-inner {
+      @apply flex flex-col gap-6 items-center justify-between md:flex-row;
+
+      .orb-footer-text {
+        @apply font-normal text-brand-text-muted text-sm;
+
+        .orb-footer-powered {
+          @apply mt-1;
+        }
+      }
+
+      .orb-footer-links {
+        @apply flex gap-6 items-center;
+
+        .orb-footer-link {
+          @apply hover:text-brand-primary text-brand-text-muted text-sm transition-colors;
+        }
+      }
+    }
+  }
+
+  /* Auth error modal content */
+  .orb-auth-error-modal {
+    @apply flex flex-col gap-4 items-center py-4 text-center;
+
+    .orb-auth-error-icon {
+      @apply text-5xl;
+    }
+
+    .orb-auth-error-title {
+      @apply font-extrabold text-slate-800 text-xl tracking-tight;
+    }
+
+    .orb-auth-error-desc {
+      @apply leading-relaxed text-brand-text-muted text-sm;
+    }
+  }
+
+  /* Mock Auth Overlay */
+  .orb-auth-overlay {
+    @apply backdrop-blur-xl bg-slate-900/60 fixed flex inset-0 items-center justify-center z-[9999];
+  }
+
+  .orb-auth-card {
+    @apply backdrop-blur-2xl bg-white/95 border border-brand-primary/10 flex flex-col items-center max-w-md p-10 rounded-3xl shadow-2xl space-y-6 text-center w-full;
+  }
+
+  .orb-auth-spinner-container {
+    @apply flex h-24 items-center justify-center relative w-24;
+  }
+
+  .orb-auth-spinner {
+    @apply animate-spin border-4 border-brand-primary border-t-transparent h-20 rounded-full w-20;
+  }
+
+  .orb-auth-spinner-glow {
+    @apply absolute bg-brand-primary/20 blur-xl h-24 rounded-full w-24;
+  }
+
+  .orb-auth-icon {
+    @apply absolute flex font-semibold items-center justify-center text-4xl;
+  }
+
+  .orb-auth-title {
+    @apply font-brand-display font-extrabold text-2xl text-slate-800 tracking-tight;
+  }
+
+  .orb-auth-status {
+    @apply duration-300 font-medium min-h-6 text-brand-primary text-sm transition-all;
+  }
+
+  .orb-auth-progress-bar {
+    @apply bg-slate-100 h-2 overflow-hidden rounded-full w-full;
+  }
+
+  .orb-auth-progress-fill {
+    @apply bg-gradient-to-r duration-500 from-brand-primary h-full rounded-full to-brand-accent transition-all;
+  }
+
+  /* B1S Credential Login Form */
+  .orb-b1s-form {
+    @apply flex flex-col gap-5 text-left w-full;
+
+    .orb-b1s-form-title {
+      @apply font-bold mb-1 text-center text-slate-800 text-xl tracking-tight;
+    }
+
+    .orb-b1s-field {
+      @apply flex flex-col gap-1.5;
+
+      .orb-b1s-label {
+        @apply font-semibold text-slate-600 text-sm;
+      }
+
+      .orb-b1s-input {
+        @apply bg-white border border-brand-primary/20 duration-200 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 font-medium px-4 py-2.5 rounded-xl text-slate-800 text-sm transition-all w-full;
+      }
+    }
+
+    .orb-b1s-error {
+      @apply bg-red-50 border border-red-200 flex gap-2 items-start px-4 py-3 rounded-xl text-red-600 text-sm;
+    }
+
+    .orb-b1s-submit {
+      @apply justify-center mt-1 w-full;
+    }
+  }
+}
+
+/* Thin Scrollbar Utility */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(15, 82, 186, 0.15);
+  border-radius: 2px;
+
+  &:hover {
+    background: rgba(15, 82, 186, 0.3);
+  }
+}
+
+/* Transition Fade */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
