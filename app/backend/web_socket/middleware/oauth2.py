@@ -11,7 +11,7 @@ from django.contrib.auth.models import AnonymousUser
 # App imports
 from drf_api.models import MOrganization, MSession
 from drf_api.resources.auth.factory import FAuthenticator
-from drf_api.resources.auth.helpers import SapOAuthClient
+from drf_api.resources.auth.helpers import SapOAuthClient, has_active_seat
 
 
 @database_sync_to_async
@@ -50,19 +50,23 @@ def get_org_and_user(org_slug, session_data, token, username=None):
 			driver=org.integration.get("auth_driver", "open_id"),
 			integration=org.integration,
 		)
-		session_dict = driver.authenticate(
-			database=session_data.get("database", ""),
-			expires_at=session_data.get("expires_at", 0),
-			org=org_slug,
-			password=session_data.get("password", ""),
-			token=token,
-			username=username,
-		)
 	except Exception:  # pylint: disable=broad-except
 		return org, AnonymousUser()
 
-	user = WsUser(session=MSession(**session_dict))
-	return org, user
+	session_dict = driver.resolve_ws_session(
+		session_data,
+		org=org_slug,
+		token=token,
+		username=username
+	)
+	if session_dict is None:
+		return org, AnonymousUser()
+
+	resolved_username = session_dict.get("user", {}).get("username", "")
+	if not has_active_seat(org, resolved_username):
+		return org, AnonymousUser()
+
+	return org, WsUser(session=MSession(**session_dict))
 
 
 class MOAuth2:  # pylint: disable=too-few-public-methods

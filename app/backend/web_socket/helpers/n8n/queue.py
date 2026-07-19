@@ -15,18 +15,17 @@ _PENDING_KEY_PREFIX = "n8n:pending"
 
 
 class N8nQueueState:
-	"""Redis-backed per-chat in-flight guard with a single-slot pending queue.
+	"""Redis-backed per-chat in-flight guard with a single-slot pending queue."""
 
-	Firing a message to n8n no longer waits for the workflow to finish, so nothing
-	stops a chat from having more than one execution in flight at once if the user
-	sends again before the first reply arrives. Since every execution for a chat
-	reads and writes the same N8nSessionState bucket, concurrent executions race
-	and corrupt each other's state. This guard ensures at most one execution is in
-	flight per chat: a message that arrives while one is already running doesn't
-	fire immediately — it replaces whatever was previously pending (only the latest
-	superseded message is kept, not a full history) and fires once the in-flight
-	execution's result has been persisted.
-	"""
+	# Firing a message to n8n no longer waits for the workflow to finish, so nothing
+	# stops a chat from having more than one execution in flight at once if the user
+	# sends again before the first reply arrives. Since every execution for a chat
+	# reads and writes the same N8nSessionState bucket, concurrent executions race
+	# and corrupt each other's state. This guard ensures at most one execution is in
+	# flight per chat: a message that arrives while one is already running doesn't
+	# fire immediately — it replaces whatever was previously pending (only the latest
+	# superseded message is kept, not a full history) and fires once the in-flight
+	# execution's result has been persisted.
 
 	def __init__(self, group_name: str):
 		"""Initialise the queue state for one chat (group_name already scopes it per chat)."""
@@ -44,11 +43,9 @@ class N8nQueueState:
 		self._ttl = settings.CONFIG.get("N8N_INFLIGHT_TTL_SECONDS", 300)
 
 	async def try_start(self) -> bool:
-		"""Attempt to acquire the in-flight lock for this chat.
-
-		Returns True if acquired (caller should fire to n8n now), False if another
-		execution is already in flight (caller should queue instead).
-		"""
+		"""Attempt to acquire the in-flight lock for this chat."""
+		# Returns True if acquired (caller should fire to n8n now), False if another
+		# execution is already in flight (caller should queue instead).
 		try:
 			acquired = await self._redis.set(
 				self._inflight_key, "1", nx=True, ex=self._ttl

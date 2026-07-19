@@ -1,0 +1,41 @@
+@reference "@/styles/main.css";
+
+.orb-usage-card {
+  @apply p-5 rounded-xl;
+  background: var(--orb-user-profile-bg);
+  border: 1px solid var(--orb-user-profile-border);
+}
+
+.orb-usage-card-title {
+  @apply font-bold mb-4 text-sm;
+}
+
+.orb-usage-empty {
+  @apply text-sm;
+  color: var(--orb-typing-text);
+}
+
+.orb-usage-ranked-list {
+  @apply flex flex-col gap-3;
+}
+
+.orb-usage-ranked-item {
+  @apply gap-3 grid items-center;
+  grid-template-columns: 7rem 1fr 3.5rem;
+}
+
+.orb-usage-ranked-label {
+  @apply overflow-hidden text-ellipsis text-sm whitespace-nowrap;
+}
+
+.orb-usage-ranked-bar-track {
+  @apply bg-black/5 h-2 overflow-hidden rounded-full w-full;
+}
+
+.orb-usage-ranked-bar-fill {
+  @apply bg-brand-primary h-full rounded-full;
+}
+
+.orb-usage-ranked-value {
+  @apply font-semibold text-right text-sm;
+}

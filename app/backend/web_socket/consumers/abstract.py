@@ -25,9 +25,9 @@ class CAbstract(AsyncJsonWebsocketConsumer):
 		await self.send_json(event["payload"])
 
 	async def connect(self):
-		"""Accept the raw connection but hold it in an unauthenticated state.
-		The consumer is not added to its channel group and resolve_context is
-		not called until auth_init confirms the session credentials."""
+		"""Accept the raw connection but hold it in an unauthenticated state."""
+		# The consumer is not added to its channel group and resolve_context is
+		# not called until auth_init confirms the session credentials.
 		self.user = self.scope.get("user")
 		if not self.user or not self.user.is_authenticated:
 			await self.close()
@@ -39,15 +39,19 @@ class CAbstract(AsyncJsonWebsocketConsumer):
 		return {}
 
 	async def auth_init(self, content):
-		"""Receive sensitive credentials over the encrypted channel and complete
-		the consumer setup.  Closes the socket on any unexpected error."""
-		password = content.get("password", "")
-		database = content.get("database", "")
+		"""Receive sensitive credentials over the encrypted channel and complete the consumer setup."""
+		# Closes the socket on any unexpected error.
+		organization = self.scope.get("organization")
+		is_b1s = (
+			bool(organization) and organization.integration.get("auth_driver") == "b1s"
+		)
 
-		# Patch the partial session built by the middleware with the real credentials.
-		if hasattr(self.user, "session") and self.user.session:
-			self.user.session.user["password"] = password
-			self.user.session.database = database
+		# B1S: the WS middleware already resolved the real session server-side via the
+		# opaque token, so patching from client-supplied fields would be redundant at
+		# best. Open ID has no equivalent proxy yet, so it still relies on this patch.
+		if not is_b1s and hasattr(self.user, "session") and self.user.session:
+			self.user.session.user["password"] = content.get("password", "")
+			self.user.session.database = content.get("database", "")
 
 		await self.resolve_context()
 

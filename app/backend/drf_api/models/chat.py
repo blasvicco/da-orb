@@ -16,6 +16,7 @@ class MChatSession(models.Model):
 		related_name="chat_sessions",
 	)
 	username = models.CharField(max_length=150, db_index=True)
+	connection_key = models.CharField(max_length=150, blank=True, default="")
 	title = models.CharField(max_length=200, blank=True)
 	language = models.CharField(max_length=10, default="es")
 	n8n_state = models.JSONField(null=True, blank=True)
@@ -23,6 +24,7 @@ class MChatSession(models.Model):
 	updated_on = models.DateTimeField(auto_now=True)
 
 	class Meta:
+		indexes = [models.Index(fields=["org", "username", "connection_key"])]
 		ordering = ["-updated_on"]
 
 

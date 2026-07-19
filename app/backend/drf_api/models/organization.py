@@ -42,6 +42,7 @@ class MOrganization(MBase):
 		max_length=40,
 		null=False,
 	)
+	seat_limit = models.PositiveIntegerField(default=0)
 	slug = models.CharField(
 		blank=False,
 		db_index=True,
@@ -66,6 +67,18 @@ class MOrganization(MBase):
 				else None
 			)
 			return None, error
+
+	def safe_to_dict(self) -> dict:
+		"""Return dict representation of the organization with secrets stripped from integration."""
+		# n8n legitimately reads auth_driver/base_url/target and other config from this
+		# blob, but the XSUAA client_secret must never leave the backend.
+		data = self.to_dict()
+		data["integration"] = {
+			key: value
+			for key, value in dict(self.integration).items()
+			if key != "client_secret"
+		}
+		return data
 
 	def __str__(self):
 		"""To string method"""

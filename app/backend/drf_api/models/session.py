@@ -2,6 +2,7 @@
 # General imports
 import uuid
 
+
 class MSession:
 	"""In-memory representation of an authenticated session."""
 
@@ -27,6 +28,11 @@ class MSession:
 			"username": "",
 			"password": kwargs.get("password", ""),
 		}
+
+	@property
+	def connection_key(self) -> str:
+		"""Return the driver-agnostic tenant/connection identifier (SAP CompanyDB for b1s, empty for open_id)."""
+		return self.database
 
 	def to_dict(self) -> dict:
 		"""Return dictionary representation of the session."""

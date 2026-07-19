@@ -1,0 +1,15 @@
+@reference "@/styles/main.css";
+
+.orb-admin-tabs {
+  @apply border-b flex gap-1 mb-6;
+  border-bottom-color: var(--orb-sidebar-border);
+}
+
+.orb-admin-tab {
+  @apply border-b-2 border-transparent font-semibold no-underline px-1 py-2.5 text-sm;
+  color: var(--orb-typing-text);
+}
+
+.orb-admin-tab-active {
+  @apply border-brand-primary text-brand-primary;
+}

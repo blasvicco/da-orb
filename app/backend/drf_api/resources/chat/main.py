@@ -13,8 +13,8 @@ from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 
 # App imports
-from drf_api.models import MChatMessage, MChatSession
-from drf_api.models.organization import MOrganization
+from drf_api.models import MChatMessage, MChatSession, MUsageEvent
+from drf_api.resources.auth.helpers import resolve_request_identity
 from drf_api.resources.chat.permission import PChat, PN8nCallback
 from drf_api.resources.chat.serializer import SChatMessage, SChatSession
 from web_socket.helpers.n8n import N8nClient, N8nQueueState, N8nSessionState
@@ -23,14 +23,21 @@ _logger = logging.getLogger(__name__)
 
 
 class _DictShim:
-	"""Minimal stand-in exposing .to_dict(), used to re-fire a queued message outside
-	the original WebSocket connection — org/user were captured as plain dicts when
-	queued since this callback has no access to that connection's live auth/session."""
+	"""Minimal stand-in exposing .to_dict()/.safe_to_dict()."""
+
+	# Used to re-fire a queued message outside the original WebSocket connection —
+	# org/user were captured as plain dicts when queued since this callback has no
+	# access to that connection's live auth/session.
 
 	def __init__(self, data):
 		self._data = data or {}
 
+	def safe_to_dict(self):
+		"""Return the wrapped dict — already sanitised at capture time, so this is an alias."""
+		return self._data
+
 	def to_dict(self):
+		"""Return the wrapped dict."""
 		return self._data
 
 
@@ -60,15 +67,13 @@ async def _load_n8n_state(group_name):
 
 
 def _resolve_and_persist_state(group_name, incoming):
-	"""Merge incoming state with current Redis state and persist; return effective state.
-
-	Null fields in the incoming payload (e.g. sent by n8n on MCP errors) do not
-	overwrite non-null values already saved in Redis, preserving user progress —
-	unless incoming.reset_process is True, which means n8n is intentionally
-	clearing the active process (e.g. parking it before asking the user whether
-	to resume), in which case null must be allowed to actually clear the stored
-	value instead of being coalesced back to the stale one.
-	"""
+	"""Merge incoming state with current Redis state and persist; return effective state."""
+	# Null fields in the incoming payload (e.g. sent by n8n on MCP errors) do not
+	# overwrite non-null values already saved in Redis, preserving user progress —
+	# unless incoming.reset_process is True, which means n8n is intentionally
+	# clearing the active process (e.g. parking it before asking the user whether
+	# to resume), in which case null must be allowed to actually clear the stored
+	# value instead of being coalesced back to the stale one.
 	current = async_to_sync(_load_n8n_state)(group_name)
 	if not incoming:
 		return current
@@ -97,15 +102,50 @@ def _resolve_and_persist_state(group_name, incoming):
 	return merged
 
 
-async def _release_and_refire(group_name):
-	"""Release the in-flight lock for this chat and fire whatever was queued behind it.
+def _record_usage_events(session, *, effective_state, extra, occurred_on, processes):
+	"""Persist token-usage and/or process-execution events for this callback, if present."""
+	# Token-usage events depend on n8n's "Build Callback Payload" node forwarding a
+	# usage sub-object inside extra — absent from the workflow today, so this branch
+	# is currently a no-op in production until that external change ships. Written
+	# now anyway since the ingestion is None-safe and process-execution events
+	# already work unconditionally.
+	usage = extra.get("usage")
+	if usage:
+		MUsageEvent.objects.create(
+			completion_tokens=usage.get("completion_tokens"),
+			connection_key=session.connection_key,
+			event_type="token_usage",
+			model_name=usage.get("model", ""),
+			occurred_on=occurred_on,
+			org=session.org,
+			prompt_tokens=usage.get("prompt_tokens"),
+			session=session,
+			total_tokens=usage.get("total_tokens"),
+			username=session.username,
+		)
 
-	Runs synchronously within the n8n callback request (n8n is waiting on this HTTP
-	response), so this makes a single fire attempt with no retry/backoff — unlike
-	the consumer's own retry loop, retrying here would stall n8n's own callback.
-	On failure the queued message is dropped rather than left stuck; the user can
-	resend if that happens.
-	"""
+	if processes or (effective_state and effective_state.get("process_id")):
+		process_name = (effective_state or {}).get("process_id") or (
+			processes[0]["name"] if processes else ""
+		)
+		MUsageEvent.objects.create(
+			connection_key=session.connection_key,
+			event_type="process_execution",
+			occurred_on=occurred_on,
+			org=session.org,
+			process_name=process_name,
+			session=session,
+			username=session.username,
+		)
+
+
+async def _release_and_refire(group_name):
+	"""Release the in-flight lock for this chat and fire whatever was queued behind it."""
+	# Runs synchronously within the n8n callback request (n8n is waiting on this HTTP
+	# response), so this makes a single fire attempt with no retry/backoff — unlike
+	# the consumer's own retry loop, retrying here would stall n8n's own callback.
+	# On failure the queued message is dropped rather than left stuck; the user can
+	# resend if that happens.
 	queue = N8nQueueState(group_name=group_name)
 	try:
 		await queue.release()
@@ -147,57 +187,61 @@ class VSChat(viewsets.ViewSet):
 	permission_classes = [PChat]
 
 	def _get_org_and_user(self, request):
-		"""Return (org, username) from the request context."""
-		org, _ = MOrganization.get_by_slug(request.get_org_slug())
-		username = request.headers.get("X-SAP-Username", "")
-		return org, username
+		"""Return (org, username, connection_key) from the request context."""
+		return resolve_request_identity(request)
 
 	@action(detail=False, methods=["get"])
 	def sessions(self, request, *args, **kwargs):
 		"""Return the 15 most-recent chat sessions for the requesting user."""
-		org, username = self._get_org_and_user(request)
+		org, username, connection_key = self._get_org_and_user(request)
 		if org is None or not username:
 			return Response([])
-		qs = MChatSession.objects.filter(org=org, username=username)[:15]
+		qs = MChatSession.objects.filter(
+			connection_key=connection_key, org=org, username=username
+		)[:15]
 		return Response(SChatSession(qs, many=True).data)
 
 	@action(detail=False, methods=["get"])
 	def messages(self, request, *args, **kwargs):
-		"""Return all messages for a single session (validates org + username ownership)."""
+		"""Return all messages for a single session (validates org + username + connection_key ownership)."""
 		session_id = request.query_params.get("session_id")
-		org, username = self._get_org_and_user(request)
+		org, username, connection_key = self._get_org_and_user(request)
 		session = get_object_or_404(
-			MChatSession, id=session_id, org=org, username=username
+			MChatSession,
+			connection_key=connection_key,
+			id=session_id,
+			org=org,
+			username=username,
 		)
 		return Response(SChatMessage(session.messages.all(), many=True).data)
 
 	@action(detail=False, methods=["delete"])
 	def delete_session(self, request, *args, **kwargs):
-		"""Delete a session and all its messages (org scoped; ownership checked via permission)."""
+		"""Delete a session and all its messages (org + connection_key scoped; ownership checked via permission)."""
 		session_id = request.query_params.get("session_id")
-		org, _ = self._get_org_and_user(request)
-		session = get_object_or_404(MChatSession, id=session_id, org=org)
+		org, _, connection_key = self._get_org_and_user(request)
+		session = get_object_or_404(
+			MChatSession, connection_key=connection_key, id=session_id, org=org
+		)
 		self.check_object_permissions(request, session)
 		session.delete()
 		return Response(status=204)
 
 	@action(detail=False, methods=["post"], permission_classes=[PN8nCallback])
 	def n8n_callback(self, request, *args, **kwargs):
-		"""Receive an async result from the n8n workflow and push it to the WebSocket group.
-
-		Expected payload from n8n:
-		  group_name  – channel group to broadcast to, scoped per chat (e.g. "chat_<org>_<user>_<chat_key>")
-		  session_id  – MChatSession pk (for DB persistence; ignored for type "status")
-		  text        – reply text
-		  type        – message type: "agent" | "alert" | "system" | "status"
-		  extra       – optional dict merged into the broadcast payload
-		  state       – optional dict with form_state / process_id to persist in Redis
-		  processes   – optional list; when present, signals the consumer to store them
-		               as pending_processes for the next disambiguation reply
-
-		"status" messages are ephemeral: they are broadcast to the WebSocket group but
-		never persisted to the database, and they do not update Redis state.
-		"""
+		"""Receive an async result from the n8n workflow and push it to the WebSocket group."""
+		# Expected payload from n8n:
+		#   group_name  – channel group to broadcast to, scoped per chat (e.g. "chat_<org>_<user>_<chat_key>")
+		#   session_id  – MChatSession pk (for DB persistence; ignored for type "status")
+		#   text        – reply text
+		#   type        – message type: "agent" | "alert" | "system" | "status"
+		#   extra       – optional dict merged into the broadcast payload
+		#   state       – optional dict with form_state / process_id to persist in Redis
+		#   processes   – optional list; when present, signals the consumer to store them
+		#                as pending_processes for the next disambiguation reply
+		#
+		# "status" messages are ephemeral: they are broadcast to the WebSocket group but
+		# never persisted to the database, and they do not update Redis state.
 		group_name = request.data.get("group_name", "")
 		text = request.data.get("text", "")
 		msg_type = request.data.get("type", "agent")
@@ -254,6 +298,13 @@ class VSChat(viewsets.ViewSet):
 					MChatSession.objects.filter(pk=session.pk).update(
 						n8n_state=effective_state
 					)
+				_record_usage_events(
+					session,
+					effective_state=effective_state,
+					extra=extra,
+					occurred_on=datetime.fromisoformat(payload["time"]),
+					processes=processes,
+				)
 			except MChatSession.DoesNotExist:
 				pass
 

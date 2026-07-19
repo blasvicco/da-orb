@@ -32,8 +32,9 @@
   const userProfile = computed(() => {
     const session = auth.getSession() || {};
     return {
+      connection: session.database || '',
       name: session.user?.username || '',
-      role: session.database || '',
+      role: session.role || 'standard',
     };
   });
 
@@ -304,6 +305,7 @@
         :name="userProfile.name"
         :role="userProfile.role"
         :initials="userInitials"
+        :is-admin="auth.isAdmin()"
         :theme="theme"
         :expertise-level="expertiseLevel"
         @logout="handleLogout"
@@ -316,6 +318,7 @@
     <ChatHeader
       :session-title="currentSessionTitle"
       :has-messages="messages.length > 0"
+      :connection="userProfile.connection"
       :connection-status="connectionStatus"
       :messages="messages"
       :user-name="userProfile.name"

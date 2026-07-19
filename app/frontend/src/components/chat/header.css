@@ -12,5 +12,9 @@
 
   .orb-header-status {
     @apply flex gap-4 items-center;
+
+    .orb-header-connection {
+      @apply font-bold text-brand-primary text-sm;
+    }
   }
 }

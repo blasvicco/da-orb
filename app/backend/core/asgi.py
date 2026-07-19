@@ -1,10 +1,6 @@
-"""
-ASGI config for core project.
-
-It exposes the ASGI callable as a module-level variable named ``application``.
-
-This is used ONLY for WebSockets (Django Channels).
-"""
+"""ASGI config for core project."""
+# Exposes the ASGI callable as a module-level variable named ``application``.
+# This is used ONLY for WebSockets (Django Channels).
 
 # General imports
 import os

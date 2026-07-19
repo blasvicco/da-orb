@@ -123,6 +123,7 @@
             v-model="b1sDatabase"
             autocomplete="off"
             class="orb-b1s-input"
+            required
             type="text"
             :placeholder="$t('landing.b1s.databasePlaceholder')"
           >
@@ -133,7 +134,7 @@
           class="orb-b1s-error"
         >
           <ExclamationCircleOutlined />
-          <span>{{ b1sError }}</span>
+          <span>{{ $te(`errors.${b1sError}`) ? $t(`errors.${b1sError}`) : b1sError }}</span>
         </div>
 
         <button

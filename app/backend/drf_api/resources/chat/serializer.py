@@ -17,8 +17,8 @@ class SChatSession(serializers.ModelSerializer):
 		fields = ["id", "title", "created_on", "updated_on", "pending"]
 
 	def get_pending(self, obj):
-		"""True when the session's last message is from the user — no agent reply yet,
-		so the agent is presumably still working on it."""
+		"""True when the session's last message is from the user — no agent reply yet."""
+		# The agent is presumably still working on it.
 		last = obj.messages.last()
 		return bool(last and last.type == "user")
 

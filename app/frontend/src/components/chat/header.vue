@@ -5,6 +5,10 @@
   import '@/components/chat/header.css';
 
   defineProps({
+    connection: {
+      default: '',
+      type: String,
+    },
     connectionStatus: {
       default: 'connecting',
       type: String,
@@ -34,6 +38,12 @@
       {{ sessionTitle || (hasMessages ? $t('chat.header.activeWorkflow') : $t('chat.sidebar.newChat')) }}
     </div>
     <div class="orb-header-status">
+      <span
+        v-if="connection"
+        class="orb-header-connection"
+      >
+        {{ $t('component.userDetail.connectedTo', { database: connection }) }}
+      </span>
       <Export
         :messages="messages"
         :session-title="sessionTitle"
