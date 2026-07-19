@@ -3,9 +3,6 @@
 # General imports
 import time
 
-# Libs imports
-from rest_framework.response import Response
-
 # App imports
 from drf_api.models import MSession
 from drf_api.resources.auth.driver.abstract import AAuthDriver, AuthDriverError
@@ -41,8 +38,8 @@ class Instance(AAuthDriver):
 		return self._build_session(token_data, org=org)
 
 	def login(self, request, org: str):
-		"""Open ID does not support credential-based login."""
-		return Response({"error": "METHOD_NOT_ALLOWED"}, status=405)
+		"""Open ID does not support credential-based login. Raises AuthDriverError."""
+		raise AuthDriverError("METHOD_NOT_ALLOWED", status_code=405)
 
 	def refresh(self, **token_data) -> dict:
 		"""Exchange a refresh token for a new token set. Raises AuthDriverError on failure."""
@@ -65,11 +62,28 @@ class Instance(AAuthDriver):
 			fallback_refresh=refresh_token,
 		)
 
+	# pylint: disable-next=useless-parent-delegation
+	def resolve_identity(self, request) -> tuple:
+		"""Resolve identity from the X-SAP-Username/X-SAP-Connection-Key headers."""
+		# Open ID has no opaque-token concept to verify against, so it keeps the base
+		# class's header-trust default — redeclared here so every driver's full
+		# capability set is visible from its own file, not just the abstract base.
+		return super().resolve_identity(request)
+
+	# pylint: disable-next=useless-parent-delegation
+	def resolve_session_payload(self, session_dict: dict) -> dict:
+		"""Pass the session dict through unchanged."""
+		# Open ID sessions already carry a real OAuth access token, so there is
+		# nothing to swap in at fire time — this keeps the base class default,
+		# redeclared here for the same visibility reason as resolve_identity above.
+		return super().resolve_session_payload(session_dict)
+
 	def _build_session(
 		self,
 		token_data: dict,
 		*,
 		fallback_refresh: str = "",
+		org: str = "",
 	) -> dict:
 		"""Build a normalised session dict from a raw XSUAA token response."""
 		id_token = token_data.get("id_token", "")
@@ -82,6 +96,7 @@ class Instance(AAuthDriver):
 			access_token=token_data.get("access_token"),
 			expires_at=int(time.time()) + int(token_data.get("expires_in", 3600)),
 			id_token=id_token,
+			org=org,
 			refresh_token=token_data.get("refresh_token") or fallback_refresh,
 			user=user_info,
 		)

@@ -34,6 +34,7 @@ export default class Abstract {
     const session = auth.getSession() || {};
     return {
       'Authorization': session.access_token ? `Bearer ${session.access_token}` : '',
+      'X-SAP-Connection-Key': session.database || '',
       'X-SAP-Username': session.user?.username || '',
     };
   }

@@ -1,0 +1,48 @@
+@reference "@/styles/main.css";
+
+.orb-admin-pane {
+  @apply flex-1 overflow-y-auto p-8;
+}
+
+.orb-admin-title {
+  @apply font-extrabold mb-6 text-2xl tracking-tight;
+}
+
+.orb-admin-error {
+  @apply bg-red-50 border border-red-200 mb-4 px-4 py-3 rounded-lg text-red-700 text-sm;
+}
+
+.orb-admin-loading {
+  @apply text-sm;
+  color: var(--orb-typing-text);
+}
+
+.orb-admin-table {
+  @apply text-left text-sm w-full;
+
+  th {
+    @apply font-semibold pb-2 pr-4 text-xs uppercase;
+    color: var(--orb-typing-text);
+  }
+
+  td {
+    @apply border-t pr-4 py-3;
+    border-top-color: var(--orb-sidebar-border);
+  }
+}
+
+.orb-admin-actions {
+  @apply flex gap-2;
+}
+
+.orb-status-badge {
+  @apply font-semibold px-2 py-0.5 rounded-full text-xs;
+}
+
+.orb-status-active {
+  @apply bg-green-100 text-green-700;
+}
+
+.orb-status-revoked {
+  @apply bg-gray-100 text-gray-500;
+}

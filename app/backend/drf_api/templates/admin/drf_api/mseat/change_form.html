@@ -1,0 +1,15 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_modify %}
+
+{% block submit_buttons_bottom %}
+  {% submit_row %}
+  {% if change %}
+    <div class="submit-row">
+      <input
+        type="submit"
+        name="_toggle_role"
+        value="{% if seat_is_admin %}{% translate 'Demote to Standard' %}{% else %}{% translate 'Promote to Admin' %}{% endif %}"
+      >
+    </div>
+  {% endif %}
+{% endblock %}

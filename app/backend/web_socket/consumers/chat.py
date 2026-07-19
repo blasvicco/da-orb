@@ -12,7 +12,12 @@ from django.db import IntegrityError
 
 # App imports
 from drf_api.models import MChatMessage, MChatSession
-from web_socket.helpers.n8n import N8nClient, N8nClientError, N8nQueueState, N8nSessionState
+from web_socket.helpers.n8n import (
+	N8nClient,
+	N8nClientError,
+	N8nQueueState,
+	N8nSessionState,
+)
 from .abstract import CAbstract
 
 _logger = logging.getLogger(__name__)
@@ -26,14 +31,21 @@ _MSG_QUEUED = "chat.system.queued"
 
 
 @database_sync_to_async
-def _create_session(org, username, language):
-	return MChatSession.objects.create(org=org, username=username, language=language)
+def _create_session(connection_key, language, org, username):
+	return MChatSession.objects.create(
+		connection_key=connection_key, language=language, org=org, username=username
+	)
 
 
 @database_sync_to_async
-def _load_session(session_id, org_id, username):
+def _load_session(connection_key, org_id, session_id, username):
 	try:
-		return MChatSession.objects.get(id=session_id, org_id=org_id, username=username)
+		return MChatSession.objects.get(
+			connection_key=connection_key,
+			id=session_id,
+			org_id=org_id,
+			username=username,
+		)
 	except MChatSession.DoesNotExist:
 		return None
 
@@ -62,6 +74,7 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 	"""Chat web socket class"""
 
 	chat_session = None
+	connection_key = ""
 	group_name_prefix = "chat"
 	n8n_client = None
 	n8n_state = None
@@ -72,16 +85,14 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 	_new_chat_token = None
 
 	def get_group_name(self):
-		"""Get group name implementation.
-
-		Scoped per (org, user, chat) — not just (org, user) — so a user can have
-		multiple chats open and in progress at once without their n8n session
-		state (and WS broadcast routing) colliding. When resuming an existing
-		chat, the chat's own session_id keys the group. For a brand-new chat,
-		the session_id doesn't exist yet (it's created lazily on first message),
-		so a per-connection random token is generated instead — stable for the
-		lifetime of this connection and never shared with another tab/chat.
-		"""
+		"""Get group name implementation."""
+		# Scoped per (org, user, chat) — not just (org, user) — so a user can have
+		# multiple chats open and in progress at once without their n8n session
+		# state (and WS broadcast routing) colliding. When resuming an existing
+		# chat, the chat's own session_id keys the group. For a brand-new chat,
+		# the session_id doesn't exist yet (it's created lazily on first message),
+		# so a per-connection random token is generated instead — stable for the
+		# lifetime of this connection and never shared with another tab/chat.
 		if self._resume_session_id:
 			chat_key = self._resume_session_id
 		else:
@@ -99,8 +110,7 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 		await super().auth_init(content)
 
 	def _resolve_process_selection(self, message_text):
-		"""If the user replied with a number or letter after a MULTIPLE_PROCESSES response,
-		map it to the corresponding process name."""
+		"""If the user replied with a number or letter, map it to the corresponding process name."""
 		if not self.pending_processes:
 			return message_text
 
@@ -157,9 +167,10 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 			if hasattr(self.user, "session") and self.user.session:
 				language = getattr(self.user.session, "language", "es")
 			self.chat_session = await _create_session(
+				connection_key=self.connection_key,
+				language=language,
 				org=self.organization,
 				username=self.user.username,
-				language=language,
 			)
 			# Set title BEFORE notifying the frontend so the sessions API
 			# returns the record with a title already in place.
@@ -188,7 +199,9 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 			# execution's result has been persisted. Org/user are captured here as
 			# plain dicts because the callback runs in a separate request context
 			# with no access to this connection's live auth/session object.
-			organization_dict = await database_sync_to_async(self.organization.to_dict)()
+			organization_dict = await database_sync_to_async(
+				self.organization.safe_to_dict
+			)()
 			await self.n8n_queue.set_pending(
 				{
 					"message": resolved_text,
@@ -238,11 +251,9 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 				return
 
 	async def _fire_pending_if_any(self):
-		"""Start a queued message left behind after this execution never started.
-
-		Only relevant on the failure path above: the normal success path is handled
-		by the n8n callback once the in-flight execution's result comes back.
-		"""
+		"""Start a queued message left behind after this execution never started."""
+		# Only relevant on the failure path above: the normal success path is handled
+		# by the n8n callback once the in-flight execution's result comes back.
 		pending = await self.n8n_queue.pop_pending()
 		if not pending:
 			return
@@ -269,6 +280,9 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 
 		self.pending_processes = None
 		self.organization = self.scope.get("organization")
+		self.connection_key = ""
+		if hasattr(self.user, "session") and self.user.session:
+			self.connection_key = getattr(self.user.session, "connection_key", "")
 
 		group_name = self.get_group_name()
 		self.n8n_client = N8nClient()
@@ -279,8 +293,9 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 
 		if self._resume_session_id:
 			self.chat_session = await _load_session(
-				self._resume_session_id,
+				connection_key=self.connection_key,
 				org_id=self.organization.id,
+				session_id=self._resume_session_id,
 				username=self.user.username,
 			)
 			if self.chat_session and self.chat_session.n8n_state:
@@ -289,12 +304,10 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 			await self.n8n_state.clear()
 
 	async def websocket_disconnect(self, message):
-		"""Clean up Redis connections on disconnect.
-
-		Does not release the in-flight lock or clear anything pending — an execution
-		started before disconnect is still running server-side and will still call
-		back, and the lock's TTL is the safety net for the case where it doesn't.
-		"""
+		"""Clean up Redis connections on disconnect."""
+		# Does not release the in-flight lock or clear anything pending — an execution
+		# started before disconnect is still running server-side and will still call
+		# back, and the lock's TTL is the safety net for the case where it doesn't.
 		if self.n8n_state:
 			await self.n8n_state.close()
 		if self.n8n_queue:

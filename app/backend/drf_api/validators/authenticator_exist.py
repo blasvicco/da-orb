@@ -3,9 +3,6 @@
 # Lib imports
 from rest_framework.exceptions import ValidationError
 
-# App imports
-from drf_api.resources.auth.factory import FAuthenticator
-
 
 class VAuthenticatorExist:  # pylint: disable=too-few-public-methods
 	"""Validates that a given driver key is registered in FAuthenticator."""
@@ -16,6 +13,13 @@ class VAuthenticatorExist:  # pylint: disable=too-few-public-methods
 
 	def __call__(self, driver, integration=None):
 		"""Raises ValidationError when the driver key is unknown."""
+		# Deferred import: drf_api.resources.auth.__init__ loads main.py, which
+		# imports VAuthenticatorExist from this package, so importing FAuthenticator
+		# at module load time would re-enter drf_api.validators before it finishes.
+		from drf_api.resources.auth.factory import (  # pylint: disable=import-outside-toplevel
+			FAuthenticator,
+		)
+
 		try:
 			return FAuthenticator.get_instance(driver=driver, integration=integration)
 		except Exception as error:

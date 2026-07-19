@@ -10,17 +10,13 @@ from django.db import models
 
 
 class EncryptedJSONField(models.TextField):
-	"""
-	Custom TextField that transparently encrypts a dict to/from the database
-	using Fernet symmetric encryption (AES-128-CBC + HMAC-SHA256).
+	"""Custom TextField that transparently encrypts a dict to/from the database."""
 
-	The raw DB column stores the Fernet token (URL-safe base64 string).
-	Python always sees a plain dict — encryption/decryption is invisible
-	to model code and serializers.
-
-	Requires FIELD_ENCRYPTION_KEY in Django settings — a URL-safe base64
-	encoded 32-byte key generated with: Fernet.generate_key().decode()
-	"""
+	# Uses Fernet symmetric encryption (AES-128-CBC + HMAC-SHA256). The raw DB
+	# column stores the Fernet token (URL-safe base64 string); Python always
+	# sees a plain dict — encryption/decryption is invisible to model code and
+	# serializers. Requires FIELD_ENCRYPTION_KEY in Django settings — a
+	# URL-safe base64 encoded 32-byte key generated with Fernet.generate_key().decode()
 
 	description = "An encrypted JSON field"
 

@@ -19,17 +19,17 @@
     border: 1px solid var(--orb-user-profile-border);
 
     .orb-user-details {
-      @apply flex gap-3 items-center;
+      @apply flex gap-3 items-center min-w-0;
 
       .orb-user-avatar {
-        @apply bg-brand-primary/10 border border-brand-primary/20 flex font-bold h-10 items-center justify-center rounded-full text-brand-primary text-lg w-10;
+        @apply bg-brand-primary/10 border border-brand-primary/20 flex font-bold h-10 items-center justify-center rounded-full shrink-0 text-brand-primary text-lg w-10;
       }
 
       .orb-user-info {
-        @apply flex flex-col;
+        @apply flex flex-col min-w-0;
 
         .orb-user-name {
-          @apply font-bold leading-none text-sm;
+          @apply font-bold leading-none text-sm truncate;
           color: var(--orb-user-name);
         }
 
@@ -37,11 +37,27 @@
           @apply font-semibold leading-none mt-1 text-[10px];
           color: var(--orb-user-role);
         }
+
+        .orb-user-connection {
+          @apply block leading-none mt-1 text-[10px] truncate;
+          color: var(--orb-user-role);
+          opacity: 0.7;
+        }
       }
     }
 
     .orb-user-actions {
-      @apply flex gap-1 items-center;
+      @apply flex gap-1 items-center shrink-0;
+    }
+
+    .orb-admin-link-btn {
+      @apply cursor-pointer flex items-center justify-center p-1.5 rounded-lg transition-colors;
+      color: var(--orb-logout-text);
+
+      &:hover {
+        background: var(--orb-logout-hover-bg);
+        color: var(--orb-logout-hover-text);
+      }
     }
 
     .orb-logout-btn {

@@ -53,6 +53,11 @@ export const useAuth = defineStore('auth', () => {
 		return !!_session.value;
 	};
 
+	const isAdmin = () => {
+		bootstrap();
+		return _session.value?.role === 'admin';
+	};
+
 	const isLoading = () => {
 		return _loading.value;
 	};
@@ -161,6 +166,7 @@ export const useAuth = defineStore('auth', () => {
 	return {
 		callback,
 		hasSession,
+		isAdmin,
 		isLoading,
 		getError,
 		getSession,

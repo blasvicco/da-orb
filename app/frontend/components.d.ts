@@ -23,11 +23,13 @@ declare module 'vue' {
     Input: typeof import('./src/components/chat/input.vue')['default']
     Main: typeof import('./src/components/contact/main.vue')['default']
     Processes: typeof import('./src/components/chat/processes.vue')['default']
+    RankedList: typeof import('./src/components/admin/ranked-list.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     SessionItem: typeof import('./src/components/chat/session-item.vue')['default']
     Settings: typeof import('./src/components/chat/settings.vue')['default']
     Signin: typeof import('./src/components/auth/signin.vue')['default']
+    Tabs: typeof import('./src/components/admin/tabs.vue')['default']
     Welcome: typeof import('./src/components/chat/welcome.vue')['default']
   }
 }

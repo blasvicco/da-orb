@@ -7,6 +7,9 @@ import logging
 import httpx
 from channels.db import database_sync_to_async
 
+# App imports
+from drf_api.resources.auth.factory import FAuthenticator
+
 logger = logging.getLogger(__name__)
 
 
@@ -52,7 +55,8 @@ class N8nClient:  # pylint: disable=too-few-public-methods
 		# Raises N8nClientError on connection failure or non-2xx response.
 
 		current = await state.load()
-		organization_dict = await database_sync_to_async(organization.to_dict)()
+		organization_dict = await database_sync_to_async(organization.safe_to_dict)()
+		session_payload = await self._resolve_session_payload(organization_dict, user)
 
 		payload = {
 			"form_state": current.get("form_state"),
@@ -60,7 +64,7 @@ class N8nClient:  # pylint: disable=too-few-public-methods
 			"message": message,
 			"organization": organization_dict,
 			"process_id": current.get("process_id"),
-			"session": user.to_dict(),
+			"session": session_payload,
 			"session_id": session_id,
 			"expertise_level": expertise_level,
 			"pending_processes": current.get("pending_processes"),
@@ -97,3 +101,16 @@ class N8nClient:  # pylint: disable=too-few-public-methods
 				f"n8n webhook returned {resp.status_code}",
 				status_code=resp.status_code,
 			)
+
+	async def _resolve_session_payload(self, organization_dict, user):
+		"""Return the session dict to send to n8n, resolved through the org's auth driver."""
+		# B1S swaps in decrypted credentials at fire time; other drivers pass the session
+		# through unchanged. The driver is detected from org settings via FAuthenticator.
+		integration = organization_dict.get("integration", {})
+		driver = FAuthenticator.get_instance(
+			driver=integration.get("auth_driver", "open_id"),
+			integration=integration,
+		)
+		return await database_sync_to_async(driver.resolve_session_payload)(
+			user.to_dict()
+		)

@@ -8,7 +8,9 @@ import { useAuth } from '@/modules/auth';
 import landing from '@/views/landing.vue';
 import chat from '@/views/chat.vue';
 import privacy from '@/views/privacy.vue';
+import seats from '@/views/admin/seats.vue';
 import terms from '@/views/terms.vue';
+import usage from '@/views/admin/usage.vue';
 
 const router = createRouter({
   history: createWebHistory(__APP_ENV__.BASE_URL),
@@ -52,6 +54,22 @@ const router = createRouter({
     meta: {
       auth: true,
     },
+  }, {
+    path: '/admin/seats',
+    name: 'admin-seats',
+    component: seats,
+    meta: {
+      auth: true,
+      adminOnly: true,
+    },
+  }, {
+    path: '/admin/usage',
+    name: 'admin-usage',
+    component: usage,
+    meta: {
+      auth: true,
+      adminOnly: true,
+    },
   }],
   scrollBehavior: (to, from, _savedPosition) => {
     if (to.name === from.name) return;
@@ -70,13 +88,15 @@ router.beforeEach((to, from, next) => {
   const auth = useAuth();
   // if route requires authentication - auth is true
   if (to.matched.some((record) => record.meta.auth)) {
-    if (auth.hasSession()) {
-      next();
-    } else {
+    if (!auth.hasSession()) {
       next({
         name: 'landing',
         query: { redirect: to.fullPath }
       });
+    } else if (to.matched.some((record) => record.meta.adminOnly) && !auth.isAdmin()) {
+      next({ name: 'chat' });
+    } else {
+      next();
     }
   }
   // if route can be accessed without authentication - guest is true

@@ -1,0 +1,30 @@
+@reference "@/styles/main.css";
+
+.orb-usage-stats {
+  @apply gap-4 grid grid-cols-2 mb-2;
+}
+
+.orb-usage-stat-tile {
+  @apply flex flex-col gap-1 p-5 rounded-xl;
+  background: var(--orb-user-profile-bg);
+  border: 1px solid var(--orb-user-profile-border);
+}
+
+.orb-usage-stat-value {
+  @apply font-extrabold text-3xl tracking-tight;
+  color: var(--color-brand-primary);
+}
+
+.orb-usage-stat-label {
+  @apply font-medium text-sm;
+  color: var(--orb-typing-text);
+}
+
+.orb-usage-token-note {
+  @apply italic mb-6 text-xs;
+  color: var(--orb-typing-text);
+}
+
+.orb-usage-grid {
+  @apply gap-4 grid grid-cols-1 lg:grid-cols-2;
+}

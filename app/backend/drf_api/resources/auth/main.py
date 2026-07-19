@@ -13,8 +13,9 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 # App imports
-from drf_api.models import MOrganization
+from drf_api.models import MOrganization, MSessionProxy
 from drf_api.resources.auth.driver.abstract import AuthDriverError
+from drf_api.resources.auth.helpers import is_org_admin, provision_or_check_seat
 from drf_api.resources.auth.permission import PAuth
 from drf_api.validators import VAuthenticatorExist
 
@@ -70,6 +71,18 @@ class VSAuth(viewsets.ViewSet):
 				f"{frontend_base}/?error={urllib.parse.quote(str(error_msg))}"
 			)
 
+		username = session_data.get("user", {}).get("username", "")
+		try:
+			provision_or_check_seat(org, username)
+		except ValidationError as error:
+			error_msg = error.detail if hasattr(error, "detail") else str(error)
+			if isinstance(error_msg, list) and len(error_msg) > 0:
+				error_msg = error_msg[0]
+			return redirect(
+				f"{frontend_base}/?error={urllib.parse.quote(str(error_msg))}"
+			)
+		session_data["role"] = "admin" if is_org_admin(org, username) else "standard"
+
 		session_b64 = base64.b64encode(json.dumps(session_data).encode()).decode()
 		return redirect(f"{frontend_base}/auth/callback?session={session_b64}")
 
@@ -86,9 +99,40 @@ class VSAuth(viewsets.ViewSet):
 				driver=org.integration.get("auth_driver", "open_id"),
 				integration=org.integration,
 			)
-			return driver.login(request, org=slug)
-		except ValidationError as error:
-			return Response({"error": error.detail}, status=400)
+			session_data = driver.login(request, org=slug)
+		except AuthDriverError as error:
+			return Response({"error": str(error)}, status=error.status_code or 401)
+		except (ValidationError, ValueError) as error:
+			error_msg = error.detail if hasattr(error, "detail") else str(error)
+			return Response({"error": error_msg}, status=400)
+
+		if org.integration.get("auth_driver") == "b1s":
+			username = session_data["user"]["username"]
+			try:
+				provision_or_check_seat(org, username)
+			except ValidationError as error:
+				error_msg = error.detail if hasattr(error, "detail") else str(error)
+				if isinstance(error_msg, list) and len(error_msg) > 0:
+					error_msg = error_msg[0]
+				return Response({"error": error_msg}, status=403)
+
+			# The browser must never see the raw password again after this point — the
+			# opaque token below is all it gets; credentials stay encrypted server-side
+			# and are only decrypted again when a message is actually fired to n8n.
+			session_proxy = MSessionProxy.issue(
+				auth_driver="b1s",
+				connection_key=session_data["database"],
+				org=org,
+				password=session_data["user"]["password"],
+				username=username,
+			)
+			session_data["access_token"] = session_proxy.token
+			session_data["user"]["password"] = ""
+			session_data["role"] = (
+				"admin" if is_org_admin(org, username) else "standard"
+			)
+
+		return Response(session_data)
 
 	@action(detail=False, methods=["post"])
 	def refresh(self, request, *args, **kwargs):
@@ -116,5 +160,8 @@ class VSAuth(viewsets.ViewSet):
 		except (ValueError, ValidationError) as error:
 			error_msg = error.detail if hasattr(error, "detail") else str(error)
 			return Response({"error": error_msg}, status=400)
+
+		username = session_data.get("user", {}).get("username", "")
+		session_data["role"] = "admin" if is_org_admin(org, username) else "standard"
 
 		return Response(session_data)
