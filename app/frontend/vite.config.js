@@ -56,7 +56,7 @@ export default defineConfig({
     },
   },
   server: {
-    allowedHosts: process.env['ALLOWED_HOSTS'].split(' '),
+    allowedHosts: process.env['ALLOWED_HOSTS']?.split(' ') ?? [],
     host: '0.0.0.0',
   },
 });

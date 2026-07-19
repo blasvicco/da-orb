@@ -40,7 +40,7 @@ export default {
       submit: 'Solicitar Acceso',
       submitting: 'Enviando…',
       success: '→ Solicitud recibida. Nos pondremos en contacto a la brevedad.',
-      title: 'Consigue Orb para tu Organización',
+      title: 'Solicita Orb',
     },
   },
   component: {
