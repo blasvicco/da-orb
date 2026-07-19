@@ -54,7 +54,10 @@ def get_org_and_user(org_slug, session_data, token, username=None):
 		return org, AnonymousUser()
 
 	session_dict = driver.resolve_ws_session(
-		session_data, org=org_slug, token=token, username=username
+		session_data,
+		org=org_slug,
+		token=token,
+		username=username
 	)
 	if session_dict is None:
 		return org, AnonymousUser()
