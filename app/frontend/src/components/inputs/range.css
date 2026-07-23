@@ -1,0 +1,9 @@
+@reference "@/styles/main.css";
+
+div.input-range {
+	@apply flex items-center gap-2 w-full;
+
+	.ant-input-number {
+		@apply flex-1;
+	}
+}

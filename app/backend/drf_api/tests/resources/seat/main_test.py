@@ -96,6 +96,22 @@ def test_revoke_missing_username_returns_400():
 		assert response.status_code == 400
 
 
+def test_revoke_rejects_self():
+	"""Test revoke returns 403 when the acting admin targets their own seat"""
+
+	with step("Arrange: An org where the acting admin targets themself."):
+		org = _make_org()
+		request = _make_request("post", org, data={"username": "admin"})
+
+	with step("Act: Call revoke."):
+		response = VSSeat.as_view({"post": "revoke"})(request)
+
+	with step("Assert: 403 CANNOT_REVOKE_SELF and the seat stays active."):
+		assert response.status_code == 403
+		assert response.data == {"error": "CANNOT_REVOKE_SELF"}
+		assert MSeat.objects.get(org=org, username="admin").status == "active"
+
+
 def test_reinstate_succeeds_within_capacity():
 	"""Test reinstate flips a revoked seat back to active when capacity allows"""
 
@@ -147,6 +163,24 @@ def test_set_role_grants_and_revokes_admin():
 	with step("Assert: bob is now an org admin."):
 		assert response.status_code == 200
 		assert is_org_admin(org, "bob") is True
+
+
+def test_set_role_rejects_self_demote():
+	"""Test set_role returns 403 when the acting admin tries to remove their own admin access"""
+
+	with step("Arrange: An org where the acting admin targets their own role."):
+		org = _make_org()
+		request = _make_request(
+			"post", org, data={"role": "standard", "username": "admin"}
+		)
+
+	with step("Act: Call set_role."):
+		response = VSSeat.as_view({"post": "set_role"})(request)
+
+	with step("Assert: 403 CANNOT_REMOVE_OWN_ADMIN and admin keeps the role."):
+		assert response.status_code == 403
+		assert response.data == {"error": "CANNOT_REMOVE_OWN_ADMIN"}
+		assert is_org_admin(org, "admin") is True
 
 
 def test_set_role_rejects_invalid_role():

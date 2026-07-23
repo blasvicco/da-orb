@@ -1,0 +1,33 @@
+@reference "@/styles/main.css";
+
+div.table-search {
+	@apply m-1 p-1;
+
+	.input-number-wrapper,
+	.input-date-wrapper {
+		@apply w-[300px];
+	}
+
+	.input-text-wrapper {
+		@apply w-[250px];
+	}
+
+	.input-date-wrapper,
+	.input-number-wrapper,
+	.input-text-wrapper {
+		@apply mb-1;
+
+		input[type=text].ant-input.ant-input-sm {
+			@apply w-full;
+		}
+	}
+
+	.btn-wrapper {
+		@apply flex w-full justify-end;
+
+		button {
+			@apply mr-1;
+		}
+	}
+
+}

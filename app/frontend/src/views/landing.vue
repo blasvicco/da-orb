@@ -91,11 +91,10 @@
       type: 'sap-data',
       titleKey: 'landing.chat.step3.title',
       data: {
-        'landing.chat.step3.material': 'landing.chat.step3.materialVal',
-        'landing.chat.step3.plant': 'landing.chat.step3.plantVal',
-        'landing.chat.step3.sloc': 'landing.chat.step3.slocVal',
-        'landing.chat.step3.unrestricted': 'landing.chat.step3.unrestrictedVal',
-        'landing.chat.step3.blocked': 'landing.chat.step3.blockedVal',
+        'landing.chat.step3.itemCode': 'landing.chat.step3.itemCodeVal',
+        'landing.chat.step3.warehouse': 'landing.chat.step3.warehouseVal',
+        'landing.chat.step3.inStock': 'landing.chat.step3.inStockVal',
+        'landing.chat.step3.committed': 'landing.chat.step3.committedVal',
         'landing.chat.step3.reorder': 'landing.chat.step3.reorderVal',
       },
       delay: 2500

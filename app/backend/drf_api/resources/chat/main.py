@@ -102,8 +102,28 @@ def _resolve_and_persist_state(group_name, incoming):
 	return merged
 
 
+def _resolve_process_name(effective_state, processes):
+	"""Return the best available human-readable process name for this callback."""
+	process_definition = (effective_state or {}).get("process_definition") or {}
+	# process_id is the process definition's opaque numeric key, not a display
+	# name — prefer the definition's own name, then the disambiguation list's
+	# name, and only fall back to the raw id if neither is available.
+	return (
+		process_definition.get("name")
+		or (processes[0]["name"] if processes else "")
+		or str((effective_state or {}).get("process_id") or "")
+	)
+
+
 def _record_usage_events(session, *, effective_state, extra, occurred_on, processes):
 	"""Persist token-usage and/or process-execution events for this callback, if present."""
+	has_process = bool(
+		processes or (effective_state and effective_state.get("process_id"))
+	)
+	process_name = (
+		_resolve_process_name(effective_state, processes) if has_process else ""
+	)
+
 	# Token-usage events depend on n8n's "Build Callback Payload" node forwarding a
 	# usage sub-object inside extra — absent from the workflow today, so this branch
 	# is currently a no-op in production until that external change ships. Written
@@ -118,16 +138,14 @@ def _record_usage_events(session, *, effective_state, extra, occurred_on, proces
 			model_name=usage.get("model", ""),
 			occurred_on=occurred_on,
 			org=session.org,
+			process_name=process_name,
 			prompt_tokens=usage.get("prompt_tokens"),
 			session=session,
 			total_tokens=usage.get("total_tokens"),
 			username=session.username,
 		)
 
-	if processes or (effective_state and effective_state.get("process_id")):
-		process_name = (effective_state or {}).get("process_id") or (
-			processes[0]["name"] if processes else ""
-		)
+	if has_process:
 		MUsageEvent.objects.create(
 			connection_key=session.connection_key,
 			event_type="process_execution",

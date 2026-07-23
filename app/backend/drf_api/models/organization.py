@@ -42,6 +42,8 @@ class MOrganization(MBase):
 		max_length=40,
 		null=False,
 	)
+	# Subscription plan limits, e.g. {"seats": 10, "tokens": 1000000, "support_hours": 5}
+	plan = models.JSONField(blank=True, default=dict)
 	seat_limit = models.PositiveIntegerField(default=0)
 	slug = models.CharField(
 		blank=False,

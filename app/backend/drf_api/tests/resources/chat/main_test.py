@@ -243,6 +243,45 @@ def test_n8n_callback_records_process_execution_event(settings):
 		assert event.username == "bob"
 
 
+def test_n8n_callback_records_process_execution_event_prefers_definition_name(settings):
+	"""Test n8n_callback uses process_definition.name over the raw numeric process_id"""
+
+	with step(
+		"Arrange: A session and a callback payload carrying state with a numeric "
+		"process_id but no disambiguation list."
+	):
+		settings.N8N_CALLBACK_SECRET = "test-secret"
+		org = _make_org()
+		session = MChatSession.objects.create(
+			connection_key="TESTDB", org=org, username="bob"
+		)
+		request = _make_callback_request(
+			{
+				"group_name": "chat_1_bob_def",
+				"session_id": session.id,
+				"state": {
+					"process_id": 1,
+					"process_definition": {"name": "Create Purchase Request"},
+				},
+				"text": "Please provide the required fields.",
+				"type": "agent",
+			},
+			org,
+		)
+
+	with step("Act: Call n8n_callback."):
+		response = VSChat.as_view(
+			{"post": "n8n_callback"}, permission_classes=[PN8nCallback]
+		)(request)
+
+	with step(
+		"Assert: The process_execution event uses the definition's display name."
+	):
+		assert response.status_code == 200
+		event = MUsageEvent.objects.get(org=org, event_type="process_execution")
+		assert event.process_name == "Create Purchase Request"
+
+
 def test_n8n_callback_records_no_usage_event_when_nothing_to_report(settings):
 	"""Test n8n_callback creates no MUsageEvent when the payload carries neither usage nor processes"""
 

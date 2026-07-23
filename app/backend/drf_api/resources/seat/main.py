@@ -49,6 +49,8 @@ class VSSeat(viewsets.ViewSet):
 		username = request.data.get("username", "").strip()
 		if not username:
 			return Response({"error": "MISSING_USERNAME"}, status=400)
+		if username == acting_username:
+			return Response({"error": "CANNOT_REVOKE_SELF"}, status=403)
 
 		seat = get_object_or_404(MSeat, org=org, username=username)
 		seat.revoked_by = acting_username
@@ -67,11 +69,13 @@ class VSSeat(viewsets.ViewSet):
 	@action(detail=False, methods=["post"])
 	def set_role(self, request, *args, **kwargs):
 		"""Grant or revoke the org-admin role for a username."""
-		org, _, _ = resolve_request_identity(request)
+		org, acting_username, _ = resolve_request_identity(request)
 		username = request.data.get("username", "").strip()
 		role = request.data.get("role", "")
 		if not username or role not in ("admin", "standard"):
 			return Response({"error": "INVALID_REQUEST"}, status=400)
+		if username == acting_username and role == "standard":
+			return Response({"error": "CANNOT_REMOVE_OWN_ADMIN"}, status=403)
 
 		set_org_admin(org, username, role == "admin")
 		return Response({"role": role, "username": username})

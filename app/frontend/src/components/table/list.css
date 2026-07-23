@@ -1,0 +1,7 @@
+@reference "@/styles/main.css";
+
+div.list {
+	td {
+		vertical-align: top;
+	}
+}

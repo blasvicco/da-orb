@@ -13,6 +13,7 @@
 
   // App components imports
   import AdminTabs from '@/components/admin/tabs.vue';
+  import PlanSummary from '@/components/admin/plan-summary.vue';
   import RankedList from '@/components/admin/ranked-list.vue';
   import UserDetail from '@/components/user/detail.vue';
   import ChatLayout from '@/layouts/chat.vue';
@@ -79,11 +80,11 @@
       value: row.total_tokens,
     })));
 
-  const tokensByModel = computed(() => (summary.value?.tokens?.by_model || [])
+  const tokensByProcess = computed(() => (summary.value?.tokens?.by_process || [])
     .filter((row) => row.total_tokens)
     .map((row) => ({
       displayValue: row.total_tokens.toLocaleString(),
-      label: row.model_name || t('admin.usage.unknownModel'),
+      label: row.process_name || t('admin.usage.unknownProcess'),
       value: row.total_tokens,
     })));
 
@@ -186,6 +187,11 @@
           </div>
         </div>
 
+        <PlanSummary
+          :plan="summary.plan"
+          variant="progress"
+        />
+
         <p class="orb-usage-token-note">
           {{ $t('admin.usage.tokenNote') }}
         </p>
@@ -207,8 +213,8 @@
             :empty-label="$t('admin.usage.noData')"
           />
           <RankedList
-            :title="$t('admin.usage.tokensByModel')"
-            :items="tokensByModel"
+            :title="$t('admin.usage.tokensByProcess')"
+            :items="tokensByProcess"
             :empty-label="$t('admin.usage.noData')"
           />
           <RankedList

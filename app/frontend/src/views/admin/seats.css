@@ -17,24 +17,6 @@
   color: var(--orb-typing-text);
 }
 
-.orb-admin-table {
-  @apply text-left text-sm w-full;
-
-  th {
-    @apply font-semibold pb-2 pr-4 text-xs uppercase;
-    color: var(--orb-typing-text);
-  }
-
-  td {
-    @apply border-t pr-4 py-3;
-    border-top-color: var(--orb-sidebar-border);
-  }
-}
-
-.orb-admin-actions {
-  @apply flex gap-2;
-}
-
 .orb-status-badge {
   @apply font-semibold px-2 py-0.5 rounded-full text-xs;
 }

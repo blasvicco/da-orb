@@ -7,7 +7,7 @@ from django.utils import timezone
 from rest_framework.test import APIRequestFactory
 
 # App imports
-from drf_api.models import MChatMessage, MChatSession, MOrganization, MUsageEvent
+from drf_api.models import MChatMessage, MChatSession, MOrganization, MSeat, MUsageEvent
 from drf_api.resources.auth.helpers import set_org_admin
 from drf_api.resources.usage.main import VSUsage
 
@@ -44,32 +44,32 @@ def test_summary_requires_admin():
 		assert response.status_code == 403
 
 
-def test_summary_aggregates_token_usage_by_model():
-	"""Test summary sums total_tokens overall and grouped by model"""
+def test_summary_aggregates_token_usage_by_process():
+	"""Test summary sums total_tokens overall and grouped by process_name"""
 
-	with step("Arrange: Three token_usage events across two models and two users."):
+	with step("Arrange: Three token_usage events across two processes and two users."):
 		org = _make_org()
 		MUsageEvent.objects.create(
 			event_type="token_usage",
-			model_name="gpt-5-nano",
 			occurred_on=timezone.now(),
 			org=org,
+			process_name="create_purchase_order",
 			total_tokens=100,
 			username="bob",
 		)
 		MUsageEvent.objects.create(
 			event_type="token_usage",
-			model_name="gpt-5-nano",
 			occurred_on=timezone.now(),
 			org=org,
+			process_name="create_purchase_order",
 			total_tokens=50,
 			username="alice",
 		)
 		MUsageEvent.objects.create(
 			event_type="token_usage",
-			model_name="claude",
 			occurred_on=timezone.now(),
 			org=org,
+			process_name="goods_receipt",
 			total_tokens=25,
 			username="bob",
 		)
@@ -78,14 +78,53 @@ def test_summary_aggregates_token_usage_by_model():
 	with step("Act: Call summary."):
 		response = VSUsage.as_view({"get": "summary"})(request)
 
-	with step("Assert: Token totals are correct, overall and by model."):
+	with step("Assert: Token totals are correct, overall and by process."):
 		assert response.status_code == 200
 		assert response.data["tokens"]["total"] == 175
-		by_model = {
-			row["model_name"]: row["total_tokens"]
-			for row in response.data["tokens"]["by_model"]
+		by_process = {
+			row["process_name"]: row["total_tokens"]
+			for row in response.data["tokens"]["by_process"]
 		}
-		assert by_model == {"gpt-5-nano": 150, "claude": 25}
+		assert by_process == {"create_purchase_order": 150, "goods_receipt": 25}
+
+
+def test_summary_plan_reports_seat_and_token_usage_against_plan_limits():
+	"""Test summary reports active seat count and this-month token usage against org.plan limits"""
+
+	with step(
+		"Arrange: An org with a plan, an active and a revoked seat, and tokens "
+		"spread across this month and last month."
+	):
+		org = _make_org()
+		org.plan = {"seats": 10, "tokens": 1000}
+		org.save()
+		MSeat.objects.create(org=org, status="active", username="bob")
+		MSeat.objects.create(org=org, status="revoked", username="carol")
+		MUsageEvent.objects.create(
+			event_type="token_usage",
+			occurred_on=timezone.now(),
+			org=org,
+			total_tokens=40,
+			username="bob",
+		)
+		MUsageEvent.objects.create(
+			event_type="token_usage",
+			occurred_on=timezone.now() - timezone.timedelta(days=32),
+			org=org,
+			total_tokens=999,
+			username="bob",
+		)
+		request = _make_request(org)
+
+	with step("Act: Call summary."):
+		response = VSUsage.as_view({"get": "summary"})(request)
+
+	with step(
+		"Assert: plan.seats counts only active seats; plan.tokens counts only this month."
+	):
+		assert response.status_code == 200
+		assert response.data["plan"]["seats"] == {"total": 10, "used": 1}
+		assert response.data["plan"]["tokens"] == {"total": 1000, "used": 40}
 
 
 def test_summary_aggregates_process_execution_by_process():

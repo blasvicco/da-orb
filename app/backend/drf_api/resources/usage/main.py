@@ -2,16 +2,17 @@
 
 # Lib imports
 from django.db.models import Count, DurationField, ExpressionWrapper, F, Sum
+from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 # App imports
-from drf_api.models import MChatMessage, MChatSession, MUsageEvent
+from drf_api.models import MChatMessage, MChatSession, MSeat, MUsageEvent
 from drf_api.resources.auth.helpers import resolve_request_identity
 from drf_api.resources.usage.permission import PUsage
 
-_TOP_N = 10
+_TOP_N = 5
 
 
 class VSUsage(viewsets.ViewSet):
@@ -28,23 +29,40 @@ class VSUsage(viewsets.ViewSet):
 		process_events = MUsageEvent.objects.filter(
 			org=org, event_type="process_execution"
 		)
+		now = timezone.now()
+		tokens_this_month = (
+			token_events.filter(
+				occurred_on__year=now.year, occurred_on__month=now.month
+			).aggregate(total=Sum("total_tokens"))["total"]
+			or 0
+		)
 
 		return Response(
 			{
+				"plan": {
+					"seats": {
+						"total": org.plan.get("seats", org.seat_limit),
+						"used": MSeat.objects.filter(org=org, status="active").count(),
+					},
+					"tokens": {
+						"total": org.plan.get("tokens", 0),
+						"used": tokens_this_month,
+					},
+				},
 				"processes": {
 					"by_process": list(
 						process_events.values("process_name")
 						.annotate(count=Count("id"))
-						.order_by("-count")
+						.order_by("-count")[:_TOP_N]
 					),
 					"total": process_events.count(),
 				},
 				"session_time": self._session_time_by_user(org),
 				"tokens": {
-					"by_model": list(
-						token_events.values("model_name")
+					"by_process": list(
+						token_events.values("process_name")
 						.annotate(total_tokens=Sum("total_tokens"))
-						.order_by("-total_tokens")
+						.order_by("-total_tokens")[:_TOP_N]
 					),
 					"total": token_events.aggregate(total=Sum("total_tokens"))["total"]
 					or 0,
