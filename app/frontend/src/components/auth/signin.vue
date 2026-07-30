@@ -2,7 +2,7 @@
   // Libs imports
   import { ref } from 'vue';
   import { useRouter } from 'vue-router';
-  import { ExclamationCircleOutlined, SafetyOutlined } from '@ant-design/icons-vue';
+  import { ExclamationCircleOutlined, SafetyOutlined } from '@antdv-next/icons';
 
   // App imports
   import { useAuth } from '@/modules/auth';

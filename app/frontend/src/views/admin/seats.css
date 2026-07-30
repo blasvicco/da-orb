@@ -6,6 +6,7 @@
 
 .orb-admin-title {
   @apply font-extrabold mb-6 text-2xl tracking-tight;
+  color: var(--orb-header-title);
 }
 
 .orb-admin-error {

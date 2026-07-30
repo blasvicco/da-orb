@@ -81,7 +81,7 @@ export default {
     },
     seats: {
       backToChat: 'Back to chat',
-      demote: 'Remove admin',
+      demote: 'Admin',
       grantedOn: 'Granted on',
       revoke: 'Revoke',
       role: 'Role',
@@ -137,7 +137,6 @@ export default {
       learnMore: 'Learn More',
     },
     hero: {
-      liveScope: 'Live today with SAP Business One. More systems are on the roadmap.',
       titleAccent: 'One conversation.',
       titleRest: 'Every SAP Business One process.',
     },
@@ -160,7 +159,7 @@ export default {
     },
     features: {
       title: 'Every process. One conversation.',
-      subtitle: 'Orb turns complex SAP Business One workflows into a single guided conversation today — with more systems on the roadmap.',
+      subtitle: 'Orb turns complex SAP Business One workflows into a single guided conversation today.',
       naturalLanguage: {
         title: 'Natural Language Operations',
         desc: 'Ask for inventory, draft a purchase requisition, or check a vendor status in plain language. No menus, no transaction codes, no specialist required.',
@@ -357,6 +356,7 @@ export default {
         deleteConfirm: 'Delete this chat?',
         yesterday: 'Yesterday',
         pending: 'The agent is working on this chat',
+        tokensUsed: '{count} tokens',
       },
     },
     header: {
@@ -365,6 +365,7 @@ export default {
       connecting: 'Connecting to Orb...',
       disconnected: 'Disconnected from Orb',
       mcpActive: 'mcp-sap-server active',
+      tokensUsed: '{count} tokens used',
     },
     export: {
       title: 'Export conversation',

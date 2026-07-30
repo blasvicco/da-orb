@@ -1,6 +1,7 @@
 <script setup>
   import Badge from '@/components/chat/badge.vue';
   import Export from '@/components/chat/export.vue';
+  import { formatCompactNumber } from '@/modules/number/token';
 
   import '@/components/chat/header.css';
 
@@ -25,6 +26,10 @@
       default: null,
       type: String,
     },
+    tokensUsed: {
+      default: 0,
+      type: Number,
+    },
     userName: {
       default: '',
       type: String,
@@ -43,6 +48,12 @@
         class="orb-header-connection"
       >
         {{ $t('component.userDetail.connectedTo', { database: connection }) }}
+      </span>
+      <span
+        v-if="tokensUsed > 0"
+        class="orb-header-tokens"
+      >
+        {{ $t('chat.header.tokensUsed', { count: formatCompactNumber(tokensUsed) }) }}
       </span>
       <Export
         :messages="messages"

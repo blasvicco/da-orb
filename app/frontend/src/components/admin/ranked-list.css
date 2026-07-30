@@ -8,6 +8,7 @@
 
 .orb-usage-card-title {
   @apply font-bold mb-4 text-sm;
+  color: var(--orb-card-title);
 }
 
 .orb-usage-empty {
@@ -26,10 +27,16 @@
 
 .orb-usage-ranked-label {
   @apply overflow-hidden text-ellipsis text-sm whitespace-nowrap;
+  color: var(--orb-process-text);
 }
 
 .orb-usage-ranked-bar-track {
-  @apply bg-black/5 h-2 overflow-hidden rounded-full w-full;
+  @apply h-2 overflow-hidden rounded-full w-full;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] .orb-usage-ranked-bar-track {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .orb-usage-ranked-bar-fill {
@@ -38,4 +45,5 @@
 
 .orb-usage-ranked-value {
   @apply font-semibold text-right text-sm;
+  color: var(--orb-process-text);
 }

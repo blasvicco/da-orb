@@ -4,7 +4,7 @@
   import { ref, watch, onMounted } from 'vue';
 
   // antd imports
-  import { SearchOutlined } from '@ant-design/icons-vue';
+  import { SearchOutlined } from '@antdv-next/icons';
 
   // Components imports
   import myrange from '@/components/inputs/range.vue'

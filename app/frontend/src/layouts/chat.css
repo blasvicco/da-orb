@@ -35,4 +35,69 @@
   .ant-select-selection-placeholder { color: #c9d1d9 !important; }
 
   .ant-select-arrow { color: #6e7681 !important; }
+
+  .ant-table,
+  .ant-table-container,
+  .ant-table-content { background: transparent !important; }
+
+  .ant-table-thead > tr > th {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-bottom-color: rgba(240, 246, 252, 0.1) !important;
+    color: #e6edf3 !important;
+  }
+
+  .ant-table-tbody > tr > td {
+    background: rgba(255, 255, 255, 0.02) !important;
+    border-bottom-color: rgba(240, 246, 252, 0.07) !important;
+    color: #c9d1d9 !important;
+  }
+
+  .ant-table-tbody > tr:hover > td,
+  .ant-table-tbody > tr.ant-table-row:hover > td { background: rgba(255, 255, 255, 0.06) !important; }
+
+  .ant-table-placeholder td,
+  .ant-table-placeholder:hover td { background: transparent !important; }
+
+  .ant-empty-description { color: #8b949e !important; }
+
+  .ant-table-filter-trigger,
+  .ant-table-column-sorter { color: #6e7681 !important; }
+
+  .ant-table-filter-trigger.active,
+  .ant-table-filter-trigger:hover,
+  .ant-table-column-sorter:hover { color: #c9d1d9 !important; }
+
+  .ant-pagination-item {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(240, 246, 252, 0.1) !important;
+  }
+
+  .ant-pagination-item a { color: #c9d1d9 !important; }
+
+  .ant-pagination-item-active {
+    border-color: var(--color-brand-primary) !important;
+  }
+
+  .ant-pagination-item-active a { color: var(--color-brand-primary) !important; }
+
+  .ant-pagination-prev .ant-pagination-item-link,
+  .ant-pagination-next .ant-pagination-item-link {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(240, 246, 252, 0.1) !important;
+    color: #c9d1d9 !important;
+  }
+}
+
+/* ── AntD overrides — structural, theme-independent ──────────────────────
+   Table filter dropdowns render via Teleport to document.body, outside
+   .orb-chat-layout, so they can't be scoped under [data-theme] above — and
+   this particular fix (bottom corners not clipped to the panel's own
+   border-radius) is a plain AntD rendering quirk, not a dark-mode issue. */
+.ant-table-filter-dropdown {
+  border-radius: 8px !important;
+}
+
+.ant-table-filter-dropdown-btns {
+  border-bottom-left-radius: 8px !important;
+  border-bottom-right-radius: 8px !important;
 }

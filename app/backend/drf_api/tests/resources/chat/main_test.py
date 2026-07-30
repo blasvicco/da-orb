@@ -59,6 +59,69 @@ def test_sessions_scoped_by_connection_key():
 		assert [row["id"] for row in response.data] == [matching.id]
 
 
+def test_sessions_returns_tokens_used_sum():
+	"""Test sessions annotates tokens_used with the sum of the session's token_usage events"""
+
+	with step(
+		"Arrange: A session with two token_usage events and one process_execution event."
+	):
+		org = _make_org()
+		session = MChatSession.objects.create(
+			connection_key="TESTDB", org=org, username="bob"
+		)
+		now = timezone.now()
+		MUsageEvent.objects.create(
+			connection_key="TESTDB",
+			event_type="token_usage",
+			occurred_on=now,
+			org=org,
+			session=session,
+			total_tokens=15,
+			username="bob",
+		)
+		MUsageEvent.objects.create(
+			connection_key="TESTDB",
+			event_type="token_usage",
+			occurred_on=now,
+			org=org,
+			session=session,
+			total_tokens=25,
+			username="bob",
+		)
+		MUsageEvent.objects.create(
+			connection_key="TESTDB",
+			event_type="process_execution",
+			occurred_on=now,
+			org=org,
+			session=session,
+			username="bob",
+		)
+		request = _make_request("get", org, connection_key="TESTDB", username="bob")
+
+	with step("Act: Call sessions."):
+		response = VSChat.as_view({"get": "sessions"})(request)
+
+	with step("Assert: tokens_used sums only the token_usage events' total_tokens."):
+		assert response.status_code == 200
+		assert response.data[0]["tokens_used"] == 40
+
+
+def test_sessions_returns_zero_tokens_when_no_usage_events():
+	"""Test sessions annotates tokens_used as 0 when the session has no usage events"""
+
+	with step("Arrange: A session with no MUsageEvent rows."):
+		org = _make_org()
+		MChatSession.objects.create(connection_key="TESTDB", org=org, username="bob")
+		request = _make_request("get", org, connection_key="TESTDB", username="bob")
+
+	with step("Act: Call sessions."):
+		response = VSChat.as_view({"get": "sessions"})(request)
+
+	with step("Assert: tokens_used is 0."):
+		assert response.status_code == 200
+		assert response.data[0]["tokens_used"] == 0
+
+
 def test_messages_404_on_mismatched_connection_key():
 	"""Test messages 404s when the requesting connection_key does not match the session"""
 

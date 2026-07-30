@@ -235,4 +235,10 @@
   /* Misc */
   --orb-msg-time:              #484f58;
   --orb-new-chat-shadow:       0 2px 10px rgba(0, 0, 0, 0.5);
+
+  /* Base text (inherited by elements — e.g. admin dashboard headings/labels — that
+     don't set an explicit color) — without this override they silently inherit the
+     light-theme value from :root and become barely legible on dark backgrounds. */
+  --color-brand-text:          #e6edf3;
+  --color-brand-text-muted:    #8b949e;
 }

@@ -2,7 +2,7 @@
   // Libs imports
   import { ref } from 'vue';
   import { useI18n } from 'vue-i18n';
-  import { ExclamationCircleOutlined } from '@ant-design/icons-vue';
+  import { ExclamationCircleOutlined } from '@antdv-next/icons';
 
   // Styles
   import '@/components/contact/main.css';

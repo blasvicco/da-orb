@@ -10,10 +10,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        1904,
-        10512
+        3280,
+        12144
       ],
-      "id": "4b3bd7fe-0e97-433f-8d51-3b3494771c9c",
+      "id": "dcbed3df-89d4-4454-97e8-e6e77e2dac00",
       "name": "Webhook",
       "webhookId": "4c30f700-eb1e-413c-a47b-7b5c63d2929f"
     },
@@ -24,10 +24,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2144,
-        10512
+        3520,
+        12144
       ],
-      "id": "8f364ddf-f1d7-4be4-af28-08fd53cdcb7b",
+      "id": "b12c93cc-1792-458d-afaa-b1057c1e8fd4",
       "name": "Parse & Enrich"
     },
     {
@@ -37,10 +37,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2384,
-        10512
+        3760,
+        12144
       ],
-      "id": "aa5b8636-97ec-4644-8a2f-0c194c346eb4",
+      "id": "c4ab38b0-0f5f-407d-8a6f-fcd97f6a4db2",
       "name": "Resolve Selection"
     },
     {
@@ -50,10 +50,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2544,
-        10512
+        3920,
+        12144
       ],
-      "id": "0fd0fe8b-1934-4d58-b0f1-0a32c005ad38",
+      "id": "4d0bcecc-0b36-4fd7-aabc-a50b6b4438a9",
       "name": "Resolve Stack Resume"
     },
     {
@@ -242,10 +242,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        2704,
-        10432
+        4080,
+        12064
       ],
-      "id": "a05a24cf-251c-4aef-8033-70473039bdff",
+      "id": "538ded78-9665-43a5-93a6-dc346ab63d45",
       "name": "Classify Intent",
       "alwaysOutputData": false
     },
@@ -256,10 +256,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3456,
-        10224
+        4832,
+        11856
       ],
-      "id": "24c027c4-a5b4-4588-ab69-81cdbb830e1c",
+      "id": "d7ca1f4d-7b45-43a0-9b09-8043a2d7f61d",
       "name": "Push to Stack + Reset"
     },
     {
@@ -269,10 +269,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4240,
-        10352
+        5616,
+        11984
       ],
-      "id": "59a7932f-f6ea-4d5a-a512-60e2441991b4",
+      "id": "acb58610-40b6-4d96-a2a8-2ff1d8fab488",
       "name": "Status Text: Finding"
     },
     {
@@ -295,10 +295,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        4480,
-        10352
+        5856,
+        11984
       ],
-      "id": "4a99bbf5-508a-4ac6-8048-b5a037fd0663",
+      "id": "005944eb-ba99-4e92-8708-2d1c2b61bc18",
       "name": "Status: Finding",
       "credentials": {
         "httpHeaderAuth": {
@@ -315,10 +315,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4720,
-        10352
+        6096,
+        11984
       ],
-      "id": "cc2d6059-3943-450f-bf5a-2e84433def69",
+      "id": "ea6de639-14c0-4c1f-ad56-7fba079e7b18",
       "name": "Prompt: Find"
     },
     {
@@ -330,10 +330,10 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
       "position": [
-        4960,
-        10352
+        6336,
+        11984
       ],
-      "id": "dd2e0e5a-b7b7-4bdd-b066-ab3fbc009a4e",
+      "id": "dd18935b-e3cb-4a6e-b4ee-a5816ca208af",
       "name": "Agent: Find",
       "onError": "continueErrorOutput"
     },
@@ -351,10 +351,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
       "position": [
-        4960,
-        10528
+        6336,
+        12160
       ],
-      "id": "bbea8efd-4ef0-48cf-bb0c-fa0a82da15d3",
+      "id": "556ded7f-34f4-41cf-ad7d-051e37648263",
       "name": "OpenAI Chat Model Find",
       "credentials": {
         "openAiApi": {
@@ -382,10 +382,10 @@
       "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
       "typeVersion": 1.3,
       "position": [
-        5104,
-        10528
+        6480,
+        12160
       ],
-      "id": "5cb1cc61-35a9-46b5-b8c6-8c428b1da68c",
+      "id": "59edaca1-11ee-4902-8494-231689c60f49",
       "name": "GitHub MCP",
       "credentials": {
         "httpBearerAuth": {
@@ -401,10 +401,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3808,
-        11520
+        5184,
+        13152
       ],
-      "id": "30808dcf-918c-4174-a7a0-04af72737fac",
+      "id": "f15c178c-69a9-4ca0-880f-cdf990817c3a",
       "name": "Status Text: Collecting"
     },
     {
@@ -427,10 +427,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        4048,
-        11520
+        5424,
+        13152
       ],
-      "id": "c172ea43-1161-4927-9dd0-35cce644e00e",
+      "id": "aaf583af-1688-411a-aa06-037853bcd9dd",
       "name": "Status: Collecting",
       "credentials": {
         "httpHeaderAuth": {
@@ -447,10 +447,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4288,
-        11520
+        5664,
+        13152
       ],
-      "id": "b601fae2-3f27-45d5-b55d-f6e74a21a3fa",
+      "id": "4503a5a5-5046-4474-9e6f-b1a76f58b6a0",
       "name": "Prompt: Form"
     },
     {
@@ -462,10 +462,10 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
       "position": [
-        4528,
-        11520
+        5904,
+        13152
       ],
-      "id": "4658e4ba-6a82-40bc-a697-01434d447304",
+      "id": "7dbdae10-98cc-4174-ad37-f54cbf5ce78b",
       "name": "Agent: Form",
       "onError": "continueErrorOutput"
     },
@@ -483,10 +483,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
       "position": [
-        4528,
-        11696
+        5904,
+        13328
       ],
-      "id": "29dafa1b-2c16-4b33-a3f7-048d6e9da4b9",
+      "id": "bd370806-cf52-4af1-a7f7-7da13d2d30de",
       "name": "OpenAI Chat Model Form",
       "credentials": {
         "openAiApi": {
@@ -502,10 +502,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3856,
-        12224
+        5232,
+        13856
       ],
-      "id": "f6b4e57a-48b2-44e1-873b-55f32e23124d",
+      "id": "1ca316d5-71ef-4ea4-ad10-7f2955d12586",
       "name": "Status Text: Submitting"
     },
     {
@@ -528,10 +528,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        4096,
-        12224
+        5472,
+        13856
       ],
-      "id": "07475232-8b3e-486e-ba8c-085001b05adf",
+      "id": "353747aa-96e0-43ac-a7a3-519415158d56",
       "name": "Status: Submitting",
       "credentials": {
         "httpHeaderAuth": {
@@ -548,10 +548,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4336,
-        12224
+        5712,
+        13856
       ],
-      "id": "275ef4bb-6912-4fb4-b8d4-58a861116b99",
+      "id": "94871ef3-c093-463c-83e2-1f8d749f943a",
       "name": "Build SAP Payload"
     },
     {
@@ -640,10 +640,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        4576,
-        12208
+        5952,
+        13840
       ],
-      "id": "22c2814c-9d72-4e2a-adda-421535b42e30",
+      "id": "8ceb653c-4c18-46fa-ae8c-4503eef77f2e",
       "name": "Classify Operation",
       "alwaysOutputData": false
     },
@@ -654,10 +654,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4832,
-        12048
+        6208,
+        13680
       ],
-      "id": "57581f0b-7a84-487e-8e5a-b916a6cab181",
+      "id": "4a66d583-1043-463b-99e9-f97c31723ba0",
       "name": "Prompt: Get Single"
     },
     {
@@ -667,10 +667,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4832,
-        12224
+        6208,
+        13856
       ],
-      "id": "856cc399-957c-41e6-aa3a-dc0c962502f2",
+      "id": "9d4fa2c8-e893-4629-be7b-ff8dfdf89ca8",
       "name": "Prompt: List Query"
     },
     {
@@ -680,10 +680,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4832,
-        12416
+        6208,
+        14048
       ],
-      "id": "968479e8-7d1e-4df1-987d-b8dd133fe23c",
+      "id": "5f6eaf04-d2e1-4742-9893-f341896f217f",
       "name": "Prompt: Create"
     },
     {
@@ -695,10 +695,10 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
       "position": [
-        5072,
-        12224
+        6448,
+        13856
       ],
-      "id": "ab8c8bd4-02ed-45b7-aaa1-94e660e124e2",
+      "id": "105ff69e-5abd-471f-9b41-69d173892c1a",
       "name": "Agent: Execute",
       "onError": "continueErrorOutput"
     },
@@ -716,10 +716,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
       "position": [
-        5056,
-        12416
+        6432,
+        14048
       ],
-      "id": "2f6fae17-d231-4b83-a249-e309d4086668",
+      "id": "76d5b658-c200-4725-86ae-19688d5eb8ed",
       "name": "OpenAI Chat Model Execute",
       "credentials": {
         "openAiApi": {
@@ -736,10 +736,10 @@
       "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
       "typeVersion": 1.3,
       "position": [
-        5200,
-        12416
+        6576,
+        14048
       ],
-      "id": "2a0353b1-2e13-48b1-b81f-1b7da92f8480",
+      "id": "adb35fec-23ad-454b-993e-f2abd86d8bd7",
       "name": "SAP MCP"
     },
     {
@@ -749,10 +749,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        6144,
-        11536
+        7520,
+        13168
       ],
-      "id": "18d14614-23fe-4a92-a0a6-3c4546c19b9a",
+      "id": "b2ae898b-9b82-48be-83ae-c04d84270849",
       "name": "Classify Error"
     },
     {
@@ -762,10 +762,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        6384,
-        11536
+        7760,
+        13168
       ],
-      "id": "ccd80bc6-e1d3-4fb4-9a63-e0963b9c2aa4",
+      "id": "20e7e396-4b6e-437e-a868-ff2b066a76a7",
       "name": "Build Error Response"
     },
     {
@@ -775,10 +775,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5760,
-        10496
+        7136,
+        12128
       ],
-      "id": "3f2230ce-2860-4c45-85c2-854c738f6273",
+      "id": "cbbb6950-1050-4132-8840-635926aeb312",
       "name": "Parse: Extract JSON"
     },
     {
@@ -1012,10 +1012,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        5984,
-        10400
+        7360,
+        12032
       ],
-      "id": "6403a66c-ee05-45e1-8998-4f2b07028641",
+      "id": "928017d5-d9b7-4c18-9e72-65066bd05a1f",
       "name": "Switch: Route by Status",
       "alwaysOutputData": false
     },
@@ -1026,10 +1026,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        6928,
-        9312
+        8304,
+        10944
       ],
-      "id": "1b56db05-b39e-4b13-b24f-feda54155670",
+      "id": "09a21ad7-c98b-44b4-ab62-49ec1a28e8d2",
       "name": "Handler: Switch Needed"
     },
     {
@@ -1039,10 +1039,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        6928,
-        9520
+        8304,
+        11152
       ],
-      "id": "78c3ef27-e92b-4760-bf44-717ddc7ae5bf",
+      "id": "ee94c7a8-a1fe-4c96-9933-3fdb3fb8928c",
       "name": "Handler: Match"
     },
     {
@@ -1052,10 +1052,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        6928,
-        9712
+        8304,
+        11344
       ],
-      "id": "4ec4e27a-d339-4580-86eb-8cd68a16c3b3",
+      "id": "880831e7-096f-479c-b4f4-5759cac0c226",
       "name": "Handler: Confirmed"
     },
     {
@@ -1065,10 +1065,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        6928,
-        9920
+        8304,
+        11552
       ],
-      "id": "c7230fa8-35ec-410f-9128-36f89585058e",
+      "id": "f58457e9-498c-4d4e-9291-2c4dc6df51ce",
       "name": "Handler: Action Required"
     },
     {
@@ -1078,10 +1078,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        6928,
-        10448
+        8304,
+        12080
       ],
-      "id": "89185502-4f15-49dd-97b6-5b14e2b2bbf1",
+      "id": "707e1415-3bea-4402-8316-7f7e2f402366",
       "name": "Handler: Completion"
     },
     {
@@ -1091,10 +1091,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        6928,
-        10656
+        8304,
+        12288
       ],
-      "id": "3a02da78-3c79-4568-adb8-fa83d9646891",
+      "id": "3a661cde-086b-4d04-a546-b645ac4baf6c",
       "name": "Handler: In Progress"
     },
     {
@@ -1104,10 +1104,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        6928,
-        10848
+        8304,
+        12480
       ],
-      "id": "44e02740-5e6f-4b41-b941-1ee5ce43f894",
+      "id": "e822d276-ddfc-4171-9a99-ade7cc48bb4e",
       "name": "Handler: Multi or No Match"
     },
     {
@@ -1117,10 +1117,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        6928,
-        11056
+        8304,
+        12688
       ],
-      "id": "fa2af08c-1ddc-4b79-aad0-6c002e4b4761",
+      "id": "bff7732e-8134-4570-967d-7a621d01ac2d",
       "name": "Handler: Error"
     },
     {
@@ -1150,10 +1150,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        7792,
-        8528
+        9168,
+        10160
       ],
-      "id": "4f3a17b8-8316-44cc-84f3-469ddf00cdb4",
+      "id": "5f70484d-d018-43e3-9acb-5c9b5fb80a4a",
       "name": "Fetch DB Override",
       "credentials": {
         "httpBearerAuth": {
@@ -1189,10 +1189,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        8048,
-        8528
+        9408,
+        10096
       ],
-      "id": "6330416b-8c92-4f24-a71a-5efa359a385d",
+      "id": "2fe74401-7ecf-40fc-87b4-5eb0b5745395",
       "name": "Has DB Override?"
     },
     {
@@ -1222,10 +1222,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        8240,
-        8656
+        9632,
+        10176
       ],
-      "id": "49380a2a-4144-47e0-a004-46eba4a6338c",
+      "id": "6b524142-75bd-4fc5-9405-1d8dc438c57d",
       "name": "Fetch Org Override",
       "credentials": {
         "httpBearerAuth": {
@@ -1262,10 +1262,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        8480,
-        8656
+        9856,
+        10176
       ],
-      "id": "10c2f13f-108c-47d5-b613-42c601bb2f4c",
+      "id": "da5f894b-51d4-4bfa-8ce9-f6b931a2ee22",
       "name": "Has Org Override?"
     },
     {
@@ -1295,10 +1295,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        8480,
-        8832
+        10080,
+        10304
       ],
-      "id": "d9940c3a-6c57-4086-bb55-507c36a67be8",
+      "id": "91b73c89-59d1-4942-b0ed-460fdffea4d7",
       "name": "Fetch Standard",
       "credentials": {
         "httpBearerAuth": {
@@ -1310,16 +1310,15 @@
     },
     {
       "parameters": {
-        "mode": "append",
         "numberInputs": 3
       },
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
       "position": [
-        8752,
-        8528
+        10320,
+        10096
       ],
-      "id": "d3e2ff45-841a-45d0-8843-42ceb206dd95",
+      "id": "f473db8d-1de8-4dc4-8326-c5f2269a410d",
       "name": "Merge Paths"
     },
     {
@@ -1329,10 +1328,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        9008,
-        8656
+        10528,
+        10112
       ],
-      "id": "a8d6dcca-2c26-4d54-a616-448843bb7f1b",
+      "id": "45ff5208-5491-4225-a87a-271d95a2615f",
       "name": "Decode & Set Process"
     },
     {
@@ -1362,10 +1361,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        8944,
-        8656
+        10736,
+        10112
       ],
-      "id": "2dfcf414-67d6-4514-9eb7-ea363bc42d52",
+      "id": "16e66acf-b914-45b7-9705-b711495e2200",
       "name": "Fetch Schema",
       "credentials": {
         "httpBearerAuth": {
@@ -1382,10 +1381,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        9184,
-        8656
+        10928,
+        10288
       ],
-      "id": "65fd60a7-f1f5-4d51-868e-71f8f591e9f3",
+      "id": "9aafdb0e-cc91-4d5c-8148-fd2c609e9bb4",
       "name": "Decode & Set Schema"
     },
     {
@@ -1395,10 +1394,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        8704,
-        11536
+        10080,
+        13168
       ],
-      "id": "87f5664d-969c-4e63-8914-833017c19539",
+      "id": "57a3ac29-1985-4734-b56c-0c4553c588bb",
       "name": "Normalize Response"
     },
     {
@@ -1408,10 +1407,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        8944,
-        11536
+        10752,
+        13168
       ],
-      "id": "9e1a9c82-8fcd-42f9-aa5c-18d046029e35",
+      "id": "9b350002-c6e1-4b56-8d9e-eb7a2b7e35a9",
       "name": "Build Callback Payload"
     },
     {
@@ -1434,10 +1433,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        9184,
-        11536
+        10992,
+        13168
       ],
-      "id": "b87486e7-55f5-4ba2-8f5b-4cef3d8d867b",
+      "id": "42695475-7279-466f-a500-a40ce594be1e",
       "name": "Django Callback",
       "credentials": {
         "httpHeaderAuth": {
@@ -1454,10 +1453,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        9424,
-        11536
+        11232,
+        13168
       ],
-      "id": "70abaf20-fc0f-41f1-9713-abb319f2cc25",
+      "id": "47ceb61d-e1de-411b-9ee4-0871219183df",
       "name": "Check Queue After Callback"
     },
     {
@@ -1487,10 +1486,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        9664,
-        11536
+        11472,
+        13168
       ],
-      "id": "780e0992-8365-4f1b-9304-085cb2e14e1c",
+      "id": "b3b43259-47af-476f-82a8-61e699b5ce90",
       "name": "Has Pending Queue?"
     },
     {
@@ -1500,10 +1499,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        9904,
-        11424
+        11712,
+        13056
       ],
-      "id": "01283f40-86c8-4ce1-a54e-67898ba42e41",
+      "id": "c3c5a287-5411-41c5-8bd7-9ff56dcd7b1f",
       "name": "Prepare Queue Self-Call"
     },
     {
@@ -1524,10 +1523,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        10144,
-        11424
+        11952,
+        13056
       ],
-      "id": "0cf571fe-bbd0-4fd9-892c-52dd6edf23e5",
+      "id": "72fa268e-6b92-4381-b5f6-3fc6f5c78c17",
       "name": "Self-Call Webhook",
       "continueOnFail": true
     },
@@ -1538,10 +1537,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        8704,
-        11680
+        10288,
+        13168
       ],
-      "id": "2b95f720-9f7a-426d-b9d4-acb21d18951d",
+      "id": "5bef43a6-9334-4a2f-878e-da0a372475dd",
       "name": "Usage: Prepare Execution ID"
     },
     {
@@ -1551,23 +1550,24 @@
         "executionId": "={{ $json.executionId }}",
         "options": {
           "activeWorkflows": true
-        }
+        },
+        "requestOptions": {}
       },
       "type": "n8n-nodes-base.n8n",
       "typeVersion": 1,
       "position": [
-        8944,
-        11680
+        10528,
+        13168
       ],
-      "id": "06b23d00-aef6-4b2d-9de4-0f5d0754e515",
+      "id": "5cd4684b-0e37-40d0-aa4a-6f1135dda3a7",
       "name": "Usage: Fetch Execution Data",
-      "onError": "continueRegularOutput",
       "credentials": {
         "n8nApi": {
           "id": "BumLfAHrNAliUKod",
           "name": "n8n account"
         }
-      }
+      },
+      "onError": "continueRegularOutput"
     }
   ],
   "pinData": {},
@@ -2329,14 +2329,14 @@
       ]
     }
   },
-  "active": true,
+  "active": false,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate",
     "availableInMCP": false,
     "saveExecutionProgress": true
   },
-  "versionId": "d66bccbf-36a4-43d7-8c42-7e9f1a3ed14d",
+  "versionId": "dc7e977f-9a00-4470-a72a-445a1bdb6e5f",
   "meta": {
     "instanceId": "da3330787aeb7f604f15e5dc9f1eeb5d8888bdf40d2655cc0fecda0d049befde"
   },

@@ -3,7 +3,7 @@
   import { useI18n } from 'vue-i18n';
 
   // Antd imports
-  import { DownloadOutlined } from '@ant-design/icons-vue';
+  import { DownloadOutlined } from '@antdv-next/icons';
 
   import '@/components/chat/export.css';
 

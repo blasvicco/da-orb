@@ -16,5 +16,11 @@
     .orb-header-connection {
       @apply font-bold text-brand-primary text-sm;
     }
+
+    .orb-header-tokens {
+      @apply text-sm;
+      color: var(--orb-header-title);
+      opacity: 0.6;
+    }
   }
 }

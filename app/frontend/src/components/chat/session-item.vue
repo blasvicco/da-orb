@@ -1,7 +1,8 @@
 <script setup>
   import { ref, computed } from 'vue';
   import { useI18n } from 'vue-i18n';
-  import { DeleteOutlined } from '@ant-design/icons-vue';
+  import { DeleteOutlined } from '@antdv-next/icons';
+  import { formatCompactNumber } from '@/modules/number/token';
 
   const { t, locale } = useI18n();
 
@@ -83,6 +84,12 @@
         class="orb-history-date"
       >
         {{ sessionDate }}
+      </span>
+      <span
+        v-if="session.tokens_used"
+        class="orb-history-tokens"
+      >
+        {{ $t('chat.sidebar.history.tokensUsed', { count: formatCompactNumber(session.tokens_used) }) }}
       </span>
     </div>
     <a-popconfirm

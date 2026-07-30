@@ -5,7 +5,7 @@
   import { useRouter } from 'vue-router';
 
   // Antd imports
-  import { PlusOutlined } from '@ant-design/icons-vue';
+  import { PlusOutlined } from '@antdv-next/icons';
 
   // App modules imports
   import { useAuth } from '@/modules/auth';
@@ -88,6 +88,19 @@
     const s = sessions.value.find((s) => s.id === sessionId.value);
     return s?.title || null;
   });
+
+  const currentSessionTokens = computed(() => {
+    if (!sessionId.value) return 0;
+    const s = sessions.value.find((s) => s.id === sessionId.value);
+    return s?.tokens_used || 0;
+  });
+
+  // Single source of truth for the sidebar session list — re-fetched rather than
+  // accumulated client-side, so token totals can't drift on reconnect/replay.
+  const refreshSessions = async () => {
+    const result = await AppAPI.Chat.sessions();
+    if (!result?.errors) sessions.value = result;
+  };
 
   // Reflect whether a session is still awaiting an agent reply in the sidebar list
   const setSessionPending = (id, pending) => {
@@ -181,14 +194,12 @@
       chat.sessionId = data.session_id;
       sessionId.value = data.session_id;
       // Refresh sidebar so the new session appears with its title
-      const result = await AppAPI.Chat.sessions();
-      if (!result?.errors) sessions.value = result;
+      await refreshSessions();
     });
 
     chat.on('open', async () => {
       connectionStatus.value = 'connected';
-      const result = await AppAPI.Chat.sessions();
-      if (!result?.errors) sessions.value = result;
+      await refreshSessions();
     });
 
     chat.on('close', () => { connectionStatus.value = 'disconnected'; });
@@ -213,6 +224,7 @@
       setSessionPending(sessionId.value, false);
       statusText.value = null;
       scrollToBottom();
+      refreshSessions();
     });
 
     chat.onSapData((data) => {
@@ -242,6 +254,7 @@
       setSessionPending(sessionId.value, false);
       statusText.value = null;
       scrollToBottom();
+      refreshSessions();
     });
 
     chat.onStatusMessage((data) => {
@@ -322,6 +335,7 @@
       :connection-status="connectionStatus"
       :messages="messages"
       :user-name="userProfile.name"
+      :tokens-used="currentSessionTokens"
     />
 
     <div
