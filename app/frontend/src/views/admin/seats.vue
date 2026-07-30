@@ -5,8 +5,8 @@
   import { useRouter } from 'vue-router';
 
   // Antd imports
-  import { Switch } from 'ant-design-vue';
-  import { ArrowLeftOutlined } from '@ant-design/icons-vue';
+  import { Switch } from 'antdv-next';
+  import { ArrowLeftOutlined } from '@antdv-next/icons';
 
   // App modules imports
   import { useAuth } from '@/modules/auth';

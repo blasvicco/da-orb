@@ -13,7 +13,7 @@
     SafetyCertificateOutlined,
     SafetyOutlined,
     ThunderboltOutlined,
-  } from '@ant-design/icons-vue';
+  } from '@antdv-next/icons';
 
   // Layout import
   import Default from '@/layouts/default.vue';
@@ -214,10 +214,6 @@
             >
               {{ $t('landing.cta.learnMore') }}
             </a>
-          </div>
-          <div class="orb-hero-live-scope">
-            <span class="orb-hero-live-scope-dot" />
-            {{ $t('landing.hero.liveScope') }}
           </div>
         </div>
 

@@ -81,8 +81,8 @@ export default {
     },
     seats: {
       backToChat: 'Volver al chat',
-      demote: 'Quitar administrador',
-      grantedOn: 'Otorgado el',
+      demote: 'Admin',
+      grantedOn: 'Otorgada el',
       revoke: 'Revocar',
       role: 'Rol',
       status: 'Estado',
@@ -137,7 +137,6 @@ export default {
       learnMore: 'Saber Más',
     },
     hero: {
-      liveScope: 'Disponible hoy con SAP Business One.',
       titleAccent: 'Una conversación.',
       titleRest: 'Cada proceso de SAP Business One.',
     },
@@ -160,14 +159,14 @@ export default {
     },
     features: {
       title: 'Todos los procesos. Una sola conversación.',
-      subtitle: 'Orb convierte flujos complejos de SAP Business One en una sola conversación guiada hoy — con más sistemas en el roadmap.',
+      subtitle: 'Orb convierte flujos complejos de SAP Business One en una sola conversación guiada hoy.',
       naturalLanguage: {
         title: 'Operaciones en Lenguaje Natural',
         desc: 'Consulta inventarios, crea una solicitud de compra o revisa el estado de un proveedor hablando normal. Sin menús, sin códigos de transacción, sin depender de un especialista.',
       },
       mcp: {
         title: 'Arquitectura Basada en MCP',
-        desc: 'Orb se conecta hoy a SAP Business One mediante el Model Context Protocol (MCP) — la misma arquitectura que permitirá incorporar futuros sistemas por configuración, sin código, a medida que crece el roadmap.',
+        desc: 'Orb se conecta hoy a SAP Business One mediante el Model Context Protocol (MCP) — la misma arquitectura que permitirá incorporar futuros sistemas por configuración, sin código, a medida.',
       },
       realtime: {
         title: 'Información en Tiempo Real',
@@ -357,6 +356,7 @@ export default {
         deleteConfirm: '¿Eliminar este chat?',
         yesterday: 'Ayer',
         pending: 'El agente está trabajando en este chat',
+        tokensUsed: '{count} tokens',
       },
     },
     header: {
@@ -365,6 +365,7 @@ export default {
       connecting: 'Conectando a Orb...',
       disconnected: 'Desconectado de Orb',
       mcpActive: 'servidor mcp-sap activo',
+      tokensUsed: '{count} tokens utilizados',
     },
     export: {
       title: 'Exportar conversación',

@@ -16,8 +16,10 @@
 
 .orb-plan-summary-label {
   @apply font-bold text-sm;
+  color: var(--orb-card-title);
 }
 
 .orb-plan-summary-value {
   @apply font-semibold text-sm;
+  color: var(--orb-process-text);
 }

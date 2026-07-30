@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 # Lib imports
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+from django.db.models import Q, Sum
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
@@ -52,6 +53,7 @@ async def _persist_n8n_state(group_name, *, merged):
 			pending_processes=merged.get("pending_processes"),
 			process_stack=merged.get("process_stack"),
 			awaiting_stack_resume=merged.get("awaiting_stack_resume", False),
+			last_bot_message=merged.get("last_bot_message"),
 		)
 	finally:
 		await state.close()
@@ -97,6 +99,7 @@ def _resolve_and_persist_state(group_name, incoming):
 		"awaiting_stack_resume": incoming.get("awaiting_stack_resume")
 		if incoming.get("awaiting_stack_resume") is not None
 		else current.get("awaiting_stack_resume", False),
+		"last_bot_message": _resolve("last_bot_message"),
 	}
 	async_to_sync(_persist_n8n_state)(group_name, merged=merged)
 	return merged
@@ -125,10 +128,9 @@ def _record_usage_events(session, *, effective_state, extra, occurred_on, proces
 	)
 
 	# Token-usage events depend on n8n's "Build Callback Payload" node forwarding a
-	# usage sub-object inside extra — absent from the workflow today, so this branch
-	# is currently a no-op in production until that external change ships. Written
-	# now anyway since the ingestion is None-safe and process-execution events
-	# already work unconditionally.
+	# usage sub-object inside extra, summed from the OpenAI Chat Model nodes'
+	# tokenUsageEstimate output. Left None-safe since callers without that node
+	# change (or callbacks with no usage to report) simply omit the key.
 	usage = extra.get("usage")
 	if usage:
 		MUsageEvent.objects.create(
@@ -216,7 +218,14 @@ class VSChat(viewsets.ViewSet):
 			return Response([])
 		qs = MChatSession.objects.filter(
 			connection_key=connection_key, org=org, username=username
-		)[:15]
+		).annotate(
+			tokens_used=Sum(
+				"usage_events__total_tokens",
+				filter=Q(usage_events__event_type="token_usage"),
+			)
+		)[
+			:15
+		]
 		return Response(SChatSession(qs, many=True).data)
 
 	@action(detail=False, methods=["get"])

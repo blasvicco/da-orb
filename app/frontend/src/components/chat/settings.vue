@@ -3,7 +3,7 @@
   import { useI18n } from 'vue-i18n';
 
   // Antd imports
-  import { SettingOutlined } from '@ant-design/icons-vue';
+  import { SettingOutlined } from '@antdv-next/icons';
 
   import '@/components/chat/settings.css';
 

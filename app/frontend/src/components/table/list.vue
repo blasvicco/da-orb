@@ -7,12 +7,12 @@
   import dayjs from 'dayjs';
 
   // antd imports
-  import { Button, message, Popconfirm } from 'ant-design-vue';
+  import { Button, message, Popconfirm } from 'antdv-next';
   import {
     DeleteOutlined,
     EditOutlined,
     SearchOutlined
-  } from '@ant-design/icons-vue';
+  } from '@antdv-next/icons';
 
   // Components imports
   import mysearch from '@/components/table/search.vue'
@@ -42,9 +42,19 @@
   const data = ref([]);
   const key = ref(v4());
   const loadingData = ref(true);
-  const localColumns = ref(columns.map((column) => (
-    column.filterDropdown ? { ...column, customFilterDropdown: true } : column
-  )));
+  const localColumns = ref(columns.map((column) => {
+    if (!column.filterDropdown) return column;
+    // filterDropdown here is only ever a truthy flag meaning "use the custom search
+    // UI" — antdv-next's Table takes a real render function for this (no slot, no
+    // separate customFilterDropdown flag), so it's replaced with one directly.
+    // FilterDropdownProps doesn't include `column`, so it's closed over here.
+    const { filterDropdown: _flag, ...rest } = column;
+    return {
+      ...rest,
+      filterDropdown: (props) => h(mysearch, { ...props, column: rest }),
+      filterIcon: (filtered) => h(SearchOutlined, { class: filtered ? 'filtered' : '' }),
+    };
+  }));
   const pagination = ref({
     current: 1,
     pageSize: 20,
@@ -184,23 +194,6 @@
       :rowKey="(record) => record.id"
       :sortDirections="['ascend', 'descend', 'ascend']"
       @change="onChange"
-    >
-      <template
-        #filterDropdown="{ clearFilters, column, confirm, selectedKeys, setSelectedKeys, visible }"
-      >
-        <mysearch
-          v-if="column.filterDropdown"
-          :clearFilters="clearFilters"
-          :column="column"
-          :confirm="confirm"
-          :selectedKeys="selectedKeys"
-          :setSelectedKeys="setSelectedKeys"
-          :visible="visible"
-        />
-      </template>
-      <template #filterIcon="{ filtered }">
-        <search-outlined :class="filtered ? 'filtered' : ''" />
-      </template>
-    </a-table>
+    />
   </div>
 </template>

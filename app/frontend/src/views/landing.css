@@ -86,14 +86,6 @@
       .orb-hero-ctas {
         @apply flex flex-wrap gap-4 justify-center lg:justify-start pt-4;
       }
-
-      .orb-hero-live-scope {
-        @apply flex gap-2 items-center justify-center lg:justify-start pt-2 text-brand-text-muted text-sm;
-
-        .orb-hero-live-scope-dot {
-          @apply animate-pulse bg-green-500 h-1.5 rounded-full w-1.5;
-        }
-      }
     }
 
     /* Live Chat Preview Simulator */

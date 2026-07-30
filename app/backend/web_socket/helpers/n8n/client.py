@@ -75,6 +75,10 @@ class N8nClient:  # pylint: disable=too-few-public-methods
 		# the AI agent context with a null field on the first message.
 		if current.get("process_definition") is not None:
 			payload["process_definition"] = current.get("process_definition")
+		# Only include last_bot_message when set — grounds Agent: Form on what it
+		# just asked, without ever growing beyond a single prior message.
+		if current.get("last_bot_message"):
+			payload["last_bot_message"] = current.get("last_bot_message")
 
 		logger.debug(
 			"N8nClient: firing to %s group=%s process_id=%s",

@@ -1,6 +1,6 @@
 <script setup>
   import { marked } from 'marked';
-  import { DesktopOutlined } from '@ant-design/icons-vue';
+  import { DesktopOutlined } from '@antdv-next/icons';
 
   import Processes from '@/components/chat/processes.vue';
 

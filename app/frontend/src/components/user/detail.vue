@@ -2,7 +2,7 @@
   import { useI18n } from 'vue-i18n';
 
   // Antd imports
-  import { GlobalOutlined, PoweroffOutlined, TeamOutlined } from '@ant-design/icons-vue';
+  import { GlobalOutlined, PoweroffOutlined, TeamOutlined } from '@antdv-next/icons';
 
   // App components imports
   import LanguageSelector from '@/components/language/main.vue';

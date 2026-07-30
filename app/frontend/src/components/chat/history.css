@@ -49,6 +49,11 @@
           @apply leading-tight mt-0.5 text-[10px];
           color: var(--orb-history-date);
         }
+
+        .orb-history-tokens {
+          @apply leading-tight mt-0.5 text-[10px];
+          color: var(--orb-history-date);
+        }
       }
 
       .orb-history-delete {

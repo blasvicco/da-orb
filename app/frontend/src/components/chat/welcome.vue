@@ -1,5 +1,5 @@
 <script setup>
-  import { HistoryOutlined, ShoppingCartOutlined, UnorderedListOutlined } from '@ant-design/icons-vue';
+  import { HistoryOutlined, ShoppingCartOutlined, UnorderedListOutlined } from '@antdv-next/icons';
 
   import '@/components/chat/welcome.css';
 
