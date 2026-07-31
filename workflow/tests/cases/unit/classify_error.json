@@ -1,0 +1,35 @@
+{
+  "node": "Classify Error",
+  "cases": [
+    {
+      "description": "classifies rate limit errors",
+      "input": { "error": { "message": "Rate limit exceeded" } },
+      "expected": { "error_type": "RATE_LIMIT" }
+    },
+    {
+      "description": "classifies parse errors",
+      "input": { "error": { "message": "Unexpected token in JSON at position 4" } },
+      "expected": { "error_type": "PARSE_ERROR" }
+    },
+    {
+      "description": "classifies not found errors",
+      "input": { "error": { "message": "Resource not found" } },
+      "expected": { "error_type": "NOT_FOUND" }
+    },
+    {
+      "description": "classifies auth errors",
+      "input": { "error": { "message": "401 Unauthorized" } },
+      "expected": { "error_type": "AUTH_ERROR" }
+    },
+    {
+      "description": "falls back to unknown error for an unrecognized message",
+      "input": { "error": { "message": "Something totally unexpected happened" } },
+      "expected": { "error_type": "UNKNOWN_ERROR" }
+    },
+    {
+      "description": "handles a plain string error, not just an error object",
+      "input": { "error": "404 page missing" },
+      "expected": { "error_type": "NOT_FOUND", "raw_error": "404 page missing" }
+    }
+  ]
+}

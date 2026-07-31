@@ -13,7 +13,12 @@ pytestmark = pytest.mark.django_db
 @pytest.mark.parametrize(
 	"fixture_name",
 	[
+		"f_chat_message",
+		"f_chat_session",
 		"f_organization",
+		"f_seat",
+		"f_session_proxy",
+		"f_usage_event",
 	],
 )
 def test_model_str(fixture_name, request):

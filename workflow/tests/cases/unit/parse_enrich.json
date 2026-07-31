@@ -1,0 +1,40 @@
+{
+  "node": "Parse & Enrich",
+  "cases": [
+    {
+      "description": "defaults language to es when session.language missing",
+      "input": { "body": { "message": "hola", "session": {} } },
+      "expected": { "language": "es", "expertise_level": 2, "switch_intent": false }
+    },
+    {
+      "description": "keeps a valid provided language",
+      "input": { "body": { "message": "hi", "session": { "language": "en" } } },
+      "expected": { "language": "en" }
+    },
+    {
+      "description": "defaults expertise_level to 2 when value is out of range",
+      "input": { "body": { "message": "hola", "session": {}, "expertise_level": 5 } },
+      "expected": { "expertise_level": 2 }
+    },
+    {
+      "description": "keeps a valid provided expertise_level",
+      "input": { "body": { "message": "hola", "session": {}, "expertise_level": 1 } },
+      "expected": { "expertise_level": 1 }
+    },
+    {
+      "description": "detects switch_intent when process_id exists and cancel keyword used",
+      "input": { "body": { "message": "cancelar", "session": {}, "process_id": "pr-001" } },
+      "expected": { "switch_intent": true }
+    },
+    {
+      "description": "does NOT set switch_intent without an active process_id",
+      "input": { "body": { "message": "cancelar", "session": {} } },
+      "expected": { "switch_intent": false }
+    },
+    {
+      "description": "preserves provided process_stack and process_queue instead of resetting them",
+      "input": { "body": { "message": "hola", "session": {}, "process_stack": [{ "process_id": "p1" }], "process_queue": [{ "process_id": "p2" }] } },
+      "expected": { "process_stack": [{ "process_id": "p1" }], "process_queue": [{ "process_id": "p2" }] }
+    }
+  ]
+}

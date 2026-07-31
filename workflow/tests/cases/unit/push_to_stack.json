@@ -1,0 +1,34 @@
+{
+  "node": "Push to Stack + Reset",
+  "cases": [
+    {
+      "description": "pushes the current process onto the stack and resets the active process",
+      "input": { "process_id": "p1", "process_definition": { "id": "p1" }, "form_state": { "x": 1 }, "process_stack": [] },
+      "expected": {
+        "process_id": null,
+        "process_definition": null,
+        "form_state": null,
+        "process_stack": [{ "process_id": "p1", "process_definition": { "id": "p1" }, "form_state": { "x": 1 } }],
+        "switch_intent": false,
+        "selection_resolved": false,
+        "error": null,
+        "responde": false
+      }
+    },
+    {
+      "description": "does not push an entry when there is no active process_id",
+      "input": { "process_id": null, "process_stack": [{ "process_id": "old" }] },
+      "expected": { "process_id": null, "process_stack": [{ "process_id": "old" }] }
+    },
+    {
+      "description": "appends to an already non-empty stack",
+      "input": { "process_id": "p2", "process_definition": { "id": "p2" }, "form_state": { "y": 2 }, "process_stack": [{ "process_id": "p1" }] },
+      "expected": {
+        "process_stack": [
+          { "process_id": "p1" },
+          { "process_id": "p2", "process_definition": { "id": "p2" }, "form_state": { "y": 2 } }
+        ]
+      }
+    }
+  ]
+}

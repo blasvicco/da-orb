@@ -5,8 +5,9 @@
 .vscode
 
 node_modules/
-**/node_modules/**
+**/coverage/**
 **/dist/**
+**/node_modules/**
 
 __pycache__
 static

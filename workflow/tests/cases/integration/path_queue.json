@@ -1,0 +1,28 @@
+{
+  "path": "queue",
+  "cases": [
+    {
+      "description": "a successful execute with a pending 2-item queue prepares a self-call for the next queued process",
+      "input": {
+        "message": "confirmo", "session": { "language": "es" }, "expertise_level": 2,
+        "process_id": "p1", "process_definition": { "id": "p1", "api": { "method": "GET", "service": "X" }, "query": {} },
+        "form_state": { "ready": true },
+        "process_queue": [
+          { "process_id": "p2", "process_definition": { "id": "p2" }, "form_state": { "a": 1 } },
+          { "process_id": "p3", "process_definition": { "id": "p3" }, "form_state": { "b": 2 } }
+        ]
+      },
+      "pins": { "Agent: Execute": { "output": "{\"status\":\"success\",\"message\":\"Done\",\"form_state\":null,\"processes\":null}" } },
+      "assert": {
+        "node": "Prepare Queue Self-Call",
+        "fields": {
+          "self_call_body.message": "__queue_auto_continue__",
+          "self_call_body.process_id": "p1",
+          "self_call_body.form_state.ready": true,
+          "self_call_body.form_state.a": 1,
+          "self_call_body.process_queue": [{ "process_id": "p3", "process_definition": { "id": "p3" }, "form_state": { "b": 2 } }]
+        }
+      }
+    }
+  ]
+}

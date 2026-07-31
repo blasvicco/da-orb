@@ -1,13 +1,45 @@
 """This module contains tests for the MOrganization model"""
 
+# General imports
+from contextlib import nullcontext
+
 # Lib imports
 import pytest
 from allure import step
+from django.core.exceptions import ValidationError
 
 # App imports
 from drf_api.models import MOrganization
+from drf_api.models.organization import _validate_slug_not_reserved
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.mark.parametrize(
+	"payload",
+	[
+		{"description": "a reserved slug raises", "slug": "admin", "valid": False},
+		{
+			"description": "the reserved-slug check is case-insensitive",
+			"slug": "ADMIN",
+			"valid": False,
+		},
+		{"description": "a non-reserved slug passes", "slug": "acme", "valid": True},
+	],
+)
+def test_validate_slug_not_reserved(payload):
+	"""Test _validate_slug_not_reserved rejects reserved slugs case-insensitively"""
+
+	with step(f"Arrange: {payload['description']}."):
+		context = (
+			nullcontext()
+			if payload["valid"]
+			else pytest.raises(ValidationError, match="RESERVED_ORG_SLUG")
+		)
+
+	with step("Act/Assert: Call the validator."):
+		with context:
+			_validate_slug_not_reserved(payload["slug"])
 
 
 def test_safe_to_dict_strips_client_secret():

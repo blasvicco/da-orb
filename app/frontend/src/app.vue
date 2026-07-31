@@ -34,7 +34,7 @@
 
   const logoutHandler = () => router.push({ name: 'landing' });
   const setLocale = (lng) => {
-    locale.setter(lng);
+    locale.value = lng;
     window.dispatchEvent(
       new CustomEvent('language.changed', { detail: lng })
     );

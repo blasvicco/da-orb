@@ -177,6 +177,7 @@
   });
 
   onUnmounted(() => {
+    // v8 ignore next -- timeoutId is always assigned synchronously in onMounted first.
     if (timeoutId) clearTimeout(timeoutId);
     window.removeEventListener('auth.trigger_signin', handleSignInAction);
   });

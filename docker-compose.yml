@@ -19,6 +19,7 @@ services:
       - '8000:8000'
     volumes:
       - ./app/backend:/home/app
+      - ./workflow:/home/workflow
 
   frontend:
     build:

@@ -1,0 +1,35 @@
+{
+  "path": "errors",
+  "cases": [
+    {
+      "description": "RATE_LIMIT agent error routes to the Spanish rate-limit message",
+      "input": { "message": "buscar algo", "session": { "language": "es" }, "expertise_level": 2 },
+      "pins": { "Agent: Find": { "__error__": { "language": "es", "error": { "message": "Rate limit exceeded, tokens per min" } } } },
+      "assert": { "node": "Build Error Response", "fields": { "error": "RATE_LIMIT", "message": "La búsqueda devolvió demasiados datos. Intenta con un criterio más específico." } }
+    },
+    {
+      "description": "PARSE_ERROR agent error routes to the English parse-error message",
+      "input": { "message": "buscar algo", "session": { "language": "en" }, "expertise_level": 2 },
+      "pins": { "Agent: Find": { "__error__": { "language": "en", "error": { "message": "Unexpected token in JSON" } } } },
+      "assert": { "node": "Build Error Response", "fields": { "error": "PARSE_ERROR", "message": "There was an error processing the response. Please try again." } }
+    },
+    {
+      "description": "NOT_FOUND agent error routes to the Spanish not-found message",
+      "input": { "message": "buscar algo", "session": { "language": "es" }, "expertise_level": 2 },
+      "pins": { "Agent: Find": { "__error__": { "language": "es", "error": { "message": "Resource not found" } } } },
+      "assert": { "node": "Build Error Response", "fields": { "error": "NOT_FOUND", "message": "No se encontró la definición del proceso. Intenta de nuevo." } }
+    },
+    {
+      "description": "AUTH_ERROR agent error routes to the English auth-error message",
+      "input": { "message": "buscar algo", "session": { "language": "en" }, "expertise_level": 2 },
+      "pins": { "Agent: Find": { "__error__": { "language": "en", "error": { "message": "401 Unauthorized" } } } },
+      "assert": { "node": "Build Error Response", "fields": { "error": "AUTH_ERROR", "message": "Authentication error. Please contact the administrator." } }
+    },
+    {
+      "description": "UNKNOWN_ERROR agent error routes to the generic Spanish fallback message",
+      "input": { "message": "buscar algo", "session": { "language": "es" }, "expertise_level": 2 },
+      "pins": { "Agent: Find": { "__error__": { "language": "es", "expertise_level": 2, "error": { "message": "Something totally unexpected" } } } },
+      "assert": { "node": "Build Error Response", "fields": { "error": "UNKNOWN_ERROR", "message": "Algo salió mal. Intenta de nuevo o contacta soporte." } }
+    }
+  ]
+}

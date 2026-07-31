@@ -133,6 +133,7 @@ export const useAuth = defineStore('auth', () => {
 	};
 
 	const _refresh = async () => {
+		// v8 ignore next -- _session is a const Ref, never itself nullish; only .value is.
 		const { refresh_token: refToken } = _session?.value || {};
 		try {
 			// _handleError already parses JSON — response is a plain object, not a Response

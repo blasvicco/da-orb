@@ -1,0 +1,93 @@
+{
+  "node": "Resolve Selection",
+  "cases": [
+    {
+      "description": "passes through unchanged when there are no pending_processes",
+      "input": {},
+      "nodeResults": { "Parse & Enrich": { "message": "hola", "pending_processes": null } },
+      "expected": { "pending_processes": null }
+    },
+    {
+      "description": "resolves a numeric selection to the matching process",
+      "input": {},
+      "nodeResults": {
+        "Parse & Enrich": {
+          "message": "1",
+          "language": "es",
+          "organization": { "slug": "acme" },
+          "session": { "database": "TESTDB" },
+          "github_owner": "blasvicco",
+          "github_repo": "da-sapot-processes",
+          "pending_processes": [
+            { "name": "Purchase Request", "path": "purchase/purch_request/purch_request.json" },
+            { "name": "Sales Order", "path": "sales/sales_order/sales_order.json" }
+          ]
+        }
+      },
+      "expected": {
+        "standard_path": "purchase/purch_request/purch_request.json",
+        "org_standard_path": "purchase/acme/standard/purch_request/purch_request.json",
+        "database_path": "purchase/acme/TESTDB/purch_request/purch_request.json",
+        "github_api_base": "https://api.github.com/repos/blasvicco/da-sapot-processes/contents",
+        "selection_resolved": true,
+        "responde": false,
+        "pending_processes": null
+      }
+    },
+    {
+      "description": "resolves an alphabetic selection to the matching process",
+      "input": {},
+      "nodeResults": {
+        "Parse & Enrich": {
+          "message": "B",
+          "language": "es",
+          "organization": { "slug": "acme" },
+          "session": { "database": "TESTDB" },
+          "github_owner": "blasvicco",
+          "github_repo": "da-sapot-processes",
+          "pending_processes": [
+            { "name": "Purchase Request", "path": "purchase/purch_request/purch_request.json" },
+            { "name": "Sales Order", "path": "sales/sales_order/sales_order.json" }
+          ]
+        }
+      },
+      "expected": { "standard_path": "sales/sales_order/sales_order.json", "selection_resolved": true }
+    },
+    {
+      "description": "re-prompts with the option list on an out-of-range numeric selection",
+      "input": {},
+      "nodeResults": {
+        "Parse & Enrich": {
+          "message": "5",
+          "language": "es",
+          "pending_processes": [
+            { "name": "Purchase Request", "path": "purchase/purch_request/purch_request.json" },
+            { "name": "Sales Order", "path": "sales/sales_order/sales_order.json" }
+          ]
+        }
+      },
+      "expected": {
+        "responde": true,
+        "processes": [
+          { "name": "Purchase Request", "path": "purchase/purch_request/purch_request.json" },
+          { "name": "Sales Order", "path": "sales/sales_order/sales_order.json" }
+        ]
+      }
+    },
+    {
+      "description": "re-prompts when the reply is neither a number nor a single letter",
+      "input": {},
+      "nodeResults": {
+        "Parse & Enrich": {
+          "message": "abc",
+          "language": "es",
+          "selection_resolved": false,
+          "pending_processes": [
+            { "name": "Purchase Request", "path": "purchase/purch_request/purch_request.json" }
+          ]
+        }
+      },
+      "expected": { "responde": true, "selection_resolved": false }
+    }
+  ]
+}

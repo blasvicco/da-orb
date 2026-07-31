@@ -1,0 +1,35 @@
+{
+  "node": "Normalize Response",
+  "cases": [
+    {
+      "description": "falls back to the base process_id when the update omits it",
+      "input": { "message": "hi" },
+      "nodeResults": { "Parse & Enrich": { "process_id": "base-p1" } },
+      "expected": { "process_id": "base-p1" }
+    },
+    {
+      "description": "uses the update's process_id when it provides one",
+      "input": { "process_id": "new-p2" },
+      "nodeResults": { "Parse & Enrich": { "process_id": "base-p1" } },
+      "expected": { "process_id": "new-p2" }
+    },
+    {
+      "description": "reset_process forces null even if the base had an active process",
+      "input": { "reset_process": true },
+      "nodeResults": { "Parse & Enrich": { "process_id": "base-p1", "process_definition": { "id": "base-p1" }, "form_state": { "x": 1 } } },
+      "expected": { "process_id": null, "process_definition": null, "form_state": null, "reset_process": true }
+    },
+    {
+      "description": "defaults responde to false when the update omits it",
+      "input": { "message": "hi" },
+      "nodeResults": { "Parse & Enrich": {} },
+      "expected": { "responde": false }
+    },
+    {
+      "description": "falls back to the base process_stack and process_queue when the update omits them",
+      "input": {},
+      "nodeResults": { "Parse & Enrich": { "process_stack": [{ "process_id": "p0" }], "process_queue": [{ "process_id": "q0" }] } },
+      "expected": { "process_stack": [{ "process_id": "p0" }], "process_queue": [{ "process_id": "q0" }] }
+    }
+  ]
+}

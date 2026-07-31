@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 # Lib imports
 import pytest
+import requests
 from allure import step
 from django.utils import timezone
 
@@ -144,6 +145,128 @@ def test_login_success():
 		assert mock_post.call_args.kwargs["json"]["UserName"] == "bob"
 		assert session_data["database"] == "TESTDB"
 		assert session_data["user"]["password"] == "secret"
+
+
+def test_authenticate_raises_on_request_exception():
+	"""Test authenticate raises AuthDriverError with a 502 when the SAP Login POST itself fails"""
+
+	with step("Arrange: A driver whose POST raises a network error."):
+		driver = _make_driver()
+
+	with step("Act/Assert: authenticate raises AuthDriverError."):
+		with patch(
+			"drf_api.resources.auth.driver.b1s.requests.post",
+			side_effect=requests.ConnectionError("boom"),
+		):
+			with pytest.raises(AuthDriverError) as exc_info:
+				driver.authenticate(
+					database="TESTDB", password="secret", username="bob"
+				)
+
+	with step("Assert: The error carries a 502 status code."):
+		assert exc_info.value.status_code == 502
+
+
+@pytest.mark.parametrize(
+	"payload",
+	[
+		{
+			"description": "a nested error.message.value takes priority",
+			"expected_message": "Invalid credentials",
+			"response_json": {"error": {"message": {"value": "Invalid credentials"}}},
+		},
+		{
+			"description": "an error dict without a nested message.value falls back to the raw error value",
+			"expected_message": str({"unexpected": "shape"}),
+			"response_json": {"error": {"unexpected": "shape"}},
+		},
+		{
+			"description": "falls back to a generic message when the body has neither",
+			"expected_message": "B1S_AUTH_FAILED",
+			"response_json": {},
+		},
+	],
+)
+def test_authenticate_raises_on_non_200_with_json_body(payload):
+	"""Test authenticate raises AuthDriverError using the most specific message available"""
+
+	with step(f"Arrange: {payload['description']}."):
+		driver = _make_driver()
+		mock_response = MagicMock(status_code=401)
+		mock_response.json.return_value = payload["response_json"]
+
+	with step("Act/Assert: authenticate raises AuthDriverError."):
+		with patch(
+			"drf_api.resources.auth.driver.b1s.requests.post",
+			return_value=mock_response,
+		):
+			with pytest.raises(AuthDriverError) as exc_info:
+				driver.authenticate(
+					database="TESTDB", password="secret", username="bob"
+				)
+
+	with step("Assert: The most specific available message and status code were used."):
+		assert str(exc_info.value) == payload["expected_message"]
+		assert exc_info.value.status_code == 401
+
+
+def test_authenticate_raises_on_non_200_with_unparseable_body():
+	"""Test authenticate falls back to an empty response_data when the error body isn't valid JSON"""
+
+	with step("Arrange: A non-200 response whose .json() raises."):
+		driver = _make_driver()
+		mock_response = MagicMock(status_code=500)
+		mock_response.json.side_effect = ValueError("not json")
+
+	with step("Act/Assert: authenticate raises AuthDriverError."):
+		with patch(
+			"drf_api.resources.auth.driver.b1s.requests.post",
+			return_value=mock_response,
+		):
+			with pytest.raises(AuthDriverError, match="B1S_AUTH_FAILED"):
+				driver.authenticate(
+					database="TESTDB", password="secret", username="bob"
+				)
+
+
+def test_authenticate_raises_on_invalid_success_response():
+	"""Test authenticate raises B1S_INVALID_RESPONSE when a 200 response body isn't valid JSON"""
+
+	with step("Arrange: A 200 response whose .json() raises."):
+		driver = _make_driver()
+		mock_response = MagicMock(status_code=200)
+		mock_response.json.side_effect = ValueError("not json")
+
+	with step("Act/Assert: authenticate raises B1S_INVALID_RESPONSE."):
+		with patch(
+			"drf_api.resources.auth.driver.b1s.requests.post",
+			return_value=mock_response,
+		):
+			with pytest.raises(
+				AuthDriverError, match="B1S_INVALID_RESPONSE"
+			) as exc_info:
+				driver.authenticate(
+					database="TESTDB", password="secret", username="bob"
+				)
+
+	with step("Assert: The error carries a 502 status code."):
+		assert exc_info.value.status_code == 502
+
+
+def test_refresh_not_supported():
+	"""Test refresh raises B1S_REFRESH_NOT_SUPPORTED since B1S has no token refresh"""
+
+	with step("Arrange: A B1S driver instance."):
+		driver = _make_driver()
+
+	with step("Act/Assert: refresh raises B1S_REFRESH_NOT_SUPPORTED."):
+		with pytest.raises(
+			AuthDriverError, match="B1S_REFRESH_NOT_SUPPORTED"
+		) as exc_info:
+			driver.refresh()
+
+	with step("Assert: The error carries a 400 status code."):
+		assert exc_info.value.status_code == 400
 
 
 def test_resolve_session_missing_token():
@@ -363,9 +486,7 @@ def test_resolve_ws_session_valid_token_returns_session_dict():
 			username="bob",
 		)
 
-	with step(
-		"Act: Call resolve_ws_session with mismatched client-supplied fields."
-	):
+	with step("Act: Call resolve_ws_session with mismatched client-supplied fields."):
 		result = _make_driver().resolve_ws_session(
 			{"database": "SPOOFEDDB", "expires_at": 999, "password": "spoofed"},
 			org="someone-elses-org",

@@ -1,0 +1,111 @@
+{
+  "node": "Build SAP Payload",
+  "cases": [
+    {
+      "description": "GET_SINGLE when the query key has a value in form_state, using b1s connection",
+      "input": {},
+      "nodeResults": {
+        "Status Text: Submitting": {
+          "process_definition": { "api": { "method": "GET", "service": "BusinessPartners" }, "query": { "key": { "id": "CardCode", "sap_field": "CardCode" } } },
+          "form_state": { "CardCode": "C001" },
+          "organization": { "integration": { "auth_driver": "b1s", "base_url": "https://sap.example.com" } },
+          "session": { "user": { "username": "u", "password": "p" }, "database": "TESTDB" }
+        }
+      },
+      "expected": {
+        "sap_operation": "GET_SINGLE",
+        "sap_service": "BusinessPartners",
+        "sap_payload": null,
+        "sap_connection": { "authDriver": "b1s", "baseUrl": "https://sap.example.com", "username": "u", "password": "p", "companyDB": "TESTDB" }
+      }
+    },
+    {
+      "description": "GET_QUERY when the query key value is missing from form_state",
+      "input": {},
+      "nodeResults": {
+        "Status Text: Submitting": {
+          "process_definition": { "api": { "method": "GET", "service": "BusinessPartners" }, "query": { "key": { "id": "CardCode", "sap_field": "CardCode" } } },
+          "form_state": {},
+          "organization": {},
+          "session": {}
+        }
+      },
+      "expected": { "sap_operation": "GET_QUERY" }
+    },
+    {
+      "description": "POST_CREATE maps single-value section fields to their sap_field names",
+      "input": {},
+      "nodeResults": {
+        "Status Text: Submitting": {
+          "process_definition": {
+            "api": { "method": "POST", "service": "Orders" },
+            "form": { "sections": [{ "id": "header", "fields": [{ "id": "customer", "sap_field": "CardCode", "required": true }] }] }
+          },
+          "form_state": { "customer": "C001" },
+          "organization": {},
+          "session": {}
+        }
+      },
+      "expected": { "sap_operation": "POST_CREATE", "sap_payload": { "CardCode": "C001" } }
+    },
+    {
+      "description": "POST_CREATE maps a multiple/line-item section into an array under its sap_field, dropping empty values",
+      "input": {},
+      "nodeResults": {
+        "Status Text: Submitting": {
+          "process_definition": {
+            "api": { "method": "POST", "service": "Orders" },
+            "form": {
+              "sections": [
+                { "id": "lines", "multiple": true, "sap_field": "DocumentLines", "fields": [{ "id": "item_code", "sap_field": "ItemCode" }, { "id": "qty", "sap_field": "Quantity" }] }
+              ]
+            }
+          },
+          "form_state": { "lines": [{ "item_code": "A1", "qty": 2 }, { "item_code": "A2", "qty": null }] },
+          "organization": {},
+          "session": {}
+        }
+      },
+      "expected": { "sap_payload": { "DocumentLines": [{ "ItemCode": "A1", "Quantity": 2 }, { "ItemCode": "A2" }] } }
+    },
+    {
+      "description": "POST_CREATE merges _extra_fields into the payload once every extra value is resolved",
+      "input": {},
+      "nodeResults": {
+        "Status Text: Submitting": {
+          "process_definition": { "api": { "method": "POST", "service": "Orders" }, "form": { "sections": [{ "id": "header", "fields": [{ "id": "customer", "sap_field": "CardCode" }] }] } },
+          "form_state": { "customer": "C1", "_extra_fields": { "Comments": "urgent" } },
+          "organization": {},
+          "session": {}
+        }
+      },
+      "expected": { "sap_payload": { "CardCode": "C1", "Comments": "urgent" } }
+    },
+    {
+      "description": "POST_CREATE skips _extra_fields entirely while any extra value is still unresolved",
+      "input": {},
+      "nodeResults": {
+        "Status Text: Submitting": {
+          "process_definition": { "api": { "method": "POST", "service": "Orders" }, "form": { "sections": [{ "id": "header", "fields": [{ "id": "customer", "sap_field": "CardCode" }] }] } },
+          "form_state": { "customer": "C1", "_extra_fields": { "Comments": null } },
+          "organization": {},
+          "session": {}
+        }
+      },
+      "expected": { "sap_payload": { "CardCode": "C1" } }
+    },
+    {
+      "description": "uses a token connection instead of username/password when auth_driver is not b1s",
+      "input": {},
+      "nodeResults": {
+        "Status Text: Submitting": {
+          "process_definition": { "api": { "method": "GET", "service": "BusinessPartners" } },
+          "form_state": {},
+          "organization": { "integration": { "auth_driver": "oauth", "base_url": "https://sap2.example.com" } },
+          "session": { "access_token": "tok123" }
+        }
+      },
+      "expected": { "sap_operation": "GET_QUERY", "sap_connection": { "authDriver": "oauth", "baseUrl": "https://sap2.example.com", "token": "tok123" } }
+    }
+  ]
+}

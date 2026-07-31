@@ -50,13 +50,13 @@
     (value) => {
       if (!column.type && value) {
         // wait for DOM to render
-        setTimeout(() => searchInput.value.focus(), 100);
+        setTimeout(() => searchInput.value?.focus(), 100);
       }
     }
   );
 
   onMounted(() => {
-    !column.type && setTimeout(() => searchInput.value.focus(), 100);
+    !column.type && setTimeout(() => searchInput.value?.focus(), 100);
   });
 
 

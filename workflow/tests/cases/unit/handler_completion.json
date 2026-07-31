@@ -1,0 +1,43 @@
+{
+  "node": "Handler: Completion",
+  "cases": [
+    {
+      "description": "asks to resume the previous request when the process stack has entries",
+      "input": { "_parsed": { "status": "confirmed", "message": "Orden creada" } },
+      "nodeResults": { "Resolve Stack Resume": { "language": "es", "process_stack": [{ "process_id": "p0" }] } },
+      "expected": {
+        "responde": true,
+        "awaiting_stack_resume": true,
+        "reset_process": true,
+        "process_id": null,
+        "process_definition": null,
+        "form_state": null,
+        "message": "Orden creada\n\n---\n\n**Listo!** ¿Deseas continuar con tu solicitud anterior?"
+      }
+    },
+    {
+      "description": "clears state without asking to resume when the stack is empty",
+      "input": { "_parsed": { "status": "confirmed", "message": "Order created" } },
+      "nodeResults": { "Resolve Stack Resume": { "language": "en", "process_stack": [] } },
+      "expected": { "responde": true, "awaiting_stack_resume": false, "reset_process": true, "message": "Order created" }
+    },
+    {
+      "description": "prefers Decode & Set Schema as the base when it carries an active process_id",
+      "input": { "_parsed": { "status": "confirmed", "message": "Listo" } },
+      "nodeResults": {
+        "Decode & Set Schema": { "language": "es", "process_stack": [], "process_id": "p9", "organization": { "slug": "acme" } },
+        "Resolve Stack Resume": { "language": "en", "process_stack": [{ "process_id": "ignored" }] }
+      },
+      "expected": { "message": "Listo", "process_id": null, "reset_process": true, "awaiting_stack_resume": false }
+    },
+    {
+      "description": "carries over process_queue from Status Text: Submitting when present",
+      "input": { "_parsed": { "status": "confirmed", "message": "Done" } },
+      "nodeResults": {
+        "Resolve Stack Resume": { "language": "en", "process_stack": [] },
+        "Status Text: Submitting": { "process_queue": [{ "process_id": "queued-1" }] }
+      },
+      "expected": { "process_queue": [{ "process_id": "queued-1" }] }
+    }
+  ]
+}

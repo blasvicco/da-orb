@@ -1,0 +1,43 @@
+{
+  "node": "Decode & Set Process",
+  "cases": [
+    {
+      "description": "falls back to NOT_FOUND when the fetch returned an error status",
+      "input": { "statusCode": 404 },
+      "nodeResults": { "Parse & Enrich": { "language": "es" } },
+      "expected": { "error": "NOT_FOUND", "responde": false }
+    },
+    {
+      "description": "falls back to NOT_FOUND when the base64 content does not parse as JSON",
+      "input": { "body": { "content": "bm90LWpzb24=" } },
+      "nodeResults": { "Parse & Enrich": { "language": "es" } },
+      "expected": { "error": "NOT_FOUND", "message": "Error al parsear la definición del proceso." }
+    },
+    {
+      "description": "decodes the process definition and sets process_id plus schema_fetch_url",
+      "input": {
+        "body": {
+          "content": "eyJpZCI6InB1cmNoYXNlX3JlcXVlc3QiLCJzY2hlbWEiOiJwdXJjaGFzZV9yZXF1ZXN0X3NjaGVtYSJ9",
+          "path": "purchase/purch_request/purch_request.json"
+        }
+      },
+      "nodeResults": { "Parse & Enrich": { "github_owner": "blasvicco", "github_repo": "da-sapot-processes" } },
+      "expected": {
+        "process_id": "purchase_request",
+        "schema_fetch_url": "https://api.github.com/repos/blasvicco/da-sapot-processes/contents/purchase/purch_request/purchase_request_schema.json?ref=main",
+        "responde": false
+      }
+    },
+    {
+      "description": "schema_fetch_url is null when the process definition has no schema slug",
+      "input": {
+        "body": {
+          "content": "eyJpZCI6InB1cmNoYXNlX3JlcXVlc3QifQ==",
+          "path": "purchase/purch_request/purch_request.json"
+        }
+      },
+      "nodeResults": { "Parse & Enrich": { "github_owner": "blasvicco", "github_repo": "da-sapot-processes" } },
+      "expected": { "process_id": "purchase_request", "schema_fetch_url": null }
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "node": "Build Callback Payload",
+  "cases": [
+    {
+      "description": "maps Normalize Response fields into the callback payload, type=agent when there is no error",
+      "input": {},
+      "nodeResults": {
+        "Normalize Response": {
+          "group_name": "g1",
+          "session_id": "s1",
+          "message": "Hello",
+          "error": null,
+          "form_state": { "x": 1 },
+          "process_id": "p1",
+          "process_definition": { "id": "p1" },
+          "processes": null,
+          "process_stack": [],
+          "awaiting_stack_resume": false,
+          "reset_process": false,
+          "process_queue": []
+        }
+      },
+      "expected": {
+        "type": "agent",
+        "text": "Hello",
+        "group_name": "g1",
+        "session_id": "s1",
+        "processes": null,
+        "state": {
+          "form_state": { "x": 1 },
+          "process_id": "p1",
+          "process_definition": { "id": "p1" },
+          "pending_processes": null,
+          "process_stack": [],
+          "awaiting_stack_resume": false,
+          "reset_process": false,
+          "process_queue": [],
+          "last_bot_message": "Hello"
+        }
+      }
+    },
+    {
+      "description": "type=alert for a genuine error (not one of the soft NO_MATCH/MULTIPLE_PROCESSES/AGENT_ERROR statuses)",
+      "input": {},
+      "nodeResults": { "Normalize Response": { "group_name": "g1", "session_id": "s1", "message": "Auth failed", "error": "AUTH_ERROR" } },
+      "expected": { "type": "alert" }
+    },
+    {
+      "description": "type stays agent for the soft NO_MATCH error",
+      "input": {},
+      "nodeResults": { "Normalize Response": { "group_name": "g1", "session_id": "s1", "message": "No matching process found", "error": "NO_MATCH" } },
+      "expected": { "type": "agent" }
+    },
+    {
+      "description": "computes extra.usage by summing tokenUsageEstimate across the chat model sub-nodes that ran",
+      "input": {
+        "data": {
+          "resultData": {
+            "runData": {
+              "OpenAI Chat Model Find": [{ "data": { "ai_languageModel": [[{ "json": { "tokenUsageEstimate": { "promptTokens": 100, "completionTokens": 20, "totalTokens": 120 } } }]] } }],
+              "OpenAI Chat Model Form": [{ "data": { "ai_languageModel": [[{ "json": { "tokenUsageEstimate": { "promptTokens": 50, "completionTokens": 10, "totalTokens": 60 } } }]] } }]
+            }
+          }
+        }
+      },
+      "nodeResults": { "Normalize Response": { "group_name": "g1", "session_id": "s1", "message": "Hi" } },
+      "expected": { "extra": { "usage": { "prompt_tokens": 150, "completion_tokens": 30, "total_tokens": 180, "model": "gpt-5-nano, gpt-5-mini" } } }
+    }
+  ]
+}

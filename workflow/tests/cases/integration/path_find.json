@@ -1,0 +1,44 @@
+{
+  "path": "find",
+  "cases": [
+    {
+      "description": "Agent: Find returns a match -> Handler: Match loads the standard_path",
+      "input": { "message": "quiero hacer una solicitud de compra", "session": { "language": "es" }, "expertise_level": 2, "organization": { "slug": "test_org" } },
+      "pins": {
+        "Agent: Find": { "output": "{\"status\":\"match\",\"path\":\"purchase/purch_request/purch_request.json\"}" },
+        "Fetch DB Override": { "statusCode": 404 },
+        "Fetch Org Override": { "statusCode": 404 },
+        "Fetch Standard": { "statusCode": 200, "body": { "content": "eyJpZCI6InB1cmNoYXNlX3JlcXVlc3QifQ==", "path": "purchase/purch_request/purch_request.json" } },
+        "Fetch Schema": { "statusCode": 404 },
+        "Agent: Form": { "output": "{\"status\":\"in_progress\",\"message\":\"stub\",\"form_state\":{},\"processes\":null}" }
+      },
+      "assert": { "node": "Handler: Match", "fields": { "standard_path": "purchase/purch_request/purch_request.json", "responde": false } }
+    },
+    {
+      "description": "Agent: Find returns no_match -> Handler: Multi or No Match relays the message",
+      "input": { "message": "asdkjaslkdj random gibberish", "session": { "language": "es" }, "expertise_level": 2 },
+      "pins": { "Agent: Find": { "output": "{\"status\":\"no_match\",\"processes\":null,\"message\":\"No matching process found\"}" } },
+      "assert": { "node": "Handler: Multi or No Match", "fields": { "message": "No matching process found", "pending_processes": null, "responde": true } }
+    },
+    {
+      "description": "Agent: Find returns multiple_processes -> Handler: Multi or No Match carries the candidate list",
+      "input": { "message": "quiero hacer una compra", "session": { "language": "es" }, "expertise_level": 2 },
+      "pins": {
+        "Agent: Find": {
+          "output": "{\"status\":\"multiple_processes\",\"processes\":[{\"name\":\"Purchase Request\",\"path\":\"purchase/purch_request/purch_request.json\"},{\"name\":\"Purchase Order\",\"path\":\"purchase/purch_order/purch_order.json\"}],\"message\":\"Please choose one\"}"
+        }
+      },
+      "assert": {
+        "node": "Handler: Multi or No Match",
+        "fields": {
+          "responde": true,
+          "message": "Please choose one",
+          "processes": [
+            { "name": "Purchase Request", "path": "purchase/purch_request/purch_request.json" },
+            { "name": "Purchase Order", "path": "purchase/purch_order/purch_order.json" }
+          ]
+        }
+      }
+    }
+  ]
+}

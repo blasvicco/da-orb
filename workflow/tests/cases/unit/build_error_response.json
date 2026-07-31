@@ -1,0 +1,39 @@
+{
+  "node": "Build Error Response",
+  "cases": [
+    {
+      "description": "builds the Spanish message for RATE_LIMIT",
+      "input": { "error_type": "RATE_LIMIT", "language": "es", "expertise_level": 2 },
+      "expected": {
+        "message": "La búsqueda devolvió demasiados datos. Intenta con un criterio más específico.",
+        "error": "RATE_LIMIT",
+        "responde": true
+      }
+    },
+    {
+      "description": "builds the English message for NOT_FOUND",
+      "input": { "error_type": "NOT_FOUND", "language": "en" },
+      "expected": { "message": "The process definition could not be loaded. Please try again.", "error": "NOT_FOUND" }
+    },
+    {
+      "description": "clears process state (form_state, process_id, process_definition) for AUTH_ERROR",
+      "input": { "error_type": "AUTH_ERROR", "language": "es", "form_state": { "x": 1 }, "process_id": "p1", "process_definition": { "id": "p1" } },
+      "expected": { "form_state": null, "process_id": null, "process_definition": null, "error": "AUTH_ERROR" }
+    },
+    {
+      "description": "preserves process state for non-auth errors",
+      "input": { "error_type": "NOT_FOUND", "language": "es", "form_state": { "x": 1 }, "process_id": "p1", "process_definition": { "id": "p1" } },
+      "expected": { "form_state": { "x": 1 }, "process_id": "p1", "process_definition": { "id": "p1" } }
+    },
+    {
+      "description": "expert level (3) shows the raw error text for UNKNOWN_ERROR",
+      "input": { "error_type": "UNKNOWN_ERROR", "language": "en", "expertise_level": 3, "raw_error": "Weird stack trace" },
+      "expected": { "message": "Weird stack trace" }
+    },
+    {
+      "description": "non-expert levels get the generic message for UNKNOWN_ERROR",
+      "input": { "error_type": "UNKNOWN_ERROR", "language": "en", "expertise_level": 2, "raw_error": "Weird stack trace" },
+      "expected": { "message": "Something went wrong. Please try again or contact support." }
+    }
+  ]
+}

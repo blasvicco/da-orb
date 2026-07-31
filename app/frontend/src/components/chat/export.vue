@@ -159,9 +159,12 @@
 
     const cleanup = () => iframe.parentNode && document.body.removeChild(iframe);
     iframe.onload = () => {
-      iframe.contentWindow.focus();
-      iframe.contentWindow.print();
-      iframe.contentWindow.onafterprint = cleanup;
+      // contentWindow can be null if the iframe was detached before load fired.
+      const win = iframe.contentWindow;
+      if (!win) return;
+      win.focus();
+      win.print();
+      win.onafterprint = cleanup;
       // Fallback in case the browser doesn't fire `afterprint` (e.g. the user cancels)
       setTimeout(cleanup, 60000);
     };

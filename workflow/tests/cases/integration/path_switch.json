@@ -1,0 +1,41 @@
+{
+  "path": "switch",
+  "cases": [
+    {
+      "description": "switch_intent pushes the active process onto process_stack and resets it",
+      "input": {
+        "message": "cancelar, quiero otra cosa", "session": { "language": "es" }, "expertise_level": 2,
+        "process_id": "existing_process", "process_definition": { "id": "existing_process" }, "form_state": { "x": 1 }
+      },
+      "pins": { "Agent: Find": { "output": "{\"status\":\"no_match\",\"processes\":null,\"message\":\"stub\"}" } },
+      "assert": {
+        "node": "Push to Stack + Reset",
+        "fields": { "process_id": null, "switch_intent": false, "process_stack": [{ "process_id": "existing_process", "process_definition": { "id": "existing_process" }, "form_state": { "x": 1 } }] }
+      }
+    },
+    {
+      "description": "affirmative reply while awaiting_stack_resume pops the parked process back into place",
+      "input": {
+        "message": "dale", "session": { "language": "es" },
+        "awaiting_stack_resume": true, "process_stack": [{ "process_id": "p1", "process_definition": { "id": "p1" }, "form_state": { "x": 1 } }]
+      },
+      "pins": { "Agent: Form": { "output": "{\"status\":\"in_progress\",\"message\":\"stub\",\"form_state\":{},\"processes\":null}" } },
+      "assert": {
+        "node": "Resolve Stack Resume",
+        "fields": { "process_id": "p1", "process_definition": { "id": "p1" }, "form_state": { "x": 1 }, "process_stack": [], "awaiting_stack_resume": false }
+      }
+    },
+    {
+      "description": "non-affirmative reply while awaiting_stack_resume leaves the parked stack untouched",
+      "input": {
+        "message": "no gracias", "session": { "language": "es" },
+        "awaiting_stack_resume": true, "process_stack": [{ "process_id": "p1", "process_definition": { "id": "p1" }, "form_state": { "x": 1 } }]
+      },
+      "pins": { "Agent: Find": { "output": "{\"status\":\"no_match\",\"processes\":null,\"message\":\"stub\"}" } },
+      "assert": {
+        "node": "Resolve Stack Resume",
+        "fields": { "awaiting_stack_resume": false, "process_stack": [{ "process_id": "p1", "process_definition": { "id": "p1" }, "form_state": { "x": 1 } }] }
+      }
+    }
+  ]
+}

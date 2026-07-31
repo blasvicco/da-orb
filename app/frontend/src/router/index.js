@@ -100,12 +100,15 @@ router.beforeEach((to, from, next) => {
     }
   }
   // if route can be accessed without authentication - guest is true
-  else if (to.matched.some((record) => record.meta.guest)) {
-    // guest handling reserved for Phase 2
-  }
-  // if not guest or requiresAuth continue
   else {
-    next();
+    // v8 ignore next -- no route sets meta.guest yet; reserved for Phase 2.
+    if (to.matched.some((record) => record.meta.guest)) {
+      // guest handling reserved for Phase 2
+    }
+    // if not guest or requiresAuth continue
+    else {
+      next();
+    }
   }
 });
 

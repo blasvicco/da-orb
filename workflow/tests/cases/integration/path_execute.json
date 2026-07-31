@@ -1,0 +1,41 @@
+{
+  "path": "execute",
+  "cases": [
+    {
+      "description": "GET with a resolved query key routes to GET_SINGLE",
+      "input": {
+        "message": "dame el cliente C001", "session": { "language": "es" }, "expertise_level": 2,
+        "process_id": "get_customer",
+        "process_definition": { "id": "get_customer", "api": { "method": "GET", "service": "BusinessPartners" }, "query": { "key": { "id": "CardCode", "sap_field": "CardCode" } } },
+        "form_state": { "ready": true, "CardCode": "C001" }
+      },
+      "pins": { "Agent: Execute": { "output": "{\"status\":\"success\",\"message\":\"Cliente: C001\",\"form_state\":null,\"processes\":null}" } },
+      "assert": { "node": "Build SAP Payload", "fields": { "sap_operation": "GET_SINGLE", "sap_service": "BusinessPartners" } }
+    },
+    {
+      "description": "GET without a resolved query key routes to GET_QUERY",
+      "input": {
+        "message": "lista los clientes", "session": { "language": "es" }, "expertise_level": 2,
+        "process_id": "list_customers",
+        "process_definition": { "id": "list_customers", "api": { "method": "GET", "service": "BusinessPartners" }, "query": { "key": { "id": "CardCode", "sap_field": "CardCode" } } },
+        "form_state": { "ready": true }
+      },
+      "pins": { "Agent: Execute": { "output": "{\"status\":\"success\",\"message\":\"3 resultados\",\"form_state\":null,\"processes\":null}" } },
+      "assert": { "node": "Build SAP Payload", "fields": { "sap_operation": "GET_QUERY", "sap_service": "BusinessPartners" } }
+    },
+    {
+      "description": "POST routes to POST_CREATE and maps form_state fields into the payload",
+      "input": {
+        "message": "confirmo la orden", "session": { "language": "es" }, "expertise_level": 2,
+        "process_id": "create_order",
+        "process_definition": {
+          "id": "create_order", "api": { "method": "POST", "service": "Orders" },
+          "form": { "sections": [{ "id": "header", "fields": [{ "id": "customer", "sap_field": "CardCode" }] }] }
+        },
+        "form_state": { "ready": true, "customer": "C001" }
+      },
+      "pins": { "Agent: Execute": { "output": "{\"status\":\"success\",\"message\":\"Orden creada\",\"form_state\":null,\"processes\":null}" } },
+      "assert": { "node": "Build SAP Payload", "fields": { "sap_operation": "POST_CREATE", "sap_payload": { "CardCode": "C001" } } }
+    }
+  ]
+}

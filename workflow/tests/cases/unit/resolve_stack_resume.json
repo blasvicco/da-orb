@@ -1,0 +1,43 @@
+{
+  "node": "Resolve Stack Resume",
+  "cases": [
+    {
+      "description": "passes through unchanged when not awaiting a stack resume",
+      "input": {},
+      "nodeResults": { "Resolve Selection": { "message": "hola", "awaiting_stack_resume": false } },
+      "expected": { "awaiting_stack_resume": false }
+    },
+    {
+      "description": "clears awaiting_stack_resume and keeps the stack when the reply is not affirmative",
+      "input": {},
+      "nodeResults": {
+        "Resolve Selection": { "message": "no gracias", "awaiting_stack_resume": true, "process_stack": [{ "process_id": "p1" }] }
+      },
+      "expected": { "awaiting_stack_resume": false, "process_stack": [{ "process_id": "p1" }] }
+    },
+    {
+      "description": "resumes the previous process from the stack on an affirmative reply",
+      "input": {},
+      "nodeResults": {
+        "Resolve Selection": {
+          "message": "dale",
+          "awaiting_stack_resume": true,
+          "process_stack": [{ "process_id": "p1", "process_definition": { "id": "p1" }, "form_state": { "x": 1 } }]
+        }
+      },
+      "expected": {
+        "process_id": "p1",
+        "process_definition": { "id": "p1" },
+        "form_state": { "x": 1 },
+        "process_stack": [],
+        "awaiting_stack_resume": false
+      }
+    },
+    {
+      "description": "clears awaiting_stack_resume when the stack is empty despite an affirmative reply",
+      "input": {},
+      "nodeResults": { "Resolve Selection": { "message": "yes", "awaiting_stack_resume": true, "process_stack": [] } },
+      "expected": { "awaiting_stack_resume": false }
+    }
+  ]
+}

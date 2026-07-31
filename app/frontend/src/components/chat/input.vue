@@ -20,6 +20,7 @@
 
   const resizeTextarea = () => {
     const el = promptTextarea.value;
+    // v8 ignore next -- textarea is unconditionally rendered; unreachable pre-mount/post-unmount.
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;

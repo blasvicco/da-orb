@@ -1,0 +1,47 @@
+{
+  "path": "fill_form",
+  "cases": [
+    {
+      "description": "Agent: Form in_progress -> Handler: In Progress merges the new form_state fields",
+      "input": {
+        "message": "el codigo es C001", "session": { "language": "es" }, "expertise_level": 2,
+        "process_id": "purchase_request", "process_definition": { "id": "purchase_request" }, "form_state": {}
+      },
+      "pins": { "Agent: Form": { "output": "{\"status\":\"in_progress\",\"message\":\"\\u00bfCu\\u00e1l es la cantidad?\",\"form_state\":{\"CardCode\":\"C001\"},\"processes\":null}" } },
+      "assert": { "node": "Handler: In Progress", "fields": { "responde": true, "message": "¿Cuál es la cantidad?", "form_state": { "CardCode": "C001" } } }
+    },
+    {
+      "description": "Agent: Form confirmed -> Handler: Confirmed marks form_state ready and keeps process_id",
+      "input": {
+        "message": "si, confirmo", "session": { "language": "es" }, "expertise_level": 2,
+        "process_id": "purchase_request", "process_definition": { "id": "purchase_request" }, "form_state": { "CardCode": "C001" }
+      },
+      "pins": {
+        "Agent: Form": { "output": "{\"status\":\"confirmed\",\"message\":\"Perfecto, enviando...\",\"form_state\":{\"CardCode\":\"C001\"},\"processes\":null}" },
+        "Agent: Execute": { "output": "{\"status\":\"success\",\"message\":\"ok\",\"form_state\":null,\"processes\":null}" }
+      },
+      "assert": { "node": "Handler: Confirmed", "fields": { "process_id": "purchase_request", "responde": false, "form_state.ready": true, "form_state.CardCode": "C001" } }
+    },
+    {
+      "description": "Agent: Form cancelled -> Handler: Completion clears the active process",
+      "input": {
+        "message": "no quiero seguir con esto", "session": { "language": "es" }, "expertise_level": 2,
+        "process_id": "purchase_request", "process_definition": { "id": "purchase_request" }, "form_state": { "CardCode": "C001" }
+      },
+      "pins": { "Agent: Form": { "output": "{\"status\":\"cancelled\",\"message\":\"Cancelado\",\"form_state\":null,\"processes\":null}" } },
+      "assert": { "node": "Handler: Completion", "fields": { "message": "Cancelado", "process_id": null, "reset_process": true, "responde": true } }
+    },
+    {
+      "description": "Agent: Form switch_needed -> Handler: Switch Needed parks the process and carries the new intent",
+      "input": {
+        "message": "espera, quiero ver mis ordenes de venta", "session": { "language": "es" }, "expertise_level": 2,
+        "process_id": "purchase_request", "process_definition": { "id": "purchase_request" }, "form_state": { "CardCode": "C001" }
+      },
+      "pins": {
+        "Agent: Form": { "output": "{\"status\":\"switch_needed\",\"intent\":\"quiero ver mis ordenes de venta\",\"form_state\":{\"CardCode\":\"C001\"},\"processes\":null}" },
+        "Agent: Find": { "output": "{\"status\":\"no_match\",\"processes\":null,\"message\":\"stub\"}" }
+      },
+      "assert": { "node": "Handler: Switch Needed", "fields": { "message": "quiero ver mis ordenes de venta", "switch_intent": false, "responde": false, "process_id": null } }
+    }
+  ]
+}
