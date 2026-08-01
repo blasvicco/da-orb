@@ -47,13 +47,17 @@ async def _persist_n8n_state(group_name, *, merged):
 	state = N8nSessionState(group_name=group_name)
 	try:
 		await state.save(
-			form_state=merged.get("form_state"),
-			process_id=merged.get("process_id"),
-			process_definition=merged.get("process_definition"),
-			pending_processes=merged.get("pending_processes"),
-			process_stack=merged.get("process_stack"),
+			active_node_id=merged.get("active_node_id"),
 			awaiting_stack_resume=merged.get("awaiting_stack_resume", False),
+			form_state=merged.get("form_state"),
+			intention_nodes=merged.get("intention_nodes"),
 			last_bot_message=merged.get("last_bot_message"),
+			parent_override_id=merged.get("parent_override_id"),
+			paused_node_ids=merged.get("paused_node_ids"),
+			pending_processes=merged.get("pending_processes"),
+			process_definition=merged.get("process_definition"),
+			process_id=merged.get("process_id"),
+			process_stack=merged.get("process_stack"),
 		)
 	finally:
 		await state.close()
@@ -87,19 +91,32 @@ def _resolve_and_persist_state(group_name, incoming):
 		return incoming.get(key) if incoming.get(key) is not None else current.get(key)
 
 	merged = {
-		"form_state": _resolve("form_state"),
-		"process_id": _resolve("process_id"),
-		"process_definition": _resolve("process_definition"),
-		"pending_processes": incoming.get("pending_processes")
-		if incoming.get("pending_processes") is not None
-		else current.get("pending_processes"),
-		"process_stack": incoming.get("process_stack")
-		if incoming.get("process_stack") is not None
-		else current.get("process_stack") or [],
+		"active_node_id": _resolve("active_node_id"),
 		"awaiting_stack_resume": incoming.get("awaiting_stack_resume")
 		if incoming.get("awaiting_stack_resume") is not None
 		else current.get("awaiting_stack_resume", False),
+		"form_state": _resolve("form_state"),
+		"intention_nodes": incoming.get("intention_nodes")
+		if incoming.get("intention_nodes") is not None
+		else current.get("intention_nodes") or [],
 		"last_bot_message": _resolve("last_bot_message"),
+		# Gated the same as active_node_id/process_id (not a plain pass-through):
+		# Decode & Set Process consumes this exactly when it resolves a new node,
+		# which is also when it sets reset_process, so the same reset_process gate
+		# that lets process_id/active_node_id be explicitly cleared to null also
+		# lets this one-shot override be explicitly cleared once consumed.
+		"parent_override_id": _resolve("parent_override_id"),
+		"paused_node_ids": incoming.get("paused_node_ids")
+		if incoming.get("paused_node_ids") is not None
+		else current.get("paused_node_ids") or [],
+		"pending_processes": incoming.get("pending_processes")
+		if incoming.get("pending_processes") is not None
+		else current.get("pending_processes"),
+		"process_definition": _resolve("process_definition"),
+		"process_id": _resolve("process_id"),
+		"process_stack": incoming.get("process_stack")
+		if incoming.get("process_stack") is not None
+		else current.get("process_stack") or [],
 	}
 	async_to_sync(_persist_n8n_state)(group_name, merged=merged)
 	return merged
@@ -181,13 +198,14 @@ async def _release_and_refire(group_name):
 		state = N8nSessionState(group_name=group_name)
 		try:
 			await client.fire(
-				message=pending.get("message"),
+				active_node_override=pending.get("active_node_override"),
+				expertise_level=pending.get("expertise_level", 2),
 				group_name=pending.get("group_name", group_name),
-				session_id=pending.get("session_id"),
+				message=pending.get("message"),
 				organization=_DictShim(pending.get("organization")),
+				session_id=pending.get("session_id"),
 				state=state,
 				user=_DictShim(pending.get("user")),
-				expertise_level=pending.get("expertise_level", 2),
 			)
 		except Exception:  # pylint: disable=broad-except
 			_logger.exception(

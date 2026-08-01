@@ -34,6 +34,21 @@
       "description": "non-expert levels get the generic message for UNKNOWN_ERROR",
       "input": { "error_type": "UNKNOWN_ERROR", "language": "en", "expertise_level": 2, "raw_error": "Weird stack trace" },
       "expected": { "message": "Something went wrong. Please try again or contact support." }
+    },
+    {
+      "description": "builds the English message for PROCESS_LOOP",
+      "input": { "error_type": "PROCESS_LOOP", "language": "en" },
+      "expected": {
+        "message": "This process could not be completed due to a configuration issue and has been cancelled. Please try again or contact support if the problem persists.",
+        "error": "PROCESS_LOOP"
+      }
+    },
+    {
+      "description": "builds the Spanish message for PROCESS_LOOP",
+      "input": { "error_type": "PROCESS_LOOP", "language": "es" },
+      "expected": {
+        "message": "Este proceso no pudo completarse por un problema en su configuración y fue cancelado. Por favor intenta de nuevo o contacta a soporte si el problema persiste."
+      }
     }
   ]
 }

@@ -36,16 +36,17 @@ class N8nClient:  # pylint: disable=too-few-public-methods
 		# self._webhook_url = settings.CONFIG.get('N8N_CHAT_WEBHOOK_URL')
 		self._webhook_url = "http://n8n.blas.local:5678/webhook/chat"
 
-	async def fire(  # pylint: disable=too-many-arguments
+	async def fire(  # pylint: disable=too-many-arguments,too-many-locals
 		self,
 		*,
-		message: str,
+		active_node_override=None,
+		expertise_level: int = 2,
 		group_name: str,
-		session_id,
+		message: str,
 		organization,
+		session_id,
 		state,
 		user,
-		expertise_level: int = 2,
 	) -> None:
 		"""POST a chat message to the n8n webhook (fire-and-forget)."""
 
@@ -59,26 +60,35 @@ class N8nClient:  # pylint: disable=too-few-public-methods
 		session_payload = await self._resolve_session_payload(organization_dict, user)
 
 		payload = {
+			"active_node_id": current.get("active_node_id"),
+			# One-shot signal set only on the turn right after the user clicks a
+			# tree node in the Intention Graph — distinct from the persisted
+			# parent_override_id below, which survives turns where the workflow
+			# needs a clarifying follow-up before actually creating the new node.
+			"active_node_override": active_node_override,
+			"awaiting_stack_resume": current.get("awaiting_stack_resume", False),
+			"expertise_level": expertise_level,
 			"form_state": current.get("form_state"),
 			"group_name": group_name,
+			"intention_nodes": current.get("intention_nodes") or [],
 			"message": message,
 			"organization": organization_dict,
+			"parent_override_id": current.get("parent_override_id"),
+			"paused_node_ids": current.get("paused_node_ids") or [],
+			"pending_processes": current.get("pending_processes"),
 			"process_id": current.get("process_id"),
+			"process_stack": current.get("process_stack") or [],
 			"session": session_payload,
 			"session_id": session_id,
-			"expertise_level": expertise_level,
-			"pending_processes": current.get("pending_processes"),
-			"process_stack": current.get("process_stack") or [],
-			"awaiting_stack_resume": current.get("awaiting_stack_resume", False),
 		}
-		# Only include process_definition when non-null to avoid polluting
-		# the AI agent context with a null field on the first message.
-		if current.get("process_definition") is not None:
-			payload["process_definition"] = current.get("process_definition")
 		# Only include last_bot_message when set — grounds Agent: Form on what it
 		# just asked, without ever growing beyond a single prior message.
 		if current.get("last_bot_message"):
 			payload["last_bot_message"] = current.get("last_bot_message")
+		# Only include process_definition when non-null to avoid polluting
+		# the AI agent context with a null field on the first message.
+		if current.get("process_definition") is not None:
+			payload["process_definition"] = current.get("process_definition")
 
 		logger.debug(
 			"N8nClient: firing to %s group=%s process_id=%s",

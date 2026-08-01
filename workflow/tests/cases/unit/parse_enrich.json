@@ -35,6 +35,67 @@
       "description": "preserves provided process_stack and process_queue instead of resetting them",
       "input": { "body": { "message": "hola", "session": {}, "process_stack": [{ "process_id": "p1" }], "process_queue": [{ "process_id": "p2" }] } },
       "expected": { "process_stack": [{ "process_id": "p1" }], "process_queue": [{ "process_id": "p2" }] }
+    },
+    {
+      "description": "defaults intention_nodes/active_node_id/paused_node_ids when absent",
+      "input": { "body": { "message": "hola", "session": {} } },
+      "expected": { "intention_nodes": [], "active_node_id": null, "paused_node_ids": [] }
+    },
+    {
+      "description": "preserves provided intention_nodes/active_node_id/paused_node_ids instead of resetting them",
+      "input": {
+        "body": {
+          "message": "hola", "session": {},
+          "intention_nodes": [{ "id": "n1", "status": "active" }],
+          "active_node_id": "n1",
+          "paused_node_ids": ["n0"]
+        }
+      },
+      "expected": {
+        "intention_nodes": [{ "id": "n1", "status": "active" }],
+        "active_node_id": "n1",
+        "paused_node_ids": ["n0"]
+      }
+    },
+    {
+      "description": "a fresh active_node_override abandons the active node and clears the current process",
+      "input": {
+        "body": {
+          "message": "hola", "session": {},
+          "active_node_override": "n0#0",
+          "process_id": "p1", "process_definition": { "id": "p1" }, "form_state": { "x": 1 },
+          "intention_nodes": [{ "id": "n1", "status": "active" }],
+          "active_node_id": "n1",
+          "awaiting_stack_resume": true
+        }
+      },
+      "expected": {
+        "process_id": null, "process_definition": null, "form_state": null,
+        "active_node_id": null, "awaiting_stack_resume": false,
+        "parent_override_id": "n0#0",
+        "intention_nodes": [{ "id": "n1", "status": "abandoned" }]
+      }
+    },
+    {
+      "description": "a persisted parent_override_id (from a prior clarifying turn) also triggers the abandon path",
+      "input": {
+        "body": {
+          "message": "hola", "session": {},
+          "parent_override_id": "n0#0",
+          "intention_nodes": [{ "id": "n1", "status": "active" }],
+          "active_node_id": "n1"
+        }
+      },
+      "expected": {
+        "active_node_id": null,
+        "parent_override_id": "n0#0",
+        "intention_nodes": [{ "id": "n1", "status": "abandoned" }]
+      }
+    },
+    {
+      "description": "defaults parent_override_id to null when neither override field is present",
+      "input": { "body": { "message": "hola", "session": {} } },
+      "expected": { "parent_override_id": null }
     }
   ]
 }

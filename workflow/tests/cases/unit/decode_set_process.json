@@ -38,6 +38,202 @@
       },
       "nodeResults": { "Parse & Enrich": { "github_owner": "blasvicco", "github_repo": "da-sapot-processes" } },
       "expected": { "process_id": "purchase_request", "schema_fetch_url": null }
+    },
+    {
+      "description": "creates a new active intention node with no parent when there is no paused chain",
+      "input": {
+        "body": {
+          "content": "eyJpZCI6InB1cmNoYXNlX3JlcXVlc3QiLCJzY2hlbWEiOiJwdXJjaGFzZV9yZXF1ZXN0X3NjaGVtYSJ9",
+          "path": "purchase/purch_request/purch_request.json"
+        }
+      },
+      "nodeResults": {
+        "Parse & Enrich": {
+          "github_owner": "blasvicco", "github_repo": "da-sapot-processes",
+          "intention_nodes": [], "paused_node_ids": []
+        }
+      },
+      "expected": {
+        "active_node_id": "purchase_request#0",
+        "intention_nodes": [
+          {
+            "id": "purchase_request#0", "parent_id": null, "process_id": "purchase_request",
+            "process_definition": { "id": "purchase_request", "schema": "purchase_request_schema" },
+            "form_state": null, "status": "active"
+          }
+        ]
+      }
+    },
+    {
+      "description": "falls back to the slug for process_id when the process definition has no id field",
+      "input": {
+        "body": {
+          "content": "eyJzbHVnIjogInRheF9jb2RlX2xpc3QiLCAic2NoZW1hIjogInRheF9jb2RlX3NjaGVtYSJ9",
+          "path": "b1s/standard/foundation/tax_code_list.json"
+        }
+      },
+      "nodeResults": {
+        "Parse & Enrich": {
+          "github_owner": "blasvicco", "github_repo": "da-sapot-processes",
+          "intention_nodes": [], "paused_node_ids": []
+        }
+      },
+      "expected": {
+        "process_id": "tax_code_list",
+        "active_node_id": "tax_code_list#0",
+        "intention_nodes": [
+          {
+            "id": "tax_code_list#0", "parent_id": null, "process_id": "tax_code_list",
+            "process_definition": { "slug": "tax_code_list", "schema": "tax_code_schema" },
+            "form_state": null, "status": "active"
+          }
+        ]
+      }
+    },
+    {
+      "description": "detects an immediate repeat of the same process while the prior attempt is still active and stops with PROCESS_LOOP instead of duplicating it",
+      "input": {
+        "body": {
+          "content": "eyJpZCI6InB1cmNoYXNlX3JlcXVlc3QiLCJzY2hlbWEiOiJwdXJjaGFzZV9yZXF1ZXN0X3NjaGVtYSJ9",
+          "path": "purchase/purch_request/purch_request.json"
+        }
+      },
+      "nodeResults": {
+        "Parse & Enrich": {
+          "github_owner": "blasvicco", "github_repo": "da-sapot-processes",
+          "intention_nodes": [
+            {
+              "id": "purchase_request#0", "parent_id": null, "process_id": "purchase_request",
+              "process_definition": { "id": "purchase_request" }, "form_state": null, "status": "active"
+            }
+          ],
+          "paused_node_ids": []
+        }
+      },
+      "expected": {
+        "error": "PROCESS_LOOP",
+        "process_id": null,
+        "process_definition": null,
+        "form_state": null,
+        "active_node_id": null,
+        "reset_process": true,
+        "responde": false,
+        "intention_nodes": [
+          {
+            "id": "purchase_request#0", "parent_id": null, "process_id": "purchase_request",
+            "process_definition": { "id": "purchase_request" }, "form_state": null, "status": "abandoned"
+          }
+        ]
+      }
+    },
+    {
+      "description": "does not trigger the loop breaker when the matching prior node already completed (legitimate restart)",
+      "input": {
+        "body": {
+          "content": "eyJpZCI6InB1cmNoYXNlX3JlcXVlc3QiLCJzY2hlbWEiOiJwdXJjaGFzZV9yZXF1ZXN0X3NjaGVtYSJ9",
+          "path": "purchase/purch_request/purch_request.json"
+        }
+      },
+      "nodeResults": {
+        "Parse & Enrich": {
+          "github_owner": "blasvicco", "github_repo": "da-sapot-processes",
+          "intention_nodes": [
+            {
+              "id": "purchase_request#0", "parent_id": null, "process_id": "purchase_request",
+              "process_definition": { "id": "purchase_request" }, "form_state": { "ready": true }, "status": "completed"
+            }
+          ],
+          "paused_node_ids": []
+        }
+      },
+      "expected": {
+        "active_node_id": "purchase_request#1",
+        "intention_nodes": [
+          {
+            "id": "purchase_request#0", "parent_id": null, "process_id": "purchase_request",
+            "process_definition": { "id": "purchase_request" }, "form_state": { "ready": true }, "status": "completed"
+          },
+          {
+            "id": "purchase_request#1", "parent_id": null, "process_id": "purchase_request",
+            "process_definition": { "id": "purchase_request", "schema": "purchase_request_schema" },
+            "form_state": null, "status": "active"
+          }
+        ]
+      }
+    },
+    {
+      "description": "creates a new active intention node with parent_id set to the top of the paused chain",
+      "input": {
+        "body": {
+          "content": "eyJpZCI6InB1cmNoYXNlX3JlcXVlc3QiLCJzY2hlbWEiOiJwdXJjaGFzZV9yZXF1ZXN0X3NjaGVtYSJ9",
+          "path": "purchase/purch_request/purch_request.json"
+        }
+      },
+      "nodeResults": {
+        "Parse & Enrich": {
+          "github_owner": "blasvicco", "github_repo": "da-sapot-processes",
+          "intention_nodes": [{ "id": "search_items#0", "status": "paused" }],
+          "paused_node_ids": ["search_items#0"]
+        }
+      },
+      "expected": {
+        "active_node_id": "purchase_request#1",
+        "intention_nodes": [
+          { "id": "search_items#0", "status": "paused" },
+          {
+            "id": "purchase_request#1", "parent_id": "search_items#0", "process_id": "purchase_request",
+            "process_definition": { "id": "purchase_request", "schema": "purchase_request_schema" },
+            "form_state": null, "status": "active"
+          }
+        ]
+      }
+    },
+    {
+      "description": "prefers parent_override_id over the paused chain's top when both are present, and consumes it",
+      "input": {
+        "body": {
+          "content": "eyJpZCI6InB1cmNoYXNlX3JlcXVlc3QiLCJzY2hlbWEiOiJwdXJjaGFzZV9yZXF1ZXN0X3NjaGVtYSJ9",
+          "path": "purchase/purch_request/purch_request.json"
+        }
+      },
+      "nodeResults": {
+        "Parse & Enrich": {
+          "github_owner": "blasvicco", "github_repo": "da-sapot-processes",
+          "intention_nodes": [{ "id": "search_items#0", "status": "paused" }, { "id": "n0#0", "status": "abandoned" }],
+          "paused_node_ids": ["search_items#0"],
+          "parent_override_id": "n0#0"
+        }
+      },
+      "expected": {
+        "active_node_id": "purchase_request#2",
+        "parent_override_id": null,
+        "reset_process": true,
+        "intention_nodes": [
+          { "id": "search_items#0", "status": "paused" },
+          { "id": "n0#0", "status": "abandoned" },
+          {
+            "id": "purchase_request#2", "parent_id": "n0#0", "process_id": "purchase_request",
+            "process_definition": { "id": "purchase_request", "schema": "purchase_request_schema" },
+            "form_state": null, "status": "active"
+          }
+        ]
+      }
+    },
+    {
+      "description": "leaves parent_override_id null when there is no override pending",
+      "input": {
+        "body": {
+          "content": "eyJpZCI6InB1cmNoYXNlX3JlcXVlc3QiLCJzY2hlbWEiOiJwdXJjaGFzZV9yZXF1ZXN0X3NjaGVtYSJ9",
+          "path": "purchase/purch_request/purch_request.json"
+        }
+      },
+      "nodeResults": {
+        "Parse & Enrich": {
+          "github_owner": "blasvicco", "github_repo": "da-sapot-processes",
+          "intention_nodes": [], "paused_node_ids": []
+        }
+      },
+      "expected": { "parent_override_id": null }
     }
   ]
 }

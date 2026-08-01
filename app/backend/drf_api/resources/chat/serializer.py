@@ -15,7 +15,15 @@ class SChatSession(serializers.ModelSerializer):
 
 	class Meta:
 		model = MChatSession
-		fields = ["id", "title", "created_on", "updated_on", "pending", "tokens_used"]
+		fields = [
+			"id",
+			"title",
+			"created_on",
+			"updated_on",
+			"pending",
+			"tokens_used",
+			"n8n_state",
+		]
 
 	def get_pending(self, obj):
 		"""True when the session's last message is from the user — no agent reply yet."""

@@ -204,6 +204,177 @@ def test_fire_includes_process_definition_and_last_bot_message_when_present():
 		assert sent_payload["last_bot_message"] == "What is the amount?"
 
 
+def test_fire_includes_intention_graph_fields_in_the_payload():
+	"""Test fire includes intention_nodes/active_node_id/paused_node_ids in the payload"""
+
+	with step(
+		"Arrange: A state carrying intention-graph fields, and a mocked httpx client."
+	):
+		client = N8nClient()
+		organization = MagicMock()
+		organization.safe_to_dict = MagicMock(
+			return_value={"integration": {"auth_driver": "open_id"}}
+		)
+		user = _make_user()
+		state = MagicMock(
+			load=AsyncMock(
+				return_value={
+					"active_node_id": "n1",
+					"intention_nodes": [{"id": "n1", "status": "active"}],
+					"paused_node_ids": ["n0"],
+				}
+			)
+		)
+
+		mock_http_client = AsyncMock()
+		mock_http_client.post = AsyncMock(return_value=MagicMock(status_code=200))
+		mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
+		mock_http_client.__aexit__ = AsyncMock(return_value=False)
+
+	with step("Act: Call fire."):
+		with patch(
+			"web_socket.helpers.n8n.client.httpx.AsyncClient",
+			return_value=mock_http_client,
+		):
+			async_to_sync(client.fire)(
+				group_name="grp",
+				message="hi",
+				organization=organization,
+				session_id=1,
+				state=state,
+				user=user,
+			)
+
+	with step(
+		"Assert: All three intention-graph fields were included in the outgoing payload."
+	):
+		sent_payload = mock_http_client.post.call_args.kwargs["json"]
+		assert sent_payload["active_node_id"] == "n1"
+		assert sent_payload["intention_nodes"] == [{"id": "n1", "status": "active"}]
+		assert sent_payload["paused_node_ids"] == ["n0"]
+
+
+def test_fire_defaults_intention_graph_fields_when_state_has_none():
+	"""Test fire defaults intention_nodes/paused_node_ids to [] and active_node_id to None"""
+
+	with step(
+		"Arrange: A state with no intention-graph fields, and a mocked httpx client."
+	):
+		client = N8nClient()
+		organization = MagicMock()
+		organization.safe_to_dict = MagicMock(
+			return_value={"integration": {"auth_driver": "open_id"}}
+		)
+		user = _make_user()
+		state = MagicMock(load=AsyncMock(return_value={}))
+
+		mock_http_client = AsyncMock()
+		mock_http_client.post = AsyncMock(return_value=MagicMock(status_code=200))
+		mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
+		mock_http_client.__aexit__ = AsyncMock(return_value=False)
+
+	with step("Act: Call fire."):
+		with patch(
+			"web_socket.helpers.n8n.client.httpx.AsyncClient",
+			return_value=mock_http_client,
+		):
+			async_to_sync(client.fire)(
+				group_name="grp",
+				message="hi",
+				organization=organization,
+				session_id=1,
+				state=state,
+				user=user,
+			)
+
+	with step("Assert: The intention-graph fields default to empty/None."):
+		sent_payload = mock_http_client.post.call_args.kwargs["json"]
+		assert sent_payload["active_node_id"] is None
+		assert sent_payload["intention_nodes"] == []
+		assert sent_payload["paused_node_ids"] == []
+
+
+def test_fire_includes_active_node_override_and_persisted_parent_override_id():
+	"""Test fire sends both the one-shot active_node_override arg and the persisted parent_override_id"""
+
+	with step(
+		"Arrange: A state carrying a persisted parent_override_id, and a mocked httpx client."
+	):
+		client = N8nClient()
+		organization = MagicMock()
+		organization.safe_to_dict = MagicMock(
+			return_value={"integration": {"auth_driver": "open_id"}}
+		)
+		user = _make_user()
+		state = MagicMock(
+			load=AsyncMock(return_value={"parent_override_id": "n0#0"})
+		)
+
+		mock_http_client = AsyncMock()
+		mock_http_client.post = AsyncMock(return_value=MagicMock(status_code=200))
+		mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
+		mock_http_client.__aexit__ = AsyncMock(return_value=False)
+
+	with step("Act: Call fire with a fresh one-shot active_node_override."):
+		with patch(
+			"web_socket.helpers.n8n.client.httpx.AsyncClient",
+			return_value=mock_http_client,
+		):
+			async_to_sync(client.fire)(
+				active_node_override="n1#0",
+				group_name="grp",
+				message="hi",
+				organization=organization,
+				session_id=1,
+				state=state,
+				user=user,
+			)
+
+	with step(
+		"Assert: Both the one-shot and the persisted override fields were included."
+	):
+		sent_payload = mock_http_client.post.call_args.kwargs["json"]
+		assert sent_payload["active_node_override"] == "n1#0"
+		assert sent_payload["parent_override_id"] == "n0#0"
+
+
+def test_fire_defaults_active_node_override_and_parent_override_id_to_none():
+	"""Test fire sends None for both override fields when neither is set"""
+
+	with step("Arrange: A state with no parent_override_id, and a mocked httpx client."):
+		client = N8nClient()
+		organization = MagicMock()
+		organization.safe_to_dict = MagicMock(
+			return_value={"integration": {"auth_driver": "open_id"}}
+		)
+		user = _make_user()
+		state = MagicMock(load=AsyncMock(return_value={}))
+
+		mock_http_client = AsyncMock()
+		mock_http_client.post = AsyncMock(return_value=MagicMock(status_code=200))
+		mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
+		mock_http_client.__aexit__ = AsyncMock(return_value=False)
+
+	with step("Act: Call fire without an active_node_override."):
+		with patch(
+			"web_socket.helpers.n8n.client.httpx.AsyncClient",
+			return_value=mock_http_client,
+		):
+			async_to_sync(client.fire)(
+				group_name="grp",
+				message="hi",
+				organization=organization,
+				session_id=1,
+				state=state,
+				user=user,
+			)
+
+	with step("Assert: Both override fields default to None."):
+		sent_payload = mock_http_client.post.call_args.kwargs["json"]
+		assert sent_payload["active_node_override"] is None
+		assert sent_payload["parent_override_id"] is None
+
+
 def test_fire_raises_n8n_client_error_on_request_error():
 	"""Test fire wraps a raw httpx.RequestError as an N8nClientError"""
 

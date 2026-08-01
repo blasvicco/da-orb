@@ -30,6 +30,11 @@
       "description": "handles a plain string error, not just an error object",
       "input": { "error": "404 page missing" },
       "expected": { "error_type": "NOT_FOUND", "raw_error": "404 page missing" }
+    },
+    {
+      "description": "classifies the process-loop breaker error",
+      "input": { "error": "PROCESS_LOOP" },
+      "expected": { "error_type": "PROCESS_LOOP" }
     }
   ]
 }

@@ -377,6 +377,20 @@ export default {
       exportedOn: 'Exported on',
       you: 'You',
     },
+    intentionGraph: {
+      contextSwitch: 'Context switched — now in **{label}**.',
+      empty: 'No intentions yet — start a process to see it here.',
+      navigate: 'Go here',
+      resume: 'Resume',
+      resumeReply: 'Yes',
+      status: {
+        abandoned: 'Abandoned',
+        active: 'Active',
+        completed: 'Completed',
+        paused: 'Paused',
+      },
+      title: 'Intention Graph',
+    },
     welcome: {
       greeting: 'Welcome back, {name}!',
       sub: 'How can I assist you today?',

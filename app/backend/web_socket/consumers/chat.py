@@ -160,6 +160,10 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 		"""Handle message sent by user"""
 		message_text = content.get("message")
 		resolved_text = self._resolve_process_selection(message_text)
+		# One-shot: set by the frontend only on the turn right after the user clicks a
+		# node in the Intention Graph — not persisted here, n8n turns it into the
+		# session-persisted parent_override_id once it abandons the current active node.
+		active_node_override = content.get("active_node_override")
 
 		# Lazily create the DB session on the first message to avoid empty orphan records
 		if self.chat_session is None:
@@ -190,7 +194,11 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 
 		if await self.n8n_queue.try_start():
 			asyncio.create_task(
-				self._fire_n8n(resolved_text, expertise_level=expertise_level)
+				self._fire_n8n(
+					resolved_text,
+					active_node_override=active_node_override,
+					expertise_level=expertise_level,
+				)
 			)
 		else:
 			# Another execution for this chat is already in flight — replace whatever
@@ -204,18 +212,24 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 			)()
 			await self.n8n_queue.set_pending(
 				{
-					"message": resolved_text,
+					"active_node_override": active_node_override,
 					"expertise_level": expertise_level,
 					"group_name": self.group_name,
-					"session_id": self.chat_session.id if self.chat_session else None,
+					"message": resolved_text,
 					"organization": organization_dict,
+					"session_id": self.chat_session.id if self.chat_session else None,
 					"user": self.user.to_dict(),
 				}
 			)
 			await self._broadcast(_MSG_QUEUED, "status")
 
 	async def _fire_n8n(
-		self, message_text, max_retries=5, retry_delay=30, expertise_level=2
+		self,
+		message_text,
+		active_node_override=None,
+		expertise_level=2,
+		max_retries=5,
+		retry_delay=30,
 	):
 		"""Fire message to n8n webhook with retry on transient failures."""
 
@@ -225,13 +239,14 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 		for attempt in range(max_retries):
 			try:
 				await self.n8n_client.fire(
-					message=message_text,
+					active_node_override=active_node_override,
+					expertise_level=expertise_level,
 					group_name=self.group_name,
-					session_id=self.chat_session.id if self.chat_session else None,
+					message=message_text,
 					organization=self.organization,
+					session_id=self.chat_session.id if self.chat_session else None,
 					state=self.n8n_state,
 					user=self.user,
-					expertise_level=expertise_level,
 				)
 				return
 			except N8nClientError:
@@ -261,6 +276,7 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 			asyncio.create_task(
 				self._fire_n8n(
 					pending["message"],
+					active_node_override=pending.get("active_node_override"),
 					expertise_level=pending.get("expertise_level", 2),
 				)
 			)

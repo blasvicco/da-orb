@@ -76,7 +76,8 @@ Docstrings and comments must be written in English, and they must be written in 
   - `snake_case` for Variables, Arguments, Attributes, Functions, Methods, and Modules.
   - `PascalCase` for Classes.
   - `UPPER_CASE` for Constants.
-  - Allowed short names: `Run`, `_`.
+  - Allowed short names: `Run`, `ex`, `_`.
+  - Single-character identifiers are prohibited for variables, arguments, and loop/comprehension variables — use a descriptive name instead. The sole exception is `_` for an intentionally unused value.
   - Prohibited bad names: `foo`, `bar`, `baz`, `toto`, `tutu`, `tata`, `i`, `j`, `k`, `err`.
   - Unused or dummy variables must be prefixed with an underscore (e.g., `_unused`, `dummy`).
 

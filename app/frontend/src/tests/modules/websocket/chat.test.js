@@ -31,6 +31,7 @@ describe('websocket.Chat.sendMessage', () => {
   it('sends a message with the default expertise level', () => {
     chat.sendMessage('hello');
     expect(sendSpy).toHaveBeenCalledWith({
+      active_node_override: null,
       expertise_level: 2,
       message: 'hello',
       type: 'message.send',
@@ -40,7 +41,18 @@ describe('websocket.Chat.sendMessage', () => {
   it('sends a message with a custom expertise level', () => {
     chat.sendMessage('hello', 3);
     expect(sendSpy).toHaveBeenCalledWith({
+      active_node_override: null,
       expertise_level: 3,
+      message: 'hello',
+      type: 'message.send',
+    });
+  });
+
+  it('sends a message with a one-shot active_node_override when provided', () => {
+    chat.sendMessage('hello', 2, 'n2#0');
+    expect(sendSpy).toHaveBeenCalledWith({
+      active_node_override: 'n2#0',
+      expertise_level: 2,
       message: 'hello',
       type: 'message.send',
     });

@@ -24,15 +24,7 @@ describe('ChatHeader title', () => {
   });
 });
 
-describe('ChatHeader connection / tokens', () => {
-  it('shows the connection badge only when a connection is given', () => {
-    const withConnection = mount(ChatHeader, { props: { connection: 'TESTDB' } });
-    expect(withConnection.find('.orb-header-connection').exists()).toBe(true);
-
-    const withoutConnection = mount(ChatHeader, { props: {} });
-    expect(withoutConnection.find('.orb-header-connection').exists()).toBe(false);
-  });
-
+describe('ChatHeader tokens', () => {
   it('shows the compacted token count only when tokensUsed is positive', () => {
     const withTokens = mount(ChatHeader, { props: { tokensUsed: 1500 } });
     expect(withTokens.find('.orb-header-tokens').text()).toContain('1.5k');
@@ -45,10 +37,12 @@ describe('ChatHeader connection / tokens', () => {
 describe('ChatHeader child components', () => {
   it('forwards messages/sessionTitle/userName to Export and status to Badge', () => {
     const messages = [{ text: 'hi', type: 'user' }];
+    const sessionState = { intention_nodes: [] };
     const wrapper = mount(ChatHeader, {
       props: {
         connectionStatus: 'connected',
         messages,
+        sessionState,
         sessionTitle: 'My chat',
         userName: 'Bob',
       },
@@ -59,5 +53,21 @@ describe('ChatHeader child components', () => {
     expect(exportComponent.props('sessionTitle')).toBe('My chat');
     expect(exportComponent.props('userName')).toBe('Bob');
     expect(wrapper.findComponent({ name: 'Badge' }).props('status')).toBe('connected');
+    const intentionStack = wrapper.findComponent({ name: 'IntentionStack' });
+    expect(intentionStack.props('messages')).toEqual(messages);
+    expect(intentionStack.props('sessionState')).toEqual(sessionState);
+  });
+
+  it('re-emits resume when IntentionStack emits it', async () => {
+    const wrapper = mount(ChatHeader);
+    await wrapper.findComponent({ name: 'IntentionStack' }).vm.$emit('resume');
+    expect(wrapper.emitted('resume')).toHaveLength(1);
+  });
+
+  it('re-emits navigate with its payload when IntentionStack emits it', async () => {
+    const wrapper = mount(ChatHeader);
+    await wrapper.findComponent({ name: 'IntentionStack' }).vm.$emit('navigate', { id: 'n1#0', label: 'Search Items' });
+    expect(wrapper.emitted('navigate')).toHaveLength(1);
+    expect(wrapper.emitted('navigate')[0][0]).toEqual({ id: 'n1#0', label: 'Search Items' });
   });
 });

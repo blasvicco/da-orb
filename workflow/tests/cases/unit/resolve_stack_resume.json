@@ -38,6 +38,24 @@
       "input": {},
       "nodeResults": { "Resolve Selection": { "message": "yes", "awaiting_stack_resume": true, "process_stack": [] } },
       "expected": { "awaiting_stack_resume": false }
+    },
+    {
+      "description": "reactivates the most recently paused intention node on resume",
+      "input": {},
+      "nodeResults": {
+        "Resolve Selection": {
+          "message": "dale",
+          "awaiting_stack_resume": true,
+          "process_stack": [{ "process_id": "p1", "process_definition": { "id": "p1" }, "form_state": { "x": 1 } }],
+          "paused_node_ids": ["p1#0"],
+          "intention_nodes": [{ "id": "p1#0", "process_id": "p1", "status": "paused" }]
+        }
+      },
+      "expected": {
+        "active_node_id": "p1#0",
+        "paused_node_ids": [],
+        "intention_nodes": [{ "id": "p1#0", "process_id": "p1", "status": "active" }]
+      }
     }
   ]
 }

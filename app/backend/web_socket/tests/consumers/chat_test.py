@@ -440,7 +440,9 @@ def test_message_send_creates_session_on_first_message(mocker):
 			{"session_id": consumer.chat_session.id, "type": "session.created"}
 		)
 		mock_broadcast.assert_awaited_once_with("Hello there", "user")
-		mock_fire.assert_called_once_with("Hello there", expertise_level=2)
+		mock_fire.assert_called_once_with(
+			"Hello there", active_node_override=None, expertise_level=2
+		)
 
 
 @pytest.mark.django_db(transaction=True)
@@ -549,7 +551,65 @@ def test_message_send_normalises_expertise_level(mocker, payload):
 		)
 
 	with step("Assert: _fire_n8n was called with the normalised level."):
-		mock_fire.assert_called_once_with("hi", expertise_level=payload["expected"])
+		mock_fire.assert_called_once_with(
+			"hi", active_node_override=None, expertise_level=payload["expected"]
+		)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_message_send_forwards_active_node_override_to_fire_n8n(mocker):
+	"""Test message_send reads the one-shot active_node_override and forwards it to _fire_n8n"""
+
+	with step("Arrange: A consumer and a message carrying an active_node_override."):
+		consumer = _make_consumer()
+		consumer.connection_key = "TESTDB"
+		consumer.chat_session = MChatSession.objects.create(
+			connection_key="TESTDB", org=consumer.organization, username="bob"
+		)
+		consumer.n8n_queue = MagicMock(try_start=AsyncMock(return_value=True))
+		mock_fire = mocker.patch.object(consumer, "_fire_n8n", AsyncMock())
+		mocker.patch.object(consumer, "_broadcast", AsyncMock())
+
+	with step("Act: Call message_send with an active_node_override."):
+		async_to_sync(consumer.message_send)(
+			{"active_node_override": "n2#0", "message": "hi"}
+		)
+
+	with step("Assert: _fire_n8n received the override."):
+		mock_fire.assert_called_once_with(
+			"hi", active_node_override="n2#0", expertise_level=2
+		)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_message_send_queues_active_node_override_when_execution_in_flight(mocker):
+	"""Test message_send includes active_node_override in the pending payload when queuing"""
+
+	with step(
+		"Arrange: An existing session, an in-flight execution, and an active_node_override."
+	):
+		consumer = _make_consumer()
+		consumer.connection_key = "TESTDB"
+		consumer.chat_session = MChatSession.objects.create(
+			connection_key="TESTDB", org=consumer.organization, username="bob"
+		)
+		consumer.n8n_queue = MagicMock(
+			set_pending=AsyncMock(), try_start=AsyncMock(return_value=False)
+		)
+		consumer.user.to_dict = MagicMock(return_value={"username": "bob"})
+		mocker.patch.object(
+			consumer.organization, "safe_to_dict", return_value={"slug": "acme"}
+		)
+		mocker.patch.object(consumer, "_broadcast", AsyncMock())
+
+	with step("Act: Call message_send with an active_node_override."):
+		async_to_sync(consumer.message_send)(
+			{"active_node_override": "n2#0", "message": "hello"}
+		)
+
+	with step("Assert: The queued payload carries the active_node_override."):
+		queued_payload = consumer.n8n_queue.set_pending.call_args.args[0]
+		assert queued_payload["active_node_override"] == "n2#0"
 
 
 # ---------------------------------------------------------------------------
@@ -659,7 +719,11 @@ def test_fire_pending_if_any_fires_when_pending_exists(mocker):
 
 	with step("Arrange: A consumer with a pending message and a free lock."):
 		consumer = _make_consumer()
-		pending = {"expertise_level": 3, "message": "queued"}
+		pending = {
+			"active_node_override": "n2#0",
+			"expertise_level": 3,
+			"message": "queued",
+		}
 		consumer.n8n_queue = MagicMock(
 			pop_pending=AsyncMock(return_value=pending),
 			try_start=AsyncMock(return_value=True),
@@ -670,8 +734,10 @@ def test_fire_pending_if_any_fires_when_pending_exists(mocker):
 		fire = consumer._fire_pending_if_any  # pylint: disable=protected-access
 		async_to_sync(fire)()
 
-	with step("Assert: The queued message was fired."):
-		mock_fire.assert_called_once_with("queued", expertise_level=3)
+	with step("Assert: The queued message, including its override, was fired."):
+		mock_fire.assert_called_once_with(
+			"queued", active_node_override="n2#0", expertise_level=3
+		)
 
 
 def test_fire_pending_if_any_requeues_when_lock_lost():

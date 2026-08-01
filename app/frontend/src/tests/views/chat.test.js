@@ -105,8 +105,18 @@ describe('ChatView user profile', () => {
     mockAuth.getSession.mockReturnValue({ database: 'PROD', user: { username: 'Bob Smith' } });
     const wrapper = mount(ChatView);
     expect(wrapper.findComponent(UserDetail).props('initials')).toBe('BS');
-    // chat.vue doesn't wire connection into UserDetail — that goes to ChatHeader instead.
-    expect(wrapper.findComponent(ChatHeader).props('connection')).toBe('PROD');
+  });
+
+  it('shows the connected database name under the sidebar logo', () => {
+    mockAuth.getSession.mockReturnValue({ database: 'PROD', user: { username: 'Bob Smith' } });
+    const wrapper = mount(ChatView);
+    expect(wrapper.find('.orb-sidebar-connection').text()).toBe('PROD');
+  });
+
+  it('hides the sidebar connection element when there is no database', () => {
+    mockAuth.getSession.mockReturnValue({ user: { username: 'Bob Smith' } });
+    const wrapper = mount(ChatView);
+    expect(wrapper.find('.orb-sidebar-connection').exists()).toBe(false);
   });
 
   it('derives initials from a single-word name', () => {
@@ -215,6 +225,63 @@ describe('ChatView sidebar actions', () => {
     expect(wrapper.findComponent(ChatWelcome).exists()).toBe(false);
   });
 
+  it('passes the active session tokens_used from the sessions API through to ChatHeader', async () => {
+    AppAPI.Chat.sessions.mockResolvedValue([{ id: 5, pending: false, title: 'Old chat', tokens_used: 1234 }]);
+    AppAPI.Chat.messages.mockResolvedValue([]);
+    const wrapper = mount(ChatView);
+    await mockChat.handlers.open?.();
+    await flushPromises();
+
+    await wrapper.findComponent(ChatHistory).vm.$emit('select', 5);
+    await flushPromises();
+
+    expect(wrapper.findComponent(ChatHeader).props('tokensUsed')).toBe(1234);
+  });
+
+  it('passes the active session n8n_state through to ChatHeader so a reloaded session keeps its intention graph', async () => {
+    const n8nState = { intention_nodes: [{ id: 'pr#0', parent_id: null, process_id: 'purchase_request', status: 'completed' }] };
+    AppAPI.Chat.sessions.mockResolvedValue([{ id: 5, n8n_state: n8nState, pending: false, title: 'Old chat' }]);
+    AppAPI.Chat.messages.mockResolvedValue([]);
+    const wrapper = mount(ChatView);
+    await mockChat.handlers.open?.();
+    await flushPromises();
+
+    await wrapper.findComponent(ChatHistory).vm.$emit('select', 5);
+    await flushPromises();
+
+    expect(wrapper.findComponent(ChatHeader).props('sessionState')).toEqual(n8nState);
+  });
+
+  it('passes a null sessionState when the active session has no persisted n8n_state', async () => {
+    AppAPI.Chat.sessions.mockResolvedValue([{ id: 5, pending: false, title: 'Old chat' }]);
+    AppAPI.Chat.messages.mockResolvedValue([]);
+    const wrapper = mount(ChatView);
+    await mockChat.handlers.open?.();
+    await flushPromises();
+
+    await wrapper.findComponent(ChatHistory).vm.$emit('select', 5);
+    await flushPromises();
+
+    expect(wrapper.findComponent(ChatHeader).props('sessionState')).toBeNull();
+  });
+
+  it('refreshes tokensUsed after an agent reply updates the session totals', async () => {
+    AppAPI.Chat.sessions.mockResolvedValue([{ id: 5, pending: false, title: 'Old chat', tokens_used: 100 }]);
+    AppAPI.Chat.messages.mockResolvedValue([]);
+    const wrapper = mount(ChatView);
+    await mockChat.handlers.open?.();
+    await flushPromises();
+    await wrapper.findComponent(ChatHistory).vm.$emit('select', 5);
+    await flushPromises();
+    expect(wrapper.findComponent(ChatHeader).props('tokensUsed')).toBe(100);
+
+    AppAPI.Chat.sessions.mockResolvedValue([{ id: 5, pending: false, title: 'Old chat', tokens_used: 340 }]);
+    mockChat.handlers.agent?.({ processes: null, state: null, text: 'answer', time: '2026-01-01T00:00:00Z' });
+    await flushPromises();
+
+    expect(wrapper.findComponent(ChatHeader).props('tokensUsed')).toBe(340);
+  });
+
   it('leaves the sidebar sessions untouched when the sessions API errors', async () => {
     AppAPI.Chat.sessions.mockResolvedValue({ errors: [{ detail: 'boom' }] });
     const wrapper = mount(ChatView);
@@ -306,7 +373,7 @@ describe('ChatView sending a prompt', () => {
     await wrapper.findComponent(ChatInput).vm.$emit('update:modelValue', '  hello  ');
     await wrapper.findComponent(ChatInput).vm.$emit('send');
 
-    expect(mockChat.instance.sendMessage).toHaveBeenCalledWith('hello', 2);
+    expect(mockChat.instance.sendMessage).toHaveBeenCalledWith('hello', 2, null);
     expect(wrapper.findComponent(ChatInput).props('modelValue')).toBe('');
   });
 
@@ -314,6 +381,58 @@ describe('ChatView sending a prompt', () => {
     const wrapper = mount(ChatView);
     await wrapper.findComponent(ChatWelcome).vm.$emit('suggestion', 'chat.suggestions.stock');
     expect(wrapper.findComponent(ChatInput).props('modelValue').length).toBeGreaterThan(0);
+  });
+});
+
+describe('ChatView resuming from the Intention Graph sidebar', () => {
+  it('does nothing while disconnected', async () => {
+    const wrapper = mount(ChatView);
+    await wrapper.findComponent(ChatHeader).vm.$emit('resume');
+    expect(mockChat.instance.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('sends the localized affirmative reply once connected', async () => {
+    const wrapper = mount(ChatView);
+    await mockChat.handlers.open?.();
+    await flushPromises();
+
+    await wrapper.findComponent(ChatHeader).vm.$emit('resume');
+
+    expect(mockChat.instance.sendMessage).toHaveBeenCalledWith('Yes', 2);
+  });
+});
+
+describe('ChatView navigating from the Intention Graph sidebar', () => {
+  it('immediately appends a system bubble announcing the context switch', async () => {
+    const wrapper = mount(ChatView);
+    await wrapper.findComponent(ChatHeader).vm.$emit('navigate', { id: 'pr#0', label: 'Purchase Request' });
+
+    const bubbles = wrapper.findAllComponents(ChatBubble);
+    const last = bubbles[bubbles.length - 1];
+    expect(last.props('msg').type).toBe('system');
+    expect(last.props('msg').text).toContain('Purchase Request');
+  });
+
+  it('does not send anything to n8n on its own — it only arms a one-shot override', async () => {
+    const wrapper = mount(ChatView);
+    await wrapper.findComponent(ChatHeader).vm.$emit('navigate', { id: 'pr#0', label: 'Purchase Request' });
+    expect(mockChat.instance.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('carries the override on the very next sendMessage call, then clears it', async () => {
+    const wrapper = mount(ChatView);
+    await mockChat.handlers.open?.();
+    await flushPromises();
+
+    await wrapper.findComponent(ChatHeader).vm.$emit('navigate', { id: 'pr#0', label: 'Purchase Request' });
+
+    await wrapper.findComponent(ChatInput).vm.$emit('update:modelValue', 'hello');
+    await wrapper.findComponent(ChatInput).vm.$emit('send');
+    expect(mockChat.instance.sendMessage).toHaveBeenCalledWith('hello', 2, 'pr#0');
+
+    await wrapper.findComponent(ChatInput).vm.$emit('update:modelValue', 'again');
+    await wrapper.findComponent(ChatInput).vm.$emit('send');
+    expect(mockChat.instance.sendMessage).toHaveBeenLastCalledWith('again', 2, null);
   });
 });
 

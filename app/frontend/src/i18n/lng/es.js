@@ -377,6 +377,20 @@ export default {
       exportedOn: 'Exportado el',
       you: 'Tú',
     },
+    intentionGraph: {
+      contextSwitch: 'Cambiaste de contexto — ahora estás en **{label}**.',
+      empty: 'Aún no hay intenciones — inicia un proceso para verlo aquí.',
+      navigate: 'Ir aquí',
+      resume: 'Continuar',
+      resumeReply: 'Sí',
+      status: {
+        abandoned: 'Abandonado',
+        active: 'Activo',
+        completed: 'Completado',
+        paused: 'Pausado',
+      },
+      title: 'Árbol de Intenciones',
+    },
     welcome: {
       greeting: '¡Bienvenido de nuevo, {name}!',
       sub: '¿Cómo puedo ayudarte hoy?',

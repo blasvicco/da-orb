@@ -5,12 +5,13 @@ export default class Chat extends Abstract {
     super('/ws/chat/');
   }
 
-  /** Send a user chat message */
-  sendMessage(message, expertiseLevel = 2) {
+  /** Send a user chat message, optionally carrying a one-shot Intention Graph navigation override */
+  sendMessage(message, expertiseLevel = 2, activeNodeOverride = null) {
     if (!message || !message.trim()) return;
     this.send({
-      message,
+      active_node_override: activeNodeOverride,
       expertise_level: expertiseLevel,
+      message,
       type: 'message.send',
     });
   }

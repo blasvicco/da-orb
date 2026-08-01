@@ -1,0 +1,41 @@
+{
+  "node": "Handler: Switch Needed",
+  "cases": [
+    {
+      "description": "pushes the current process onto the stack, merges form_state, and marks the active node paused",
+      "input": { "_parsed": { "intent": "dame los grupos de items", "form_state": { "extra": true } } },
+      "nodeResults": {
+        "Resolve Stack Resume": {
+          "process_id": "p1", "process_definition": { "id": "p1" }, "form_state": { "x": 1 },
+          "process_stack": [], "active_node_id": "p1#0", "paused_node_ids": [],
+          "intention_nodes": [{ "id": "p1#0", "parent_id": null, "process_id": "p1", "process_definition": { "id": "p1" }, "form_state": null, "status": "active" }]
+        }
+      },
+      "expected": {
+        "process_id": null,
+        "process_stack": [{ "process_id": "p1", "process_definition": { "id": "p1" }, "form_state": { "x": 1, "extra": true } }],
+        "paused_node_ids": ["p1#0"],
+        "active_node_id": null,
+        "intention_nodes": [
+          { "id": "p1#0", "parent_id": null, "process_id": "p1", "process_definition": { "id": "p1" }, "form_state": { "x": 1, "extra": true }, "status": "paused" }
+        ],
+        "message": "dame los grupos de items"
+      }
+    },
+    {
+      "description": "does not push an entry or touch paused_node_ids when there is no active process_id",
+      "input": { "_parsed": { "intent": "dame los grupos de items", "form_state": null } },
+      "nodeResults": {
+        "Resolve Stack Resume": {
+          "process_id": null, "process_stack": [{ "process_id": "old" }],
+          "paused_node_ids": ["n0"], "intention_nodes": [{ "id": "n0", "status": "paused" }]
+        }
+      },
+      "expected": {
+        "process_stack": [{ "process_id": "old" }],
+        "paused_node_ids": ["n0"],
+        "intention_nodes": [{ "id": "n0", "status": "paused" }]
+      }
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+@reference "@/styles/main.css";
+
+.orb-intention-stack-empty {
+  @apply text-sm;
+  color: var(--orb-header-title, #1e293b);
+  opacity: 0.6;
+}
+
+.orb-intention-tree {
+  background: transparent !important;
+
+  .orb-intention-node {
+    @apply flex gap-3 items-center justify-between w-full;
+
+    .orb-intention-node-label {
+      @apply font-medium text-sm;
+      color: var(--orb-header-title, #1e293b);
+    }
+
+    .orb-intention-stack-actions {
+      @apply flex gap-2 items-center shrink-0;
+    }
+  }
+}

@@ -51,6 +51,7 @@
   const connectionStatus = ref('connecting');
   const isTyping = ref(false);
   const messages = ref([]);
+  const pendingActiveNodeOverride = ref(null);
   const promptText = ref('');
   const sessionId = ref(null);
   const sessions = ref([]);
@@ -82,6 +83,12 @@
 
   const _timestamp = (isoString) =>
     new Date(isoString || new Date()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const currentSessionState = computed(() => {
+    if (!sessionId.value) return null;
+    const s = sessions.value.find((s) => s.id === sessionId.value);
+    return s?.n8n_state || null;
+  });
 
   const currentSessionTitle = computed(() => {
     if (!sessionId.value) return null;
@@ -118,6 +125,7 @@
     // specific status text (e.g. "Identificando proceso") isn't persisted, only
     // whether a reply is pending, so we fall back to the generic typing dots.
     isTyping.value = !!sessions.value.find((s) => s.id === id)?.pending;
+    pendingActiveNodeOverride.value = null;
     sessionId.value = id;
     statusText.value = null;
     chat.sessionId = id;
@@ -152,6 +160,7 @@
     chat.sessionId = null;
     isTyping.value = false;
     messages.value = [];
+    pendingActiveNodeOverride.value = null;
     sessionId.value = null;
     statusText.value = null;
     setTimeout(() => chat.connect(), 300);
@@ -170,8 +179,31 @@
   // Send Prompt Message Flow
   const handleSend = () => {
     if (!promptText.value.trim() || connectionStatus.value !== 'connected') return;
-    chat.sendMessage(promptText.value.trim(), expertiseLevel.value);
+    chat.sendMessage(promptText.value.trim(), expertiseLevel.value, pendingActiveNodeOverride.value);
+    pendingActiveNodeOverride.value = null;
     promptText.value = '';
+  };
+
+  // Explicit click-to-resume from the Intention Graph sidebar — sends the same
+  // affirmative reply the n8n workflow already expects from the conversational
+  // yes/no resume gate, so no backend/workflow change is needed for this action.
+  const handleResume = () => {
+    if (isTyping.value || connectionStatus.value !== 'connected') return;
+    chat.sendMessage(t('chat.intentionGraph.resumeReply'), expertiseLevel.value);
+  };
+
+  // Explicit click-to-navigate from the Intention Graph sidebar — announces the
+  // context switch immediately as a local system bubble, then arms a one-shot
+  // override that rides along with the user's next typed message. This is a UI/state
+  // event, not a round trip: nothing is sent to n8n until the user actually types.
+  const handleNavigate = ({ id, label }) => {
+    pendingActiveNodeOverride.value = id;
+    messages.value.push({
+      text: t('chat.intentionGraph.contextSwitch', { label }),
+      time: _timestamp(),
+      type: 'system',
+    });
+    scrollToBottom();
   };
 
   // Sign out flow
@@ -281,19 +313,27 @@
   <ChatLayout :theme="theme">
     <template #sidebar-top>
       <!-- Logo -->
-      <a
-        href="/"
-        class="orb-sidebar-logo-wrap"
-      >
-        <img
-          :src="orbLogo"
-          class="orb-sidebar-logo-icon"
-          alt="Orb"
+      <div class="orb-sidebar-logo-block">
+        <a
+          href="/"
+          class="orb-sidebar-logo-wrap"
         >
-        <span class="orb-sidebar-logo-text">
-          {{ $t('landing.title') }}
+          <img
+            :src="orbLogo"
+            class="orb-sidebar-logo-icon"
+            alt="Orb"
+          >
+          <span class="orb-sidebar-logo-text">
+            {{ $t('landing.title') }}
+          </span>
+        </a>
+        <span
+          v-if="userProfile.connection"
+          class="orb-sidebar-connection"
+        >
+          {{ userProfile.connection }}
         </span>
-      </a>
+      </div>
 
       <!-- New Chat Action -->
       <button
@@ -331,11 +371,13 @@
     <ChatHeader
       :session-title="currentSessionTitle"
       :has-messages="messages.length > 0"
-      :connection="userProfile.connection"
       :connection-status="connectionStatus"
       :messages="messages"
+      :session-state="currentSessionState"
       :user-name="userProfile.name"
       :tokens-used="currentSessionTokens"
+      @navigate="handleNavigate"
+      @resume="handleResume"
     />
 
     <div

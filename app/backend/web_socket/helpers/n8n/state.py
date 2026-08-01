@@ -69,26 +69,34 @@ class N8nSessionState:
 				"N8nSessionState: failed to restore state for key %s", self._key
 			)
 
-	async def save(  # pylint: disable=too-many-arguments
+	async def save(  # pylint: disable=too-many-arguments,too-many-positional-arguments
 		self,
 		*,
-		form_state=None,
-		process_id=None,
-		process_definition=None,
-		pending_processes=None,
-		process_stack=None,
+		active_node_id=None,
 		awaiting_stack_resume=False,
+		form_state=None,
+		intention_nodes=None,
 		last_bot_message=None,
+		parent_override_id=None,
+		paused_node_ids=None,
+		pending_processes=None,
+		process_definition=None,
+		process_id=None,
+		process_stack=None,
 	) -> None:
 		"""Persist state to Redis, refreshing the TTL."""
 		state = {
-			"form_state": form_state,
-			"process_id": process_id,
-			"process_definition": process_definition,
-			"pending_processes": pending_processes,
-			"process_stack": process_stack or [],
+			"active_node_id": active_node_id,
 			"awaiting_stack_resume": awaiting_stack_resume,
+			"form_state": form_state,
+			"intention_nodes": intention_nodes or [],
 			"last_bot_message": last_bot_message,
+			"parent_override_id": parent_override_id,
+			"paused_node_ids": paused_node_ids or [],
+			"pending_processes": pending_processes,
+			"process_definition": process_definition,
+			"process_id": process_id,
+			"process_stack": process_stack or [],
 		}
 		try:
 			await self._redis.set(self._key, json.dumps(state), ex=self._ttl)

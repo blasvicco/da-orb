@@ -60,9 +60,13 @@ def test_save_and_load_round_trip():
 			state = N8nSessionState(group_name=group_name)
 			try:
 				await state.save(
+					active_node_id="n1",
 					awaiting_stack_resume=True,
 					form_state={"field": "value"},
+					intention_nodes=[{"id": "n1", "status": "active"}],
 					last_bot_message="hi",
+					parent_override_id="n0#0",
+					paused_node_ids=["n0"],
 					pending_processes=[{"name": "x"}],
 					process_definition={"name": "Create PO"},
 					process_id=5,
@@ -77,9 +81,13 @@ def test_save_and_load_round_trip():
 
 	with step("Assert: Every field survives the round trip."):
 		assert result == {
+			"active_node_id": "n1",
 			"awaiting_stack_resume": True,
 			"form_state": {"field": "value"},
+			"intention_nodes": [{"id": "n1", "status": "active"}],
 			"last_bot_message": "hi",
+			"parent_override_id": "n0#0",
+			"paused_node_ids": ["n0"],
 			"pending_processes": [{"name": "x"}],
 			"process_definition": {"name": "Create PO"},
 			"process_id": 5,
@@ -106,6 +114,32 @@ def test_save_defaults_process_stack_to_empty_list():
 
 	with step("Assert: process_stack defaults to an empty list."):
 		assert result["process_stack"] == []
+
+
+def test_save_defaults_intention_node_fields():
+	"""Test save stores empty lists for intention_nodes/paused_node_ids and None for active_node_id by default"""
+
+	with step("Arrange: A group and a save call with no intention-graph fields."):
+		group_name = f"test_{uuid4()}"
+
+		async def _act():
+			state = N8nSessionState(group_name=group_name)
+			try:
+				await state.save()
+				return await state.load()
+			finally:
+				await state.close()
+
+	with step("Act: Save then load the state."):
+		result = async_to_sync(_act)()
+
+	with step(
+		"Assert: intention_nodes/paused_node_ids default to [], active_node_id to None."
+	):
+		assert result["intention_nodes"] == []
+		assert result["paused_node_ids"] == []
+		assert result["active_node_id"] is None
+		assert result["parent_override_id"] is None
 
 
 def test_save_swallows_redis_errors():

@@ -38,6 +38,22 @@
         "Status Text: Submitting": { "process_queue": [{ "process_id": "queued-1" }] }
       },
       "expected": { "process_queue": [{ "process_id": "queued-1" }] }
+    },
+    {
+      "description": "marks the active intention node completed with its final form_state and clears active_node_id",
+      "input": { "_parsed": { "status": "confirmed", "message": "Orden creada" } },
+      "nodeResults": {
+        "Resolve Stack Resume": {
+          "language": "es", "process_stack": [],
+          "active_node_id": "purchase_request#0",
+          "form_state": { "qty": 5, "ready": true },
+          "intention_nodes": [{ "id": "purchase_request#0", "process_id": "purchase_request", "form_state": null, "status": "active" }]
+        }
+      },
+      "expected": {
+        "active_node_id": null,
+        "intention_nodes": [{ "id": "purchase_request#0", "process_id": "purchase_request", "form_state": { "qty": 5, "ready": true }, "status": "completed" }]
+      }
     }
   ]
 }

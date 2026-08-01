@@ -1,6 +1,10 @@
 @reference "@/styles/main.css";
 
 /* ── Sidebar logo & new chat button (remain in views/chat.vue template) ── */
+.orb-sidebar-logo-block {
+  @apply flex flex-col gap-1;
+}
+
 .orb-sidebar-logo-wrap {
   @apply flex gap-3 items-center no-underline;
 
@@ -13,6 +17,10 @@
     @apply flex font-extrabold items-center text-2xl tracking-tight;
     color: #6c5ce7;
   }
+}
+
+.orb-sidebar-connection {
+  @apply font-semibold pl-12 text-brand-primary text-xs truncate;
 }
 
 .orb-new-chat-btn {

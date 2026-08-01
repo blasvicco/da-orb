@@ -30,6 +30,52 @@
       "input": {},
       "nodeResults": { "Parse & Enrich": { "process_stack": [{ "process_id": "p0" }], "process_queue": [{ "process_id": "q0" }] } },
       "expected": { "process_stack": [{ "process_id": "p0" }], "process_queue": [{ "process_id": "q0" }] }
+    },
+    {
+      "description": "falls back to the base intention_nodes/paused_node_ids/active_node_id when the update omits them",
+      "input": {},
+      "nodeResults": {
+        "Parse & Enrich": {
+          "intention_nodes": [{ "id": "n1", "status": "active" }],
+          "paused_node_ids": ["n0"],
+          "active_node_id": "n1"
+        }
+      },
+      "expected": {
+        "intention_nodes": [{ "id": "n1", "status": "active" }],
+        "paused_node_ids": ["n0"],
+        "active_node_id": "n1"
+      }
+    },
+    {
+      "description": "uses the update's intention_nodes/active_node_id when provided",
+      "input": { "intention_nodes": [{ "id": "n2", "status": "paused" }], "active_node_id": "n2" },
+      "nodeResults": { "Parse & Enrich": { "intention_nodes": [{ "id": "n1", "status": "active" }], "active_node_id": "n1" } },
+      "expected": { "intention_nodes": [{ "id": "n2", "status": "paused" }], "active_node_id": "n2" }
+    },
+    {
+      "description": "reset_process forces active_node_id to null even if the base had one",
+      "input": { "reset_process": true, "active_node_id": null },
+      "nodeResults": { "Parse & Enrich": { "active_node_id": "n1" } },
+      "expected": { "active_node_id": null }
+    },
+    {
+      "description": "falls back to the base parent_override_id when the update omits it",
+      "input": { "message": "hi" },
+      "nodeResults": { "Parse & Enrich": { "parent_override_id": "n0#0" } },
+      "expected": { "parent_override_id": "n0#0" }
+    },
+    {
+      "description": "uses the update's parent_override_id when it provides one",
+      "input": { "parent_override_id": "n2#0" },
+      "nodeResults": { "Parse & Enrich": { "parent_override_id": "n0#0" } },
+      "expected": { "parent_override_id": "n2#0" }
+    },
+    {
+      "description": "reset_process forces parent_override_id to null even if the base had one (one-shot consumption)",
+      "input": { "reset_process": true, "parent_override_id": null },
+      "nodeResults": { "Parse & Enrich": { "parent_override_id": "n0#0" } },
+      "expected": { "parent_override_id": null }
     }
   ]
 }

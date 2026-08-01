@@ -63,6 +63,30 @@ def test_sessions_scoped_by_connection_key():
 		assert [row["id"] for row in response.data] == [matching.id]
 
 
+def test_sessions_includes_n8n_state_for_reloaded_intention_graph():
+	"""Test sessions returns n8n_state so a reloaded session can rebuild its intention graph"""
+
+	with step("Arrange: A session with a persisted n8n_state snapshot."):
+		org = _make_org()
+		session = MChatSession.objects.create(
+			connection_key="TESTDB",
+			n8n_state={"intention_nodes": [{"id": "p1#0", "status": "completed"}]},
+			org=org,
+			username="bob",
+		)
+		request = _make_request("get", org, connection_key="TESTDB", username="bob")
+
+	with step("Act: Call sessions."):
+		response = VSChat.as_view({"get": "sessions"})(request)
+
+	with step("Assert: The session's n8n_state is included in the response."):
+		assert response.status_code == 200
+		row = next(entry for entry in response.data if entry["id"] == session.id)
+		assert row["n8n_state"] == {
+			"intention_nodes": [{"id": "p1#0", "status": "completed"}]
+		}
+
+
 def test_sessions_returns_tokens_used_sum():
 	"""Test sessions annotates tokens_used with the sum of the session's token_usage events"""
 
@@ -291,7 +315,7 @@ def test_n8n_callback_records_token_usage_event(settings):
 		"Assert: A token_usage event was recorded with the right identity and totals."
 	):
 		assert response.status_code == 200
-		event = MUsageEvent.objects.get(org=org, event_type="token_usage")
+		event = MUsageEvent.objects.get(event_type="token_usage", org=org)
 		assert event.connection_key == "TESTDB"
 		assert event.model_name == "gpt-5-nano"
 		assert event.prompt_tokens == 10
@@ -329,7 +353,7 @@ def test_n8n_callback_records_process_execution_event(settings):
 
 	with step("Assert: A process_execution event was recorded."):
 		assert response.status_code == 200
-		event = MUsageEvent.objects.get(org=org, event_type="process_execution")
+		event = MUsageEvent.objects.get(event_type="process_execution", org=org)
 		assert event.process_name == "create_purchase_order"
 		assert event.username == "bob"
 
@@ -351,8 +375,8 @@ def test_n8n_callback_records_process_execution_event_prefers_definition_name(se
 				"group_name": "chat_1_bob_def",
 				"session_id": session.id,
 				"state": {
-					"process_id": 1,
 					"process_definition": {"name": "Create Purchase Request"},
+					"process_id": 1,
 				},
 				"text": "Please provide the required fields.",
 				"type": "agent",
@@ -369,7 +393,7 @@ def test_n8n_callback_records_process_execution_event_prefers_definition_name(se
 		"Assert: The process_execution event uses the definition's display name."
 	):
 		assert response.status_code == 200
-		event = MUsageEvent.objects.get(org=org, event_type="process_execution")
+		event = MUsageEvent.objects.get(event_type="process_execution", org=org)
 		assert event.process_name == "Create Purchase Request"
 
 
@@ -449,6 +473,183 @@ def test_n8n_callback_reset_process_clears_stale_state(settings):
 	with step("Assert: The stale process_id was cleared instead of preserved."):
 		session.refresh_from_db()
 		assert session.n8n_state["process_id"] is None
+
+
+def test_n8n_callback_reset_process_clears_active_node_id(settings):
+	"""Test n8n_callback honours reset_process=True for active_node_id, mirroring process_id"""
+
+	with step(
+		"Arrange: A session with an active_node_id already persisted in Redis state."
+	):
+		settings.N8N_CALLBACK_SECRET = "test-secret"
+		org = _make_org()
+		session = MChatSession.objects.create(
+			connection_key="TESTDB", org=org, username="bob"
+		)
+		group_name = f"chat_reset_node_{session.id}_{uuid4()}"
+		first_request = _make_callback_request(
+			{
+				"group_name": group_name,
+				"session_id": session.id,
+				"state": {
+					"active_node_id": "n1",
+					"intention_nodes": [{"id": "n1", "status": "active"}],
+					"process_id": 5,
+				},
+				"text": "step 1",
+				"type": "agent",
+			},
+			org,
+		)
+		VSChat.as_view({"post": "n8n_callback"}, permission_classes=[PN8nCallback])(
+			first_request
+		)
+
+	with step(
+		"Act: Send a second callback with reset_process=True and a null active_node_id."
+	):
+		second_request = _make_callback_request(
+			{
+				"group_name": group_name,
+				"session_id": session.id,
+				"state": {
+					"active_node_id": None,
+					"process_id": None,
+					"reset_process": True,
+				},
+				"text": "step 2",
+				"type": "agent",
+			},
+			org,
+		)
+		VSChat.as_view({"post": "n8n_callback"}, permission_classes=[PN8nCallback])(
+			second_request
+		)
+
+	with step("Assert: The stale active_node_id was cleared instead of preserved."):
+		session.refresh_from_db()
+		assert session.n8n_state["active_node_id"] is None
+
+
+def test_n8n_callback_persists_parent_override_id_until_reset(settings):
+	"""Test n8n_callback persists parent_override_id across turns and clears it only via reset_process"""
+
+	with step("Arrange: A session with a first callback carrying parent_override_id."):
+		settings.N8N_CALLBACK_SECRET = "test-secret"
+		org = _make_org()
+		session = MChatSession.objects.create(
+			connection_key="TESTDB", org=org, username="bob"
+		)
+		group_name = f"chat_override_{session.id}_{uuid4()}"
+		first_request = _make_callback_request(
+			{
+				"group_name": group_name,
+				"session_id": session.id,
+				"state": {"parent_override_id": "n0#0"},
+				"text": "step 1",
+				"type": "agent",
+			},
+			org,
+		)
+		VSChat.as_view({"post": "n8n_callback"}, permission_classes=[PN8nCallback])(
+			first_request
+		)
+
+	with step(
+		"Act: Send a second callback that omits parent_override_id entirely (e.g. a clarifying follow-up)."
+	):
+		second_request = _make_callback_request(
+			{
+				"group_name": group_name,
+				"session_id": session.id,
+				"state": {"process_id": 9},
+				"text": "step 2",
+				"type": "agent",
+			},
+			org,
+		)
+		VSChat.as_view({"post": "n8n_callback"}, permission_classes=[PN8nCallback])(
+			second_request
+		)
+
+	with step("Assert: parent_override_id survives untouched."):
+		session.refresh_from_db()
+		assert session.n8n_state["parent_override_id"] == "n0#0"
+
+	with step(
+		"Act: Send a third callback with reset_process=True consuming the override."
+	):
+		third_request = _make_callback_request(
+			{
+				"group_name": group_name,
+				"session_id": session.id,
+				"state": {"parent_override_id": None, "reset_process": True},
+				"text": "step 3",
+				"type": "agent",
+			},
+			org,
+		)
+		VSChat.as_view({"post": "n8n_callback"}, permission_classes=[PN8nCallback])(
+			third_request
+		)
+
+	with step("Assert: parent_override_id was cleared once consumed."):
+		session.refresh_from_db()
+		assert session.n8n_state["parent_override_id"] is None
+
+
+def test_n8n_callback_persists_intention_nodes_and_paused_node_ids(settings):
+	"""Test n8n_callback persists intention_nodes/paused_node_ids and falls back to the current value when omitted"""
+
+	with step(
+		"Arrange: A session and a first callback carrying intention-graph fields."
+	):
+		settings.N8N_CALLBACK_SECRET = "test-secret"
+		org = _make_org()
+		session = MChatSession.objects.create(
+			connection_key="TESTDB", org=org, username="bob"
+		)
+		group_name = f"chat_nodes_{session.id}_{uuid4()}"
+		first_request = _make_callback_request(
+			{
+				"group_name": group_name,
+				"session_id": session.id,
+				"state": {
+					"intention_nodes": [{"id": "n1", "status": "paused"}],
+					"paused_node_ids": ["n1"],
+				},
+				"text": "step 1",
+				"type": "agent",
+			},
+			org,
+		)
+		VSChat.as_view({"post": "n8n_callback"}, permission_classes=[PN8nCallback])(
+			first_request
+		)
+
+	with step("Act: Send a second callback that omits both fields entirely."):
+		second_request = _make_callback_request(
+			{
+				"group_name": group_name,
+				"session_id": session.id,
+				"state": {"process_id": 9},
+				"text": "step 2",
+				"type": "agent",
+			},
+			org,
+		)
+		VSChat.as_view({"post": "n8n_callback"}, permission_classes=[PN8nCallback])(
+			second_request
+		)
+
+	with step(
+		"Assert: The previously persisted intention-graph fields survive untouched."
+	):
+		session.refresh_from_db()
+		assert session.n8n_state["intention_nodes"] == [
+			{"id": "n1", "status": "paused"}
+		]
+		assert session.n8n_state["paused_node_ids"] == ["n1"]
 
 
 def test_n8n_callback_ignores_missing_session(settings):
@@ -539,6 +740,46 @@ def test_release_and_refire_fires_the_pending_message():
 		sent_payload = mock_http_client.post.call_args.kwargs["json"]
 		assert sent_payload["message"] == "queued message"
 		assert _pop_pending(group_name) is None
+
+
+def test_release_and_refire_forwards_active_node_override():
+	"""Test _release_and_refire forwards a queued message's active_node_override to n8n"""
+
+	with step(
+		"Arrange: A pending message queued with a one-shot active_node_override."
+	):
+		group_name = f"chat_test_{uuid4()}"
+		pending = {
+			"active_node_override": "n2#0",
+			"expertise_level": 2,
+			"group_name": group_name,
+			"message": "queued message",
+			"organization": {
+				"integration": {
+					"auth_driver": "open_id",
+					"base_url": "https://sap.example.com",
+				}
+			},
+			"session_id": None,
+			"user": {"password": "", "username": "bob"},
+		}
+		_set_pending(group_name, pending)
+
+		mock_http_client = AsyncMock()
+		mock_http_client.post = AsyncMock(return_value=MagicMock(status_code=200))
+		mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
+		mock_http_client.__aexit__ = AsyncMock(return_value=False)
+
+	with step("Act: Call _release_and_refire."):
+		with patch(
+			"web_socket.helpers.n8n.client.httpx.AsyncClient",
+			return_value=mock_http_client,
+		):
+			async_to_sync(_release_and_refire)(group_name)
+
+	with step("Assert: The outgoing payload carries the queued active_node_override."):
+		sent_payload = mock_http_client.post.call_args.kwargs["json"]
+		assert sent_payload["active_node_override"] == "n2#0"
 
 
 def test_release_and_refire_requeues_when_another_execution_started(mocker):
