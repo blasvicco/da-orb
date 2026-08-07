@@ -5,22 +5,97 @@
   background: linear-gradient(to top, var(--orb-input-from) 0%, var(--orb-input-via) 60%, transparent 100%);
 
   .orb-prompt-bar {
-    @apply border duration-300 flex gap-3 items-end max-w-4xl mx-auto p-3 rounded-2xl transition-all;
+    @apply border duration-300 flex flex-col gap-2 max-w-4xl mx-auto p-3 rounded-2xl transition-all;
     background: var(--orb-input-bar-bg);
     border-color: var(--orb-input-bar-border);
 
     &:focus-within { border-color: var(--orb-input-bar-focus); }
 
+    .orb-prompt-context {
+      @apply flex flex-wrap gap-1.5;
+
+      .orb-prompt-context-chip {
+        @apply flex gap-1.5 items-center px-2 py-1 rounded-full;
+        background: var(--orb-input-tool-hover-bg);
+
+        .orb-prompt-context-icon {
+          color: var(--orb-input-tool);
+        }
+
+        .orb-prompt-context-name {
+          @apply font-medium max-w-[240px] overflow-hidden text-ellipsis text-xs whitespace-nowrap;
+          color: var(--orb-input-text);
+        }
+
+        .orb-prompt-context-remove {
+          @apply cursor-pointer flex items-center justify-center;
+          color: var(--orb-input-tool);
+
+          &:hover { color: var(--orb-input-tool-hover); }
+        }
+      }
+    }
+
+    .orb-prompt-attachments {
+      @apply flex flex-wrap gap-2 px-1;
+    }
+
+    .orb-prompt-attachment {
+      @apply flex flex-col gap-1 items-center pt-3 px-2 relative rounded-xl;
+      background: var(--orb-input-tool-hover-bg);
+      width: 88px;
+
+      .orb-prompt-attachment-icon {
+        @apply text-2xl;
+        color: var(--orb-input-tool);
+      }
+
+      .orb-prompt-attachment-name {
+        @apply max-w-full overflow-hidden text-ellipsis text-xs whitespace-nowrap;
+        color: var(--orb-input-text);
+      }
+
+      .orb-prompt-attachment-size {
+        @apply text-[10px];
+        color: var(--orb-input-footnote);
+      }
+
+      .orb-prompt-attachment-remove {
+        @apply absolute cursor-pointer duration-150 flex items-center justify-center opacity-0 rounded-full text-white transition-opacity;
+        background: rgba(0, 0, 0, 0.65);
+        height: 20px;
+        left: -6px;
+        top: -6px;
+        width: 20px;
+      }
+
+      &:hover .orb-prompt-attachment-remove { @apply opacity-100; }
+
+      .orb-prompt-attachment-uploading {
+        @apply absolute flex inset-0 items-center justify-center rounded-xl z-10;
+        background: rgba(0, 0, 0, 0.35);
+      }
+    }
+
     .orb-prompt-input {
-      @apply bg-transparent border-0 flex-1 font-medium max-h-36 outline-none py-1.5 resize-none text-sm;
+      @apply bg-transparent border-0 font-medium max-h-36 outline-none px-1 py-1.5 resize-none text-sm w-full;
       color: var(--orb-input-text);
 
       &::placeholder { color: var(--orb-input-placeholder); }
     }
 
-    .orb-prompt-send-btn {
-      @apply bg-brand-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 duration-300 flex hover:bg-brand-primary-hover items-center justify-center p-2.5 rounded-xl shadow-md text-white transition-all;
+    .orb-prompt-toolbar {
+      @apply flex items-center justify-between;
+
+      .orb-prompt-send-btn {
+        @apply bg-brand-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 duration-300 flex hover:bg-brand-primary-hover items-center justify-center p-2.5 rounded-xl shadow-md text-white transition-all;
+      }
     }
+  }
+
+  &.orb-prompt-wrapper--dragging .orb-prompt-bar {
+    background: var(--orb-input-tool-hover-bg);
+    border-color: var(--orb-input-bar-focus);
   }
 
   .orb-prompt-footnote {

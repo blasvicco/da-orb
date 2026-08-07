@@ -1,0 +1,44 @@
+{
+  "node": "Gate: Batch Confirmation",
+  "cases": [
+    {
+      "description": "passes through unchanged for expertise_level 2, regardless of item count",
+      "input": { "output": { "items": [{ "a": 1 }, { "a": 2 }] } },
+      "nodeResults": { "Handler: Batch": { "expertise_level": 2 } },
+      "expected": { "_needs_batch_confirmation": false }
+    },
+    {
+      "description": "passes through unchanged for expertise_level 3",
+      "input": { "output": { "items": [{ "a": 1 }] } },
+      "nodeResults": { "Handler: Batch": { "expertise_level": 3 } },
+      "expected": { "_needs_batch_confirmation": false }
+    },
+    {
+      "description": "passes through unchanged when the batch has zero items, even at expertise_level 1",
+      "input": { "output": { "items": [] } },
+      "nodeResults": { "Handler: Batch": { "expertise_level": 1 } },
+      "expected": { "_needs_batch_confirmation": false }
+    },
+    {
+      "description": "builds a Spanish confirmation question and stashes the items for expertise_level 1",
+      "input": { "output": { "items": [{ "a": 1 }, { "a": 2 }, { "a": 3 }] } },
+      "nodeResults": { "Handler: Batch": { "expertise_level": 1, "language": "es" } },
+      "expected": {
+        "_needs_batch_confirmation": true,
+        "awaiting_batch_confirmation": true,
+        "pending_batch_items": [{ "a": 1 }, { "a": 2 }, { "a": 3 }],
+        "responde": true,
+        "message": "Encontré 3 solicitudes de compra. ¿Confirmas que quiero crearlas todas?"
+      }
+    },
+    {
+      "description": "builds an English singular confirmation question for a single-item batch",
+      "input": { "output": { "items": [{ "a": 1 }] } },
+      "nodeResults": { "Handler: Batch": { "expertise_level": 1, "language": "en" } },
+      "expected": {
+        "_needs_batch_confirmation": true,
+        "message": "I found 1 purchase request. Do you want me to create it?"
+      }
+    }
+  ]
+}

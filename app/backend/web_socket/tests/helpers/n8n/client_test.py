@@ -141,10 +141,10 @@ def test_fire_sends_decrypted_b1s_credentials_to_n8n():
 			return_value=mock_http_client,
 		):
 			async_to_sync(client.fire)(
-				message="hi",
 				group_name="grp",
-				session_id=1,
+				message="hi",
 				organization=organization,
+				session_id=1,
 				state=state,
 				user=user,
 			)
@@ -190,10 +190,10 @@ def test_fire_includes_process_definition_and_last_bot_message_when_present():
 			return_value=mock_http_client,
 		):
 			async_to_sync(client.fire)(
-				message="hi",
 				group_name="grp",
-				session_id=1,
+				message="hi",
 				organization=organization,
+				session_id=1,
 				state=state,
 				user=user,
 			)
@@ -254,6 +254,97 @@ def test_fire_includes_intention_graph_fields_in_the_payload():
 		assert sent_payload["paused_node_ids"] == ["n0"]
 
 
+def test_fire_includes_batch_confirmation_fields_in_the_payload():
+	"""Test fire includes awaiting_batch_confirmation/pending_batch_items in the payload"""
+
+	with step(
+		"Arrange: A state carrying pending batch-confirmation fields, and a mocked httpx client."
+	):
+		client = N8nClient()
+		organization = MagicMock()
+		organization.safe_to_dict = MagicMock(
+			return_value={"integration": {"auth_driver": "open_id"}}
+		)
+		user = _make_user()
+		state = MagicMock(
+			load=AsyncMock(
+				return_value={
+					"awaiting_batch_confirmation": True,
+					"pending_batch_items": [
+						{"process_name": "Create Purchase Request"}
+					],
+				}
+			)
+		)
+
+		mock_http_client = AsyncMock()
+		mock_http_client.post = AsyncMock(return_value=MagicMock(status_code=200))
+		mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
+		mock_http_client.__aexit__ = AsyncMock(return_value=False)
+
+	with step("Act: Call fire."):
+		with patch(
+			"web_socket.helpers.n8n.client.httpx.AsyncClient",
+			return_value=mock_http_client,
+		):
+			async_to_sync(client.fire)(
+				group_name="grp",
+				message="hi",
+				organization=organization,
+				session_id=1,
+				state=state,
+				user=user,
+			)
+
+	with step(
+		"Assert: Both batch-confirmation fields were included in the outgoing payload."
+	):
+		sent_payload = mock_http_client.post.call_args.kwargs["json"]
+		assert sent_payload["awaiting_batch_confirmation"] is True
+		assert sent_payload["pending_batch_items"] == [
+			{"process_name": "Create Purchase Request"}
+		]
+
+
+def test_fire_defaults_batch_confirmation_fields_when_state_has_none():
+	"""Test fire defaults awaiting_batch_confirmation to False and pending_batch_items to []"""
+
+	with step(
+		"Arrange: A state with no batch-confirmation fields, and a mocked httpx client."
+	):
+		client = N8nClient()
+		organization = MagicMock()
+		organization.safe_to_dict = MagicMock(
+			return_value={"integration": {"auth_driver": "open_id"}}
+		)
+		user = _make_user()
+		state = MagicMock(load=AsyncMock(return_value={}))
+
+		mock_http_client = AsyncMock()
+		mock_http_client.post = AsyncMock(return_value=MagicMock(status_code=200))
+		mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
+		mock_http_client.__aexit__ = AsyncMock(return_value=False)
+
+	with step("Act: Call fire."):
+		with patch(
+			"web_socket.helpers.n8n.client.httpx.AsyncClient",
+			return_value=mock_http_client,
+		):
+			async_to_sync(client.fire)(
+				group_name="grp",
+				message="hi",
+				organization=organization,
+				session_id=1,
+				state=state,
+				user=user,
+			)
+
+	with step("Assert: The batch-confirmation fields default to False/empty."):
+		sent_payload = mock_http_client.post.call_args.kwargs["json"]
+		assert sent_payload["awaiting_batch_confirmation"] is False
+		assert sent_payload["pending_batch_items"] == []
+
+
 def test_fire_defaults_intention_graph_fields_when_state_has_none():
 	"""Test fire defaults intention_nodes/paused_node_ids to [] and active_node_id to None"""
 
@@ -306,9 +397,7 @@ def test_fire_includes_active_node_override_and_persisted_parent_override_id():
 			return_value={"integration": {"auth_driver": "open_id"}}
 		)
 		user = _make_user()
-		state = MagicMock(
-			load=AsyncMock(return_value={"parent_override_id": "n0#0"})
-		)
+		state = MagicMock(load=AsyncMock(return_value={"parent_override_id": "n0#0"}))
 
 		mock_http_client = AsyncMock()
 		mock_http_client.post = AsyncMock(return_value=MagicMock(status_code=200))
@@ -341,7 +430,9 @@ def test_fire_includes_active_node_override_and_persisted_parent_override_id():
 def test_fire_defaults_active_node_override_and_parent_override_id_to_none():
 	"""Test fire sends None for both override fields when neither is set"""
 
-	with step("Arrange: A state with no parent_override_id, and a mocked httpx client."):
+	with step(
+		"Arrange: A state with no parent_override_id, and a mocked httpx client."
+	):
 		client = N8nClient()
 		organization = MagicMock()
 		organization.safe_to_dict = MagicMock(
@@ -375,6 +466,79 @@ def test_fire_defaults_active_node_override_and_parent_override_id_to_none():
 		assert sent_payload["parent_override_id"] is None
 
 
+def test_fire_includes_bucket_file_ids_when_set():
+	"""Test fire sends the bucket_file_ids references as-is when the caller passes them"""
+
+	with step("Arrange: A mocked httpx client and state."):
+		client = N8nClient()
+		organization = MagicMock()
+		organization.safe_to_dict = MagicMock(
+			return_value={"integration": {"auth_driver": "open_id"}}
+		)
+		user = _make_user()
+		state = MagicMock(load=AsyncMock(return_value={}))
+
+		mock_http_client = AsyncMock()
+		mock_http_client.post = AsyncMock(return_value=MagicMock(status_code=200))
+		mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
+		mock_http_client.__aexit__ = AsyncMock(return_value=False)
+
+	with step("Act: Call fire with bucket_file_ids."):
+		with patch(
+			"web_socket.helpers.n8n.client.httpx.AsyncClient",
+			return_value=mock_http_client,
+		):
+			async_to_sync(client.fire)(
+				bucket_file_ids=[42, 7],
+				group_name="grp",
+				message="hi",
+				organization=organization,
+				session_id=1,
+				state=state,
+				user=user,
+			)
+
+	with step("Assert: The references were included in the outgoing payload verbatim."):
+		sent_payload = mock_http_client.post.call_args.kwargs["json"]
+		assert sent_payload["bucket_file_ids"] == [42, 7]
+
+
+def test_fire_defaults_bucket_file_ids_to_empty_list():
+	"""Test fire sends [] for bucket_file_ids when the caller doesn't pass any"""
+
+	with step("Arrange: A mocked httpx client and state."):
+		client = N8nClient()
+		organization = MagicMock()
+		organization.safe_to_dict = MagicMock(
+			return_value={"integration": {"auth_driver": "open_id"}}
+		)
+		user = _make_user()
+		state = MagicMock(load=AsyncMock(return_value={}))
+
+		mock_http_client = AsyncMock()
+		mock_http_client.post = AsyncMock(return_value=MagicMock(status_code=200))
+		mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
+		mock_http_client.__aexit__ = AsyncMock(return_value=False)
+
+	with step("Act: Call fire without bucket_file_ids."):
+		with patch(
+			"web_socket.helpers.n8n.client.httpx.AsyncClient",
+			return_value=mock_http_client,
+		):
+			async_to_sync(client.fire)(
+				group_name="grp",
+				message="hi",
+				organization=organization,
+				session_id=1,
+				state=state,
+				user=user,
+			)
+
+	with step("Assert: bucket_file_ids defaults to an empty list."):
+		sent_payload = mock_http_client.post.call_args.kwargs["json"]
+		assert sent_payload["bucket_file_ids"] == []
+
+
 def test_fire_raises_n8n_client_error_on_request_error():
 	"""Test fire wraps a raw httpx.RequestError as an N8nClientError"""
 
@@ -401,10 +565,10 @@ def test_fire_raises_n8n_client_error_on_request_error():
 		):
 			with pytest.raises(N8nClientError, match="connection failed"):
 				async_to_sync(client.fire)(
-					message="hi",
 					group_name="grp",
-					session_id=1,
+					message="hi",
 					organization=organization,
+					session_id=1,
 					state=state,
 					user=user,
 				)
@@ -434,10 +598,10 @@ def test_fire_raises_webhook_not_ready_on_404():
 		):
 			with pytest.raises(N8nWebhookNotReadyError) as exc_info:
 				async_to_sync(client.fire)(
-					message="hi",
 					group_name="grp",
-					session_id=1,
+					message="hi",
 					organization=organization,
+					session_id=1,
 					state=state,
 					user=user,
 				)
@@ -470,10 +634,10 @@ def test_fire_raises_n8n_client_error_on_other_4xx_5xx():
 		):
 			with pytest.raises(N8nClientError) as exc_info:
 				async_to_sync(client.fire)(
-					message="hi",
 					group_name="grp",
-					session_id=1,
+					message="hi",
 					organization=organization,
+					session_id=1,
 					state=state,
 					user=user,
 				)

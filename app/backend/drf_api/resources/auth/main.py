@@ -13,11 +13,21 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 # App imports
+from core.modules.hooks import Hooks
 from drf_api.models import MOrganization, MSessionProxy
 from drf_api.resources.auth.driver.abstract import AuthDriverError
-from drf_api.resources.auth.helpers import is_org_admin, provision_or_check_seat
+from drf_api.resources.auth.helpers import is_org_admin
 from drf_api.resources.auth.permission import PAuth
 from drf_api.validators import VAuthenticatorExist
+
+USER_AUTHENTICATED = "user_authenticated"
+
+
+def _notify_user_authenticated(org, username):
+	"""Announce a successful authentication so other domains can react, without auth needing to import or know about them."""
+	# A listener may raise to abort the flow; it propagates straight back to the caller.
+	for method, _, _ in Hooks.get_listeners(USER_AUTHENTICATED):
+		method(org, username)
 
 
 class VSAuth(viewsets.ViewSet):
@@ -73,7 +83,7 @@ class VSAuth(viewsets.ViewSet):
 
 		username = session_data.get("user", {}).get("username", "")
 		try:
-			provision_or_check_seat(org, username)
+			_notify_user_authenticated(org, username)
 		except ValidationError as error:
 			error_msg = error.detail if hasattr(error, "detail") else str(error)
 			if isinstance(error_msg, list) and len(error_msg) > 0:
@@ -109,7 +119,7 @@ class VSAuth(viewsets.ViewSet):
 		if org.integration.get("auth_driver") == "b1s":
 			username = session_data["user"]["username"]
 			try:
-				provision_or_check_seat(org, username)
+				_notify_user_authenticated(org, username)
 			except ValidationError as error:
 				error_msg = error.detail if hasattr(error, "detail") else str(error)
 				if isinstance(error_msg, list) and len(error_msg) > 0:

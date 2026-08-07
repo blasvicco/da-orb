@@ -32,6 +32,7 @@ describe('websocket.Chat.sendMessage', () => {
     chat.sendMessage('hello');
     expect(sendSpy).toHaveBeenCalledWith({
       active_node_override: null,
+      bucket_file_ids: [],
       expertise_level: 2,
       message: 'hello',
       type: 'message.send',
@@ -42,6 +43,7 @@ describe('websocket.Chat.sendMessage', () => {
     chat.sendMessage('hello', 3);
     expect(sendSpy).toHaveBeenCalledWith({
       active_node_override: null,
+      bucket_file_ids: [],
       expertise_level: 3,
       message: 'hello',
       type: 'message.send',
@@ -52,10 +54,31 @@ describe('websocket.Chat.sendMessage', () => {
     chat.sendMessage('hello', 2, 'n2#0');
     expect(sendSpy).toHaveBeenCalledWith({
       active_node_override: 'n2#0',
+      bucket_file_ids: [],
       expertise_level: 2,
       message: 'hello',
       type: 'message.send',
     });
+  });
+
+  it('sends a message with bucket_file_ids context references when provided', () => {
+    chat.sendMessage('hello', 2, null, [7, 8]);
+    expect(sendSpy).toHaveBeenCalledWith({
+      active_node_override: null,
+      bucket_file_ids: [7, 8],
+      expertise_level: 2,
+      message: 'hello',
+      type: 'message.send',
+    });
+  });
+});
+
+describe('websocket.Chat.ensureSession', () => {
+  it('sends a session.ensure request', () => {
+    const chat = new Chat();
+    const sendSpy = vi.spyOn(chat, 'send').mockImplementation(() => {});
+    chat.ensureSession();
+    expect(sendSpy).toHaveBeenCalledWith({ type: 'session.ensure' });
   });
 });
 

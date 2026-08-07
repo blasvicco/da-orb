@@ -598,6 +598,90 @@ def test_n8n_callback_persists_parent_override_id_until_reset(settings):
 		assert session.n8n_state["parent_override_id"] is None
 
 
+def test_n8n_callback_persists_batch_confirmation_fields_until_explicitly_cleared(
+	settings,
+):
+	"""Test n8n_callback persists awaiting_batch_confirmation/pending_batch_items across
+	a turn that omits them, clearing them only once a later turn explicitly does so"""
+
+	with step(
+		"Arrange: A session with a first callback carrying pending batch-confirmation fields."
+	):
+		settings.N8N_CALLBACK_SECRET = "test-secret"
+		org = _make_org()
+		session = MChatSession.objects.create(
+			connection_key="TESTDB", org=org, username="bob"
+		)
+		group_name = f"chat_batch_{session.id}_{uuid4()}"
+		first_request = _make_callback_request(
+			{
+				"group_name": group_name,
+				"session_id": session.id,
+				"state": {
+					"awaiting_batch_confirmation": True,
+					"pending_batch_items": [
+						{"process_name": "Create Purchase Request"}
+					],
+				},
+				"text": "Encontré 3 solicitudes de compra. ¿Confirmas?",
+				"type": "agent",
+			},
+			org,
+		)
+		VSChat.as_view({"post": "n8n_callback"}, permission_classes=[PN8nCallback])(
+			first_request
+		)
+
+	with step(
+		"Act: Send a second callback that omits both batch-confirmation fields entirely."
+	):
+		second_request = _make_callback_request(
+			{
+				"group_name": group_name,
+				"session_id": session.id,
+				"state": {"process_id": 9},
+				"text": "step 2",
+				"type": "agent",
+			},
+			org,
+		)
+		VSChat.as_view({"post": "n8n_callback"}, permission_classes=[PN8nCallback])(
+			second_request
+		)
+
+	with step("Assert: Both fields survive untouched."):
+		session.refresh_from_db()
+		assert session.n8n_state["awaiting_batch_confirmation"] is True
+		assert session.n8n_state["pending_batch_items"] == [
+			{"process_name": "Create Purchase Request"}
+		]
+
+	with step(
+		"Act: Send a third callback that explicitly clears both fields (user confirmed)."
+	):
+		third_request = _make_callback_request(
+			{
+				"group_name": group_name,
+				"session_id": session.id,
+				"state": {
+					"awaiting_batch_confirmation": False,
+					"pending_batch_items": [],
+				},
+				"text": "step 3",
+				"type": "agent",
+			},
+			org,
+		)
+		VSChat.as_view({"post": "n8n_callback"}, permission_classes=[PN8nCallback])(
+			third_request
+		)
+
+	with step("Assert: Both fields were cleared once consumed."):
+		session.refresh_from_db()
+		assert session.n8n_state["awaiting_batch_confirmation"] is False
+		assert session.n8n_state["pending_batch_items"] == []
+
+
 def test_n8n_callback_persists_intention_nodes_and_paused_node_ids(settings):
 	"""Test n8n_callback persists intention_nodes/paused_node_ids and falls back to the current value when omitted"""
 

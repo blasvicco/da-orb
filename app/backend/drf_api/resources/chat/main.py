@@ -48,12 +48,16 @@ async def _persist_n8n_state(group_name, *, merged):
 	try:
 		await state.save(
 			active_node_id=merged.get("active_node_id"),
+			awaiting_batch_confirmation=merged.get(
+				"awaiting_batch_confirmation", False
+			),
 			awaiting_stack_resume=merged.get("awaiting_stack_resume", False),
 			form_state=merged.get("form_state"),
 			intention_nodes=merged.get("intention_nodes"),
 			last_bot_message=merged.get("last_bot_message"),
 			parent_override_id=merged.get("parent_override_id"),
 			paused_node_ids=merged.get("paused_node_ids"),
+			pending_batch_items=merged.get("pending_batch_items"),
 			pending_processes=merged.get("pending_processes"),
 			process_definition=merged.get("process_definition"),
 			process_id=merged.get("process_id"),
@@ -85,38 +89,37 @@ def _resolve_and_persist_state(group_name, incoming):
 		return current
 	reset_process = incoming.get("reset_process") is True
 
-	def _resolve(key):
-		if reset_process:
-			return incoming.get(key)
-		return incoming.get(key) if incoming.get(key) is not None else current.get(key)
+	def _merge_field(key, default=None, resettable=False):
+		"""Prefer incoming[key] when present; otherwise fall back to current[key]."""
+		# A resettable field additionally lets an explicit null through once
+		# reset_process is set, so a handler can intentionally clear it instead of
+		# null being coalesced back to the stale value already in Redis.
+		if resettable and reset_process:
+			return incoming.get(key, default)
+		value = incoming.get(key)
+		return value if value is not None else current.get(key, default)
 
 	merged = {
-		"active_node_id": _resolve("active_node_id"),
-		"awaiting_stack_resume": incoming.get("awaiting_stack_resume")
-		if incoming.get("awaiting_stack_resume") is not None
-		else current.get("awaiting_stack_resume", False),
-		"form_state": _resolve("form_state"),
-		"intention_nodes": incoming.get("intention_nodes")
-		if incoming.get("intention_nodes") is not None
-		else current.get("intention_nodes") or [],
-		"last_bot_message": _resolve("last_bot_message"),
+		"active_node_id": _merge_field("active_node_id", resettable=True),
+		"awaiting_batch_confirmation": _merge_field(
+			"awaiting_batch_confirmation", default=False
+		),
+		"awaiting_stack_resume": _merge_field("awaiting_stack_resume", default=False),
+		"form_state": _merge_field("form_state", resettable=True),
+		"intention_nodes": _merge_field("intention_nodes", default=[]),
+		"last_bot_message": _merge_field("last_bot_message", resettable=True),
 		# Gated the same as active_node_id/process_id (not a plain pass-through):
 		# Decode & Set Process consumes this exactly when it resolves a new node,
 		# which is also when it sets reset_process, so the same reset_process gate
 		# that lets process_id/active_node_id be explicitly cleared to null also
 		# lets this one-shot override be explicitly cleared once consumed.
-		"parent_override_id": _resolve("parent_override_id"),
-		"paused_node_ids": incoming.get("paused_node_ids")
-		if incoming.get("paused_node_ids") is not None
-		else current.get("paused_node_ids") or [],
-		"pending_processes": incoming.get("pending_processes")
-		if incoming.get("pending_processes") is not None
-		else current.get("pending_processes"),
-		"process_definition": _resolve("process_definition"),
-		"process_id": _resolve("process_id"),
-		"process_stack": incoming.get("process_stack")
-		if incoming.get("process_stack") is not None
-		else current.get("process_stack") or [],
+		"parent_override_id": _merge_field("parent_override_id", resettable=True),
+		"paused_node_ids": _merge_field("paused_node_ids", default=[]),
+		"pending_batch_items": _merge_field("pending_batch_items", default=[]),
+		"pending_processes": _merge_field("pending_processes"),
+		"process_definition": _merge_field("process_definition", resettable=True),
+		"process_id": _merge_field("process_id", resettable=True),
+		"process_stack": _merge_field("process_stack", default=[]),
 	}
 	async_to_sync(_persist_n8n_state)(group_name, merged=merged)
 	return merged
@@ -224,27 +227,17 @@ class VSChat(viewsets.ViewSet):
 	authentication_classes = []
 	permission_classes = [PChat]
 
-	def _get_org_and_user(self, request):
-		"""Return (org, username, connection_key) from the request context."""
-		return resolve_request_identity(request)
-
-	@action(detail=False, methods=["get"])
-	def sessions(self, request, *args, **kwargs):
-		"""Return the 15 most-recent chat sessions for the requesting user."""
-		org, username, connection_key = self._get_org_and_user(request)
-		if org is None or not username:
-			return Response([])
-		qs = MChatSession.objects.filter(
-			connection_key=connection_key, org=org, username=username
-		).annotate(
-			tokens_used=Sum(
-				"usage_events__total_tokens",
-				filter=Q(usage_events__event_type="token_usage"),
-			)
-		)[
-			:15
-		]
-		return Response(SChatSession(qs, many=True).data)
+	@action(detail=False, methods=["delete"])
+	def delete_session(self, request, *args, **kwargs):
+		"""Delete a session and all its messages (org + connection_key scoped; ownership checked via permission)."""
+		session_id = request.query_params.get("session_id")
+		org, _, connection_key = self._get_org_and_user(request)
+		session = get_object_or_404(
+			MChatSession, connection_key=connection_key, id=session_id, org=org
+		)
+		self.check_object_permissions(request, session)
+		session.delete()
+		return Response(status=204)
 
 	@action(detail=False, methods=["get"])
 	def messages(self, request, *args, **kwargs):
@@ -259,18 +252,6 @@ class VSChat(viewsets.ViewSet):
 			username=username,
 		)
 		return Response(SChatMessage(session.messages.all(), many=True).data)
-
-	@action(detail=False, methods=["delete"])
-	def delete_session(self, request, *args, **kwargs):
-		"""Delete a session and all its messages (org + connection_key scoped; ownership checked via permission)."""
-		session_id = request.query_params.get("session_id")
-		org, _, connection_key = self._get_org_and_user(request)
-		session = get_object_or_404(
-			MChatSession, connection_key=connection_key, id=session_id, org=org
-		)
-		self.check_object_permissions(request, session)
-		session.delete()
-		return Response(status=204)
 
 	@action(detail=False, methods=["post"], permission_classes=[PN8nCallback])
 	def n8n_callback(self, request, *args, **kwargs):
@@ -359,3 +340,25 @@ class VSChat(viewsets.ViewSet):
 			async_to_sync(_release_and_refire)(group_name)
 
 		return Response(status=200)
+
+	@action(detail=False, methods=["get"])
+	def sessions(self, request, *args, **kwargs):
+		"""Return the 15 most-recent chat sessions for the requesting user."""
+		org, username, connection_key = self._get_org_and_user(request)
+		if org is None or not username:
+			return Response([])
+		qs = MChatSession.objects.filter(
+			connection_key=connection_key, org=org, username=username
+		).annotate(
+			tokens_used=Sum(
+				"usage_events__total_tokens",
+				filter=Q(usage_events__event_type="token_usage"),
+			)
+		)[
+			:15
+		]
+		return Response(SChatSession(qs, many=True).data)
+
+	def _get_org_and_user(self, request):
+		"""Return (org, username, connection_key) from the request context."""
+		return resolve_request_identity(request)

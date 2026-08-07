@@ -1,5 +1,5 @@
 {
-  "name": "Orbot v12",
+  "name": "Orbot v5",
   "nodes": [
     {
       "parameters": {
@@ -1549,8 +1549,7 @@
         "operation": "get",
         "executionId": "={{ $json.executionId }}",
         "options": {
-          "activeWorkflows": true,
-          "includeData": true
+          "activeWorkflows": true
         },
         "requestOptions": {}
       },
@@ -2337,7 +2336,7 @@
     "availableInMCP": false,
     "saveExecutionProgress": true
   },
-  "versionId": "c59f7ebf-da6e-4125-99f4-0056734a0ace",
+  "versionId": "3a672519-b4e1-40ed-8976-0b86561ad8b1",
   "meta": {
     "instanceId": "da3330787aeb7f604f15e5dc9f1eeb5d8888bdf40d2655cc0fecda0d049befde"
   },

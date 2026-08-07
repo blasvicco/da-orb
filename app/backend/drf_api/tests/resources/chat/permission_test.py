@@ -2,7 +2,6 @@
 
 # General imports
 from types import SimpleNamespace
-from unittest.mock import MagicMock
 
 # Lib imports
 import pytest
@@ -16,13 +15,6 @@ from drf_api.resources.chat.permission import PChat
 def _make_request(headers=None, method="GET"):
 	"""Build a lightweight request stand-in exposing .method and .headers"""
 	return SimpleNamespace(headers=headers or {}, method=method)
-
-
-def _make_view(connection_key, username):
-	"""Build a view stand-in whose _get_org_and_user resolves to the given identity"""
-	return MagicMock(
-		_get_org_and_user=MagicMock(return_value=(None, username, connection_key))
-	)
 
 
 @pytest.mark.parametrize(
@@ -86,7 +78,7 @@ def test_has_permission_invalid_bearer_token(payload):
 		},
 	],
 )
-def test_has_permission_seat_check(payload):
+def test_has_permission_seat_check(mocker, payload):
 	"""Test has_permission requires a resolved identity holding an active seat"""
 
 	with step(f"Arrange: {payload['description']}."):
@@ -98,14 +90,13 @@ def test_has_permission_seat_check(payload):
 		)
 		if payload["has_seat"]:
 			MSeat.objects.create(org=org, status="active", username=payload["username"])
-		view = MagicMock(
-			_get_org_and_user=MagicMock(
-				return_value=(org, payload["username"], "TESTDB")
-			)
+		mocker.patch(
+			"drf_api.resources.seat.permission.resolve_request_identity",
+			return_value=(org, payload["username"], "TESTDB"),
 		)
 
 	with step("Act: Call has_permission."):
-		result = PChat().has_permission(request, view)
+		result = PChat().has_permission(request, None)
 
 	with step("Assert: Result matches expectation."):
 		assert result is payload["expected"]
@@ -161,14 +152,19 @@ def test_has_permission_seat_check(payload):
 		},
 	],
 )
-def test_has_object_permission(payload):
+def test_has_object_permission(mocker, payload):
 	"""Test has_object_permission enforces username and connection_key ownership on destructive verbs."""
-	# Resolved via view._get_org_and_user() rather than trusted directly from request headers.
+	# Resolved via resolve_request_identity() rather than trusted directly from request headers.
 
 	with step(f"Arrange: {payload['description']}."):
 		request = _make_request(method=payload["method"])
-		view = _make_view(
-			payload["resolved_connection_key"], payload["resolved_username"]
+		mocker.patch(
+			"drf_api.resources.chat.permission.resolve_request_identity",
+			return_value=(
+				None,
+				payload["resolved_username"],
+				payload["resolved_connection_key"],
+			),
 		)
 		obj = SimpleNamespace(
 			connection_key=payload["obj_connection_key"],
@@ -176,7 +172,7 @@ def test_has_object_permission(payload):
 		)
 
 	with step("Act: Call has_object_permission."):
-		result = PChat().has_object_permission(request, view, obj)
+		result = PChat().has_object_permission(request, None, obj)
 
 	with step("Assert: Result matches expectation."):
 		assert result is payload["expected"]

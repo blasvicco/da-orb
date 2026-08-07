@@ -87,8 +87,10 @@ describe('Export downloads', () => {
     expect(capturedBlob.type).toContain('text/markdown');
   });
 
-  it('exports as JSON with the full message list and title', async () => {
-    const wrapper = mount(Export, { props: { messages: [USER_MESSAGE], sessionTitle: 'Stock Check' } });
+  it('exports as JSON with the full message list, title, and session id', async () => {
+    const wrapper = mount(Export, {
+      props: { messages: [USER_MESSAGE], sessionId: 208, sessionTitle: 'Stock Check' },
+    });
     await openExportPanel(wrapper);
     const buttons = body().findAll('.orb-export-option');
     await buttons[3].trigger('click');
@@ -96,6 +98,35 @@ describe('Export downloads', () => {
     const payload = JSON.parse(await capturedBlob.text());
     expect(payload.title).toBe('Stock Check');
     expect(payload.messages).toEqual([USER_MESSAGE]);
+    expect(payload.sessionId).toBe(208);
+  });
+
+  it('exports as JSON with a null sessionId when unset', async () => {
+    const wrapper = mount(Export, { props: { messages: [USER_MESSAGE] } });
+    await openExportPanel(wrapper);
+    const buttons = body().findAll('.orb-export-option');
+    await buttons[3].trigger('click');
+
+    const payload = JSON.parse(await capturedBlob.text());
+    expect(payload.sessionId).toBeNull();
+  });
+
+  it('includes the session id line in text and markdown exports when set', async () => {
+    const wrapper = mount(Export, { props: { messages: [USER_MESSAGE], sessionId: 208 } });
+    await openExportPanel(wrapper);
+    await body().find('.orb-export-option').trigger('click');
+
+    const text = await capturedBlob.text();
+    expect(text).toContain('208');
+  });
+
+  it('omits the session id line entirely when unset', async () => {
+    const wrapper = mount(Export, { props: { messages: [USER_MESSAGE] } });
+    await openExportPanel(wrapper);
+    await body().find('.orb-export-option').trigger('click');
+
+    const text = await capturedBlob.text();
+    expect(text).not.toContain('Session ID');
   });
 
   it('falls back to "chat" and Orb as sender/title defaults when unset', async () => {
@@ -153,6 +184,16 @@ describe('Export downloads', () => {
 });
 
 describe('Export PDF', () => {
+  it('includes the session id in the PDF header when set', async () => {
+    const wrapper = mount(Export, { props: { messages: [USER_MESSAGE], sessionId: 208 } });
+    await openExportPanel(wrapper);
+    await body().findAll('.orb-export-option')[2].trigger('click');
+
+    const iframe = document.querySelector('iframe');
+    expect(iframe.srcdoc).toContain('208');
+    document.body.removeChild(iframe);
+  });
+
   it('builds a printable iframe document containing every message', async () => {
     const wrapper = mount(Export, {
       props: { messages: [USER_MESSAGE, AGENT_MESSAGE, SAP_MESSAGE], sessionTitle: 'Stock Check' },

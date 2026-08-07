@@ -40,6 +40,7 @@ class N8nClient:  # pylint: disable=too-few-public-methods
 		self,
 		*,
 		active_node_override=None,
+		bucket_file_ids=None,
 		expertise_level: int = 2,
 		group_name: str,
 		message: str,
@@ -66,7 +67,13 @@ class N8nClient:  # pylint: disable=too-few-public-methods
 			# parent_override_id below, which survives turns where the workflow
 			# needs a clarifying follow-up before actually creating the new node.
 			"active_node_override": active_node_override,
+			"awaiting_batch_confirmation": current.get(
+				"awaiting_batch_confirmation", False
+			),
 			"awaiting_stack_resume": current.get("awaiting_stack_resume", False),
+			# References only — the Agent resolves each bucket file's content on demand
+			# via its own extraction tool rather than the platform embedding it here.
+			"bucket_file_ids": bucket_file_ids or [],
 			"expertise_level": expertise_level,
 			"form_state": current.get("form_state"),
 			"group_name": group_name,
@@ -75,6 +82,7 @@ class N8nClient:  # pylint: disable=too-few-public-methods
 			"organization": organization_dict,
 			"parent_override_id": current.get("parent_override_id"),
 			"paused_node_ids": current.get("paused_node_ids") or [],
+			"pending_batch_items": current.get("pending_batch_items") or [],
 			"pending_processes": current.get("pending_processes"),
 			"process_id": current.get("process_id"),
 			"process_stack": current.get("process_stack") or [],

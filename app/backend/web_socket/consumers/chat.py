@@ -8,10 +8,12 @@ import uuid
 
 # Lib imports
 from channels.db import database_sync_to_async
+from django.conf import settings
 from django.db import IntegrityError
+from django.db.models import Sum
 
 # App imports
-from drf_api.models import MChatMessage, MChatSession
+from drf_api.models import MBucketFile, MChatMessage, MChatSession
 from web_socket.helpers.n8n import (
 	N8nClient,
 	N8nClientError,
@@ -22,8 +24,11 @@ from .abstract import CAbstract
 
 _logger = logging.getLogger(__name__)
 
-_MSG_AGENT_UNAVAILABLE = "chat.system.agentUnavailable"
+_BYTES_PER_MB = 1024 * 1024
+
 _MSG_AGENT_ERROR = "chat.system.agentError"
+_MSG_AGENT_UNAVAILABLE = "chat.system.agentUnavailable"
+_MSG_BATCH_TOO_LARGE = "chat.system.batchTooLarge"
 _MSG_QUEUED = "chat.system.queued"
 
 
@@ -65,6 +70,16 @@ def _save_message(session, msg_type, text, extra, iso_time):
 def _set_session_title(session, title):
 	MChatSession.objects.filter(pk=session.pk).update(title=title)
 	session.title = title
+
+
+@database_sync_to_async
+def _sum_bucket_file_sizes(file_ids, session):
+	return (
+		MBucketFile.objects.filter(id__in=file_ids, session=session).aggregate(
+			total=Sum("size")
+		)["total"]
+		or 0
+	)
 
 
 # Consumer
@@ -156,6 +171,32 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 				)
 				self.chat_session = None
 
+	async def _ensure_session(self):
+		"""Create the DB session if one doesn't exist yet, and notify the frontend."""
+		# Idempotent and safe to call ahead of any real message — e.g. right when a
+		# file is attached to a brand-new chat, so the upload has a real session_id
+		# to target instead of silently deferring until the first message is sent.
+		if self.chat_session is not None:
+			return
+		language = "es"
+		if hasattr(self.user, "session") and self.user.session:
+			language = getattr(self.user.session, "language", "es")
+		self.chat_session = await _create_session(
+			connection_key=self.connection_key,
+			language=language,
+			org=self.organization,
+			username=self.user.username,
+		)
+		await self.send_json(
+			{"type": "session.created", "session_id": self.chat_session.id}
+		)
+
+	async def session_ensure(self, content):  # pylint: disable=unused-argument
+		"""WS entry point: create the session ahead of a real message. Lets a file
+		attached before anything is typed upload against a real session_id right
+		away, instead of the message that follows carrying no bucket_file_ids."""
+		await self._ensure_session()
+
 	async def message_send(self, content):
 		"""Handle message sent by user"""
 		message_text = content.get("message")
@@ -164,30 +205,41 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 		# node in the Intention Graph — not persisted here, n8n turns it into the
 		# session-persisted parent_override_id once it abandons the current active node.
 		active_node_override = content.get("active_node_override")
+		# One-shot references to bucket files attached as context for this turn —
+		# explicitly picked via "Use as context", and/or files dropped onto the
+		# composer and uploaded alongside this message. Forwarded to n8n as-is,
+		# never resolved/embedded here (see upload_and_file_bucket.md §5).
+		bucket_file_ids = content.get("bucket_file_ids") or []
 
-		# Lazily create the DB session on the first message to avoid empty orphan records
-		if self.chat_session is None:
-			language = "es"
-			if hasattr(self.user, "session") and self.user.session:
-				language = getattr(self.user.session, "language", "es")
-			self.chat_session = await _create_session(
-				connection_key=self.connection_key,
-				language=language,
-				org=self.organization,
-				username=self.user.username,
-			)
-			# Set title BEFORE notifying the frontend so the sessions API
-			# returns the record with a title already in place.
+		# Lazily create the DB session on the first message to avoid empty orphan
+		# records — may already exist here if session_ensure() ran earlier this
+		# connection (e.g. a file was attached before anything was typed).
+		await self._ensure_session()
+		if not self.chat_session.title:
+			# Set title BEFORE the sessions list next reflects it — no separate
+			# notification needed here, session.created (if any) already fired
+			# inside _ensure_session().
 			await _set_session_title(self.chat_session, message_text[:80])
-			await self.send_json(
-				{"type": "session.created", "session_id": self.chat_session.id}
-			)
 		elif resolved_text != message_text:
 			# User resolved a process selection (e.g. "1" → "Create Purchase Request").
 			# Use the resolved process name as a more meaningful session title.
 			await _set_session_title(self.chat_session, resolved_text[:80])
 
-		await self._broadcast(message_text, "user")
+		await self._broadcast(
+			message_text,
+			"user",
+			extra={"bucket_file_ids": bucket_file_ids} if bucket_file_ids else None,
+		)
+
+		if bucket_file_ids:
+			max_batch_size = settings.BUCKET_MAX_BATCH_SIZE_MB * _BYTES_PER_MB
+			total_size = await _sum_bucket_file_sizes(
+				bucket_file_ids, self.chat_session
+			)
+			if total_size > max_batch_size:
+				await self._broadcast(_MSG_BATCH_TOO_LARGE, "alert")
+				return
+
 		expertise_level = content.get("expertise_level", 2)
 		if expertise_level not in (1, 2, 3):
 			expertise_level = 2
@@ -197,6 +249,7 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 				self._fire_n8n(
 					resolved_text,
 					active_node_override=active_node_override,
+					bucket_file_ids=bucket_file_ids,
 					expertise_level=expertise_level,
 				)
 			)
@@ -213,6 +266,7 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 			await self.n8n_queue.set_pending(
 				{
 					"active_node_override": active_node_override,
+					"bucket_file_ids": bucket_file_ids,
 					"expertise_level": expertise_level,
 					"group_name": self.group_name,
 					"message": resolved_text,
@@ -223,10 +277,11 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 			)
 			await self._broadcast(_MSG_QUEUED, "status")
 
-	async def _fire_n8n(
+	async def _fire_n8n(  # pylint: disable=too-many-arguments,too-many-positional-arguments
 		self,
 		message_text,
 		active_node_override=None,
+		bucket_file_ids=None,
 		expertise_level=2,
 		max_retries=5,
 		retry_delay=30,
@@ -240,6 +295,7 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 			try:
 				await self.n8n_client.fire(
 					active_node_override=active_node_override,
+					bucket_file_ids=bucket_file_ids,
 					expertise_level=expertise_level,
 					group_name=self.group_name,
 					message=message_text,
@@ -277,6 +333,7 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 				self._fire_n8n(
 					pending["message"],
 					active_node_override=pending.get("active_node_override"),
+					bucket_file_ids=pending.get("bucket_file_ids") or [],
 					expertise_level=pending.get("expertise_level", 2),
 				)
 			)

@@ -10,11 +10,7 @@ from rest_framework.response import Response
 
 # App imports
 from drf_api.models import MSeat
-from drf_api.resources.auth.helpers import (
-	reinstate_seat,
-	resolve_request_identity,
-	set_org_admin,
-)
+from drf_api.resources.auth.helpers import resolve_request_identity, set_org_admin
 from drf_api.resources.seat.permission import PSeat
 from drf_api.resources.seat.serializer import SSeat
 
@@ -33,7 +29,7 @@ class VSSeat(viewsets.ViewSet):
 			return Response({"error": "MISSING_USERNAME"}, status=400)
 
 		try:
-			seat = reinstate_seat(org, username)
+			seat = MSeat.reinstate_seat(org, username)
 		except ValidationError as error:
 			error_msg = error.detail if hasattr(error, "detail") else str(error)
 			if isinstance(error_msg, list) and len(error_msg) > 0:

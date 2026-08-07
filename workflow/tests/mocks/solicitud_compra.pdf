@@ -1,0 +1,61 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 4 0 R >> >> /MediaBox [0 0 612 792] /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Length 469 >>
+stream
+BT
+/F1 12 Tf
+50 750 Td
+14 TL
+(Solicitud de Compra) Tj
+T*
+() Tj
+T*
+(Fecha Requerida: 2026-08-05) Tj
+T*
+(Proveedor Preferido: C30715652664) Tj
+T*
+(Comentario: Reposición de stock para mantenimiento, solicitado por Roberto Sánchez) Tj
+T*
+() Tj
+T*
+(Artículo: NP-0047) Tj
+T*
+(Descripción: Correa de transmisión) Tj
+T*
+(Cantidad: 15) Tj
+T*
+(Proveedor de línea: P30679718378) Tj
+T*
+(Sector: SupplyC) Tj
+T*
+(Unidad de Negocio: ShareSer) Tj
+T*
+(Código de Impuesto: IVA_21) Tj
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000338 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+858
+%%EOF

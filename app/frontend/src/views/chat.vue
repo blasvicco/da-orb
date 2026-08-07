@@ -52,12 +52,27 @@
   const isTyping = ref(false);
   const messages = ref([]);
   const pendingActiveNodeOverride = ref(null);
+  const pendingContextFiles = ref([]);
   const promptText = ref('');
   const sessionId = ref(null);
   const sessions = ref([]);
   const statusText = ref(null);
 
   const chat = new Chat();
+  // Resolvers waiting on the next 'session.created' event — see ensureSessionId().
+  let sessionReadyResolvers = [];
+
+  // Guarantees a real session_id exists, creating it ahead of any message if
+  // needed (e.g. a file attached before anything is typed) — resolves
+  // immediately if a session already exists, otherwise waits for the
+  // 'session.created' event fired in response to chat.ensureSession().
+  const ensureSessionId = () => {
+    if (sessionId.value) return Promise.resolve(sessionId.value);
+    return new Promise((resolve) => {
+      sessionReadyResolvers.push(resolve);
+      chat.ensureSession();
+    });
+  };
 
   // Theme
   const theme = ref(localStorage.getItem('orb-theme') || 'light');
@@ -126,6 +141,7 @@
     // whether a reply is pending, so we fall back to the generic typing dots.
     isTyping.value = !!sessions.value.find((s) => s.id === id)?.pending;
     pendingActiveNodeOverride.value = null;
+    pendingContextFiles.value = [];
     sessionId.value = id;
     statusText.value = null;
     chat.sessionId = id;
@@ -161,6 +177,7 @@
     isTyping.value = false;
     messages.value = [];
     pendingActiveNodeOverride.value = null;
+    pendingContextFiles.value = [];
     sessionId.value = null;
     statusText.value = null;
     setTimeout(() => chat.connect(), 300);
@@ -179,8 +196,14 @@
   // Send Prompt Message Flow
   const handleSend = () => {
     if (!promptText.value.trim() || connectionStatus.value !== 'connected') return;
-    chat.sendMessage(promptText.value.trim(), expertiseLevel.value, pendingActiveNodeOverride.value);
+    chat.sendMessage(
+      promptText.value.trim(),
+      expertiseLevel.value,
+      pendingActiveNodeOverride.value,
+      pendingContextFiles.value.map((file) => file.id),
+    );
     pendingActiveNodeOverride.value = null;
+    pendingContextFiles.value = [];
     promptText.value = '';
   };
 
@@ -206,6 +229,20 @@
     scrollToBottom();
   };
 
+  // "Use as context" from the bucket panel, and/or files dropped onto the composer
+  // that just finished uploading — both arm a one-shot reference that rides along
+  // with the user's next message, mirroring pendingActiveNodeOverride above.
+  const handleContextFile = (file) => {
+    if (pendingContextFiles.value.some((entry) => entry.id === file.id)) return;
+    pendingContextFiles.value = [...pendingContextFiles.value, file];
+  };
+
+  // Also reused as the file-deleted handler: removing a bucket file that's
+  // currently selected as context clears its chip too.
+  const handleRemoveContext = (fileId) => {
+    pendingContextFiles.value = pendingContextFiles.value.filter((entry) => entry.id !== fileId);
+  };
+
   // Sign out flow
   const handleLogout = () => {
     chat.disconnect();
@@ -225,6 +262,8 @@
     chat.on('session.created', async (data) => {
       chat.sessionId = data.session_id;
       sessionId.value = data.session_id;
+      sessionReadyResolvers.forEach((resolve) => resolve(data.session_id));
+      sessionReadyResolvers = [];
       // Refresh sidebar so the new session appears with its title
       await refreshSessions();
     });
@@ -373,11 +412,9 @@
       :has-messages="messages.length > 0"
       :connection-status="connectionStatus"
       :messages="messages"
-      :session-state="currentSessionState"
+      :session-id="sessionId"
       :user-name="userProfile.name"
       :tokens-used="currentSessionTokens"
-      @navigate="handleNavigate"
-      @resume="handleResume"
     />
 
     <div
@@ -424,7 +461,17 @@
 
     <ChatInput
       v-model="promptText"
+      :context-files="pendingContextFiles"
       :disabled="isTyping || connectionStatus !== 'connected'"
+      :ensure-session-id="ensureSessionId"
+      :messages="messages"
+      :session-id="sessionId"
+      :session-state="currentSessionState"
+      @context-file="handleContextFile"
+      @file-deleted="handleRemoveContext"
+      @navigate="handleNavigate"
+      @remove-context="handleRemoveContext"
+      @resume="handleResume"
       @send="handleSend"
     />
   </ChatLayout>

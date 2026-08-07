@@ -1,0 +1,48 @@
+{
+  "node": "Resolve Batch Item",
+  "cases": [
+    {
+      "description": "resolves the first item of a fresh batch via Handler: Batch's context",
+      "input": { "output": { "items": [{ "path": "purchase/purch_request/purch_request.json", "payload": { "Supplier": "V1", "items": [{ "ItemCode": "X" }] } }] } },
+      "nodeResults": { "Handler: Batch": { "session_id": 5, "language": "es" } },
+      "expected": { "responde": false, "matched_entry": { "path": "purchase/purch_request/purch_request.json", "payload": { "Supplier": "V1", "items": [{ "ItemCode": "X" }] } }, "form_state": { "Supplier": "V1", "items": [{ "ItemCode": "X" }], "ready": true } }
+    },
+    {
+      "description": "falls back to its own direct input as base when Handler: Batch didn't run this execution (the confirmation-resume path)",
+      "input": { "output": { "items": [{ "path": "p", "payload": { "Foo": "Bar" } }] }, "session_id": 99, "language": "en" },
+      "nodeResults": {},
+      "expected": { "session_id": 99, "language": "en", "responde": false, "form_state": { "Foo": "Bar", "ready": true } }
+    },
+    {
+      "description": "returns a no-items message when the fresh batch has zero items",
+      "input": { "output": { "items": [] } },
+      "nodeResults": { "Handler: Batch": { "language": "es" } },
+      "expected": { "batch_intake_empty": { "reason": "no_items" }, "responde": true, "reset_process": true }
+    },
+    {
+      "description": "resumes a loop-continuation entry with the exact carried batch_id/item_index",
+      "input": {
+        "batch_continue": {
+          "batch_id": "batch_123",
+          "item_index": 1,
+          "total_items": 3,
+          "current_item": { "path": "p", "payload": { "Foo": 1 } },
+          "remaining_items": [],
+          "completed_results": [{ "item_index": 0, "status": "completed" }]
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "responde": false,
+        "batch_context": {
+          "batch_id": "batch_123",
+          "item_index": 1,
+          "total_items": 3,
+          "current_item": { "path": "p", "payload": { "Foo": 1 } },
+          "remaining_items": [],
+          "completed_results": [{ "item_index": 0, "status": "completed" }]
+        }
+      }
+    }
+  ]
+}

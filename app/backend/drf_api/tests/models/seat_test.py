@@ -1,4 +1,4 @@
-"""This module contains tests for the named-seat licensing helpers"""
+"""This module contains tests for the MSeat model's named-seat licensing methods"""
 
 # Lib imports
 import pytest
@@ -7,11 +7,6 @@ from rest_framework.exceptions import ValidationError
 
 # App imports
 from drf_api.models import MOrganization, MSeat
-from drf_api.resources.auth.helpers import (
-	has_active_seat,
-	provision_or_check_seat,
-	reinstate_seat,
-)
 
 pytestmark = pytest.mark.django_db
 
@@ -50,7 +45,7 @@ def test_has_active_seat(payload):
 			MSeat.objects.create(org=org, status=payload["status"], username="bob")
 
 	with step("Act: Call has_active_seat."):
-		result = has_active_seat(org, "bob")
+		result = MSeat.has_active_seat(org, "bob")
 
 	with step("Assert: Result matches expectation."):
 		assert result is payload["expected"]
@@ -63,7 +58,7 @@ def test_provision_or_check_seat_creates_new_seat_when_capacity_allows():
 		org = _make_org(seat_limit=1)
 
 	with step("Act: Call provision_or_check_seat for a brand-new username."):
-		seat = provision_or_check_seat(org, "bob")
+		seat = MSeat.provision_or_check_seat(org, "bob")
 
 	with step("Assert: A new active seat was created."):
 		assert seat.status == "active"
@@ -80,7 +75,7 @@ def test_provision_or_check_seat_rejects_when_limit_exceeded():
 
 	with step("Act/Assert: provision_or_check_seat raises SEAT_LIMIT_EXCEEDED."):
 		with pytest.raises(ValidationError, match="SEAT_LIMIT_EXCEEDED"):
-			provision_or_check_seat(org, "bob")
+			MSeat.provision_or_check_seat(org, "bob")
 
 	with step("Assert: No row was created for bob."):
 		assert not MSeat.objects.filter(org=org, username="bob").exists()
@@ -97,7 +92,7 @@ def test_provision_or_check_seat_returns_existing_active_seat():
 		existing = MSeat.objects.create(org=org, status="active", username="bob")
 
 	with step("Act: Call provision_or_check_seat for the same username again."):
-		seat = provision_or_check_seat(org, "bob")
+		seat = MSeat.provision_or_check_seat(org, "bob")
 
 	with step("Assert: The existing seat is returned."):
 		assert seat.id == existing.id
@@ -112,7 +107,7 @@ def test_provision_or_check_seat_rejects_revoked_seat():
 
 	with step("Act/Assert: provision_or_check_seat raises SEAT_REVOKED."):
 		with pytest.raises(ValidationError, match="SEAT_REVOKED"):
-			provision_or_check_seat(org, "bob")
+			MSeat.provision_or_check_seat(org, "bob")
 
 
 def test_reinstate_seat_rejects_when_seat_not_found():
@@ -123,7 +118,7 @@ def test_reinstate_seat_rejects_when_seat_not_found():
 
 	with step("Act/Assert: reinstate_seat raises SEAT_NOT_FOUND."):
 		with pytest.raises(ValidationError, match="SEAT_NOT_FOUND"):
-			reinstate_seat(org, "bob")
+			MSeat.reinstate_seat(org, "bob")
 
 
 def test_reinstate_seat_returns_already_active_seat_unchanged():
@@ -134,7 +129,7 @@ def test_reinstate_seat_returns_already_active_seat_unchanged():
 		existing = MSeat.objects.create(org=org, status="active", username="bob")
 
 	with step("Act: Call reinstate_seat on the already-active seat."):
-		seat = reinstate_seat(org, "bob")
+		seat = MSeat.reinstate_seat(org, "bob")
 
 	with step("Assert: The same seat is returned, still active."):
 		assert seat.id == existing.id
@@ -151,7 +146,7 @@ def test_reinstate_seat_reactivates_when_capacity_allows():
 		)
 
 	with step("Act: Call reinstate_seat."):
-		seat = reinstate_seat(org, "bob")
+		seat = MSeat.reinstate_seat(org, "bob")
 
 	with step("Assert: The seat is active again with revocation fields cleared."):
 		assert seat.status == "active"
@@ -169,7 +164,7 @@ def test_reinstate_seat_rejects_when_over_capacity():
 
 	with step("Act/Assert: reinstate_seat raises SEAT_LIMIT_EXCEEDED."):
 		with pytest.raises(ValidationError, match="SEAT_LIMIT_EXCEEDED"):
-			reinstate_seat(org, "bob")
+			MSeat.reinstate_seat(org, "bob")
 
 	with step("Assert: bob's seat stays revoked."):
 		assert MSeat.objects.get(org=org, username="bob").status == "revoked"

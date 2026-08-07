@@ -13,6 +13,7 @@ const mockChat = vi.hoisted(() => {
   const instance = {
     connect: vi.fn(),
     disconnect: vi.fn(),
+    ensureSession: vi.fn(),
     on: vi.fn((event, cb) => { handlers[event] = cb; }),
     onAgentMessage: vi.fn((cb) => { handlers.agent = cb; }),
     onAlertMessage: vi.fn((cb) => { handlers.alert = cb; }),
@@ -32,6 +33,11 @@ vi.mock('@/modules/websocket/chat', () => ({
 }));
 vi.mock('@/modules/api', () => ({
   default: {
+    Bucket: {
+      downloadUrl: vi.fn().mockResolvedValue({ url: '' }),
+      files: vi.fn().mockResolvedValue([]),
+      upload: vi.fn().mockResolvedValue({}),
+    },
     Chat: {
       deleteSession: vi.fn().mockResolvedValue({}),
       messages: vi.fn().mockResolvedValue([]),
@@ -56,6 +62,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockAuth.getSession.mockReturnValue({});
   mockAuth.isAdmin.mockReturnValue(false);
+  AppAPI.Bucket.files.mockResolvedValue([]);
+  AppAPI.Bucket.downloadUrl.mockResolvedValue({ url: '' });
   AppAPI.Chat.sessions.mockResolvedValue([]);
   AppAPI.Chat.messages.mockResolvedValue([]);
   AppAPI.Chat.deleteSession.mockResolvedValue({});
@@ -238,7 +246,20 @@ describe('ChatView sidebar actions', () => {
     expect(wrapper.findComponent(ChatHeader).props('tokensUsed')).toBe(1234);
   });
 
-  it('passes the active session n8n_state through to ChatHeader so a reloaded session keeps its intention graph', async () => {
+  it('passes the active session id through to ChatHeader so exports can carry it for debugging', async () => {
+    AppAPI.Chat.sessions.mockResolvedValue([{ id: 5, pending: false, title: 'Old chat', tokens_used: 0 }]);
+    AppAPI.Chat.messages.mockResolvedValue([]);
+    const wrapper = mount(ChatView);
+    await mockChat.handlers.open?.();
+    await flushPromises();
+
+    await wrapper.findComponent(ChatHistory).vm.$emit('select', 5);
+    await flushPromises();
+
+    expect(wrapper.findComponent(ChatHeader).props('sessionId')).toBe(5);
+  });
+
+  it('passes the active session n8n_state through to ChatInput so a reloaded session keeps its intention graph', async () => {
     const n8nState = { intention_nodes: [{ id: 'pr#0', parent_id: null, process_id: 'purchase_request', status: 'completed' }] };
     AppAPI.Chat.sessions.mockResolvedValue([{ id: 5, n8n_state: n8nState, pending: false, title: 'Old chat' }]);
     AppAPI.Chat.messages.mockResolvedValue([]);
@@ -249,7 +270,7 @@ describe('ChatView sidebar actions', () => {
     await wrapper.findComponent(ChatHistory).vm.$emit('select', 5);
     await flushPromises();
 
-    expect(wrapper.findComponent(ChatHeader).props('sessionState')).toEqual(n8nState);
+    expect(wrapper.findComponent(ChatInput).props('sessionState')).toEqual(n8nState);
   });
 
   it('passes a null sessionState when the active session has no persisted n8n_state', async () => {
@@ -262,7 +283,7 @@ describe('ChatView sidebar actions', () => {
     await wrapper.findComponent(ChatHistory).vm.$emit('select', 5);
     await flushPromises();
 
-    expect(wrapper.findComponent(ChatHeader).props('sessionState')).toBeNull();
+    expect(wrapper.findComponent(ChatInput).props('sessionState')).toBeNull();
   });
 
   it('refreshes tokensUsed after an agent reply updates the session totals', async () => {
@@ -373,7 +394,7 @@ describe('ChatView sending a prompt', () => {
     await wrapper.findComponent(ChatInput).vm.$emit('update:modelValue', '  hello  ');
     await wrapper.findComponent(ChatInput).vm.$emit('send');
 
-    expect(mockChat.instance.sendMessage).toHaveBeenCalledWith('hello', 2, null);
+    expect(mockChat.instance.sendMessage).toHaveBeenCalledWith('hello', 2, null, []);
     expect(wrapper.findComponent(ChatInput).props('modelValue')).toBe('');
   });
 
@@ -387,7 +408,7 @@ describe('ChatView sending a prompt', () => {
 describe('ChatView resuming from the Intention Graph sidebar', () => {
   it('does nothing while disconnected', async () => {
     const wrapper = mount(ChatView);
-    await wrapper.findComponent(ChatHeader).vm.$emit('resume');
+    await wrapper.findComponent(ChatInput).vm.$emit('resume');
     expect(mockChat.instance.sendMessage).not.toHaveBeenCalled();
   });
 
@@ -396,7 +417,7 @@ describe('ChatView resuming from the Intention Graph sidebar', () => {
     await mockChat.handlers.open?.();
     await flushPromises();
 
-    await wrapper.findComponent(ChatHeader).vm.$emit('resume');
+    await wrapper.findComponent(ChatInput).vm.$emit('resume');
 
     expect(mockChat.instance.sendMessage).toHaveBeenCalledWith('Yes', 2);
   });
@@ -405,7 +426,7 @@ describe('ChatView resuming from the Intention Graph sidebar', () => {
 describe('ChatView navigating from the Intention Graph sidebar', () => {
   it('immediately appends a system bubble announcing the context switch', async () => {
     const wrapper = mount(ChatView);
-    await wrapper.findComponent(ChatHeader).vm.$emit('navigate', { id: 'pr#0', label: 'Purchase Request' });
+    await wrapper.findComponent(ChatInput).vm.$emit('navigate', { id: 'pr#0', label: 'Purchase Request' });
 
     const bubbles = wrapper.findAllComponents(ChatBubble);
     const last = bubbles[bubbles.length - 1];
@@ -415,7 +436,7 @@ describe('ChatView navigating from the Intention Graph sidebar', () => {
 
   it('does not send anything to n8n on its own — it only arms a one-shot override', async () => {
     const wrapper = mount(ChatView);
-    await wrapper.findComponent(ChatHeader).vm.$emit('navigate', { id: 'pr#0', label: 'Purchase Request' });
+    await wrapper.findComponent(ChatInput).vm.$emit('navigate', { id: 'pr#0', label: 'Purchase Request' });
     expect(mockChat.instance.sendMessage).not.toHaveBeenCalled();
   });
 
@@ -424,15 +445,82 @@ describe('ChatView navigating from the Intention Graph sidebar', () => {
     await mockChat.handlers.open?.();
     await flushPromises();
 
-    await wrapper.findComponent(ChatHeader).vm.$emit('navigate', { id: 'pr#0', label: 'Purchase Request' });
+    await wrapper.findComponent(ChatInput).vm.$emit('navigate', { id: 'pr#0', label: 'Purchase Request' });
 
     await wrapper.findComponent(ChatInput).vm.$emit('update:modelValue', 'hello');
     await wrapper.findComponent(ChatInput).vm.$emit('send');
-    expect(mockChat.instance.sendMessage).toHaveBeenCalledWith('hello', 2, 'pr#0');
+    expect(mockChat.instance.sendMessage).toHaveBeenCalledWith('hello', 2, 'pr#0', []);
 
     await wrapper.findComponent(ChatInput).vm.$emit('update:modelValue', 'again');
     await wrapper.findComponent(ChatInput).vm.$emit('send');
-    expect(mockChat.instance.sendMessage).toHaveBeenLastCalledWith('again', 2, null);
+    expect(mockChat.instance.sendMessage).toHaveBeenLastCalledWith('again', 2, null, []);
+  });
+});
+
+describe('ChatView "use as context" from the bucket panel', () => {
+  it('shows the context file as a chip on ChatInput once selected', async () => {
+    const wrapper = mount(ChatView);
+    await wrapper.findComponent(ChatInput).vm.$emit('context-file', { id: 3, name: 'orders.csv' });
+
+    expect(wrapper.findComponent(ChatInput).props('contextFiles')).toEqual([{ id: 3, name: 'orders.csv' }]);
+  });
+
+  it('accumulates multiple selected context files', async () => {
+    const wrapper = mount(ChatView);
+    await wrapper.findComponent(ChatInput).vm.$emit('context-file', { id: 3, name: 'orders.csv' });
+    await wrapper.findComponent(ChatInput).vm.$emit('context-file', { id: 4, name: 'invoice.pdf' });
+
+    expect(wrapper.findComponent(ChatInput).props('contextFiles')).toEqual([
+      { id: 3, name: 'orders.csv' },
+      { id: 4, name: 'invoice.pdf' },
+    ]);
+  });
+
+  it('does not add the same file twice', async () => {
+    const wrapper = mount(ChatView);
+    await wrapper.findComponent(ChatInput).vm.$emit('context-file', { id: 3, name: 'orders.csv' });
+    await wrapper.findComponent(ChatInput).vm.$emit('context-file', { id: 3, name: 'orders.csv' });
+
+    expect(wrapper.findComponent(ChatInput).props('contextFiles')).toEqual([{ id: 3, name: 'orders.csv' }]);
+  });
+
+  it('does not send anything to n8n on its own — it only arms a one-shot reference', async () => {
+    const wrapper = mount(ChatView);
+    await wrapper.findComponent(ChatInput).vm.$emit('context-file', { id: 3, name: 'orders.csv' });
+    expect(mockChat.instance.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('clears only the dismissed context file when remove-context is emitted', async () => {
+    const wrapper = mount(ChatView);
+    await wrapper.findComponent(ChatInput).vm.$emit('context-file', { id: 3, name: 'orders.csv' });
+    await wrapper.findComponent(ChatInput).vm.$emit('context-file', { id: 4, name: 'invoice.pdf' });
+    await wrapper.findComponent(ChatInput).vm.$emit('remove-context', 3);
+
+    expect(wrapper.findComponent(ChatInput).props('contextFiles')).toEqual([{ id: 4, name: 'invoice.pdf' }]);
+  });
+
+  it('clears the context file when it is deleted from the bucket', async () => {
+    const wrapper = mount(ChatView);
+    await wrapper.findComponent(ChatInput).vm.$emit('context-file', { id: 3, name: 'orders.csv' });
+    await wrapper.findComponent(ChatInput).vm.$emit('file-deleted', 3);
+
+    expect(wrapper.findComponent(ChatInput).props('contextFiles')).toEqual([]);
+  });
+
+  it('carries the reference on the very next sendMessage call, then clears it', async () => {
+    const wrapper = mount(ChatView);
+    await mockChat.handlers.open?.();
+    await flushPromises();
+
+    await wrapper.findComponent(ChatInput).vm.$emit('context-file', { id: 3, name: 'orders.csv' });
+
+    await wrapper.findComponent(ChatInput).vm.$emit('update:modelValue', 'hello');
+    await wrapper.findComponent(ChatInput).vm.$emit('send');
+    expect(mockChat.instance.sendMessage).toHaveBeenCalledWith('hello', 2, null, [3]);
+
+    await wrapper.findComponent(ChatInput).vm.$emit('update:modelValue', 'again');
+    await wrapper.findComponent(ChatInput).vm.$emit('send');
+    expect(mockChat.instance.sendMessage).toHaveBeenLastCalledWith('again', 2, null, []);
   });
 });
 
@@ -459,6 +547,31 @@ describe('ChatView websocket event handling', () => {
 
     expect(wrapper.findComponent(ChatHistory).props('activeSessionId')).toBe(9);
     expect(wrapper.findComponent(ChatHistory).props('sessions')).toEqual([{ id: 9, title: 'New chat' }]);
+  });
+
+  it('resolves ensureSessionId immediately, without asking the backend, once a session exists', async () => {
+    AppAPI.Chat.sessions.mockResolvedValue([{ id: 9, title: 'New chat' }]);
+    const wrapper = mount(ChatView);
+    await mockChat.handlers['session.created']?.({ session_id: 9 });
+    await flushPromises();
+
+    const resolved = await wrapper.findComponent(ChatInput).props('ensureSessionId')();
+
+    expect(resolved).toBe(9);
+    expect(mockChat.instance.ensureSession).not.toHaveBeenCalled();
+  });
+
+  it('ensureSessionId asks the backend and resolves once session.created arrives, when no session exists yet', async () => {
+    AppAPI.Chat.sessions.mockResolvedValue([{ id: 9, title: 'New chat' }]);
+    const wrapper = mount(ChatView);
+
+    const pending = wrapper.findComponent(ChatInput).props('ensureSessionId')();
+    expect(mockChat.instance.ensureSession).toHaveBeenCalled();
+
+    await mockChat.handlers['session.created']?.({ session_id: 9 });
+    await flushPromises();
+
+    expect(await pending).toBe(9);
   });
 
   it('marks the connection open and refreshes sessions on open', async () => {

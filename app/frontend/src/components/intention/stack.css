@@ -1,5 +1,24 @@
 @reference "@/styles/main.css";
 
+.orb-panel-title {
+  @apply flex items-center justify-between pr-6 w-full;
+
+  .orb-panel-switch {
+    @apply cursor-pointer flex items-center justify-center;
+    color: var(--orb-input-tool, #64748b);
+
+    &:hover {
+      color: var(--orb-input-tool-hover, #0F52BA);
+    }
+  }
+}
+
+@media (max-width: 639px) {
+  .orb-intention-drawer .ant-drawer-content-wrapper {
+    width: 100% !important;
+  }
+}
+
 .orb-intention-stack-empty {
   @apply text-sm;
   color: var(--orb-header-title, #1e293b);
@@ -12,9 +31,26 @@
   .orb-intention-node {
     @apply flex gap-3 items-center justify-between w-full;
 
-    .orb-intention-node-label {
-      @apply font-medium text-sm;
-      color: var(--orb-header-title, #1e293b);
+    .orb-intention-node-heading {
+      @apply flex gap-2 items-center min-w-0;
+
+      .orb-intention-node-status {
+        @apply shrink-0 text-base;
+      }
+
+      .orb-intention-node-label {
+        @apply font-medium text-sm truncate;
+        color: var(--orb-header-title, #1e293b);
+
+        &.orb-intention-node-label--clickable {
+          @apply cursor-pointer;
+
+          &:hover {
+            color: var(--orb-input-tool-hover, #0F52BA);
+            text-decoration: underline;
+          }
+        }
+      }
     }
 
     .orb-intention-stack-actions {

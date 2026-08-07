@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 # App imports
 from core.tests.factories import FUser
 from drf_api.tests.factories import (
+	FBucketFile,
 	FChatMessage,
 	FChatSession,
 	FOrganization,
@@ -17,6 +18,7 @@ from drf_api.tests.factories import (
 	FUsageEvent,
 )
 
+register(FBucketFile)
 register(FChatMessage)
 register(FChatSession)
 register(FOrganization)

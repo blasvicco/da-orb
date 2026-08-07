@@ -1,0 +1,4 @@
+proveedor_preferido,fecha_requerida,codigo_articulo,descripcion,cantidad,proveedor_linea,almacen,sector,unidad_negocio,codigo_impuesto,comentarios
+C30715652664,2026-08-05,NP-0047,Cojinete de zafiro,50,P30679718378,,SupplyC,ShareSer,IVA_21,Solicitado por Ana García. Urgente.
+C30715652664,2026-08-05,NP-0047,Filtro de aceite,20,P30679718378,,SupplyC,ShareSer,IVA_21,Solicitado por Carlos Pérez.
+C30715652664,2026-08-05,NP-9999,Sensor de presión,8,P30679718378,,SupplyC,ShareSer,,Solicitado por Marta López. Para línea 3.

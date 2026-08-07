@@ -1,0 +1,968 @@
+{
+  "updatedAt": "2026-08-03T16:21:10.090Z",
+  "createdAt": "2026-08-03T13:44:37.409Z",
+  "id": "YsvWv7FNpeVx5N05",
+  "name": "Extract Bucket File Content v1",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "bucket_file_id"
+            },
+            {
+              "name": "org_slug"
+            },
+            {
+              "name": "access_token"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -400,
+        128
+      ],
+      "id": "9e9107e2-273b-4ad7-9fc7-ea82eff8aec2",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "url": "=http://blas.local/api/v1/bucket/extraction/",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "file_id",
+              "value": "={{ $('When Executed by Another Workflow').item.json.bucket_file_id }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Host",
+              "value": "={{ $('When Executed by Another Workflow').item.json.org_slug }}.blas.local"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('When Executed by Another Workflow').item.json.access_token }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -160,
+        128
+      ],
+      "id": "d5fa8de2-e826-4fd3-8031-5d626731f878",
+      "name": "Check Cache"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cache-hit",
+              "leftValue": "={{ $json.extracted_content }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        80,
+        128
+      ],
+      "id": "cf91b671-e262-4606-ac5d-24b58bee3c55",
+      "name": "Has Cached Content?"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        320,
+        -32
+      ],
+      "id": "1e0db3cb-69ad-40e2-9eb8-1d66fb112e8f",
+      "name": "Cache Hit"
+    },
+    {
+      "parameters": {
+        "url": "=http://blas.local/api/v1/bucket/download/",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "file_id",
+              "value": "={{ $('When Executed by Another Workflow').item.json.bucket_file_id }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Host",
+              "value": "={{ $('When Executed by Another Workflow').item.json.org_slug }}.blas.local"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('When Executed by Another Workflow').item.json.access_token }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        320,
+        288
+      ],
+      "id": "4d96fd12-76b6-4937-b79b-58bcae3ff926",
+      "name": "Get Presigned URL"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        560,
+        288
+      ],
+      "id": "5523df6d-51aa-40ea-8b1d-d49662335ec0",
+      "name": "Download File"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "mime-csv",
+                    "leftValue": "={{ $binary.data.mimeType }}",
+                    "rightValue": "text/csv",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "csv"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "mime-xls",
+                    "leftValue": "={{ $binary.data.mimeType }}",
+                    "rightValue": "application/vnd.ms-excel",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "xls"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "mime-xlsx",
+                    "leftValue": "={{ $binary.data.mimeType }}",
+                    "rightValue": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "xlsx"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "mime-ods",
+                    "leftValue": "={{ $binary.data.mimeType }}",
+                    "rightValue": "application/vnd.oasis.opendocument.spreadsheet",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ods"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "mime-pdf",
+                    "leftValue": "={{ $binary.data.mimeType }}",
+                    "rightValue": "application/pdf",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "pdf"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "mime-html",
+                    "leftValue": "={{ $binary.data.mimeType }}",
+                    "rightValue": "text/html",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "html"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "mime-json",
+                    "leftValue": "={{ $binary.data.mimeType }}",
+                    "rightValue": "application/json",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "json"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "mime-rtf",
+                    "leftValue": "={{ $binary.data.mimeType }}",
+                    "rightValue": "application/rtf",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "rtf"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "mime-text",
+                    "leftValue": "={{ $binary.data.mimeType }}",
+                    "rightValue": "text/plain",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "text"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        800,
+        160
+      ],
+      "id": "7ac5fff8-ef37-405a-97e4-45ecf352d9d7",
+      "name": "Route by Mime Type"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        -384
+      ],
+      "id": "78b38e7c-3f56-46c5-aaea-f8501d59afa0",
+      "name": "Extract: CSV"
+    },
+    {
+      "parameters": {
+        "operation": "xls",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        -224
+      ],
+      "id": "3d8d15dc-7fdf-49fb-908a-56a4898b2c91",
+      "name": "Extract: XLS"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        -64
+      ],
+      "id": "4802f41d-eca2-41c3-a2ca-27bc352ea112",
+      "name": "Extract: XLSX"
+    },
+    {
+      "parameters": {
+        "operation": "ods",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        96
+      ],
+      "id": "e4c31184-b1e8-4bb7-bc55-9eb458f1db7a",
+      "name": "Extract: ODS"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        272
+      ],
+      "id": "d6602122-3da1-4bce-a5b0-1a60faa12580",
+      "name": "Extract: PDF"
+    },
+    {
+      "parameters": {
+        "operation": "html",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        432
+      ],
+      "id": "9b194b47-1aa8-4f54-ba7e-e1f454ad5f72",
+      "name": "Extract: HTML"
+    },
+    {
+      "parameters": {
+        "operation": "fromJson",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        592
+      ],
+      "id": "495485b2-39cb-40b5-8e7a-84d887f66337",
+      "name": "Extract: JSON"
+    },
+    {
+      "parameters": {
+        "operation": "rtf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        752
+      ],
+      "id": "e7b90adb-3474-4128-8b0d-5240b13cedc5",
+      "name": "Extract: RTF"
+    },
+    {
+      "parameters": {
+        "operation": "text",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        928
+      ],
+      "id": "4853ee6e-8a2b-44d5-a46b-d0885beff1cc",
+      "name": "Extract: TEXT"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "unsupported-content",
+              "name": "extracted_content",
+              "type": "string",
+              "value": null
+            },
+            {
+              "id": "unsupported-error",
+              "name": "error",
+              "type": "string",
+              "value": "UNSUPPORTED_MIME_TYPE"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1104,
+        1088
+      ],
+      "id": "917f771f-2720-435d-a4cf-8d12fcf5e66b",
+      "name": "Handler: Unsupported Format"
+    },
+    {
+      "parameters": {
+        "numberInputs": 9
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1440,
+        160
+      ],
+      "id": "b519532a-76ed-4a38-8bde-2f4d49a38de5",
+      "name": "Merge Extraction Branches"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst content = JSON.stringify(items.map((item) => item.json));\nreturn [{ json: { extracted_content: content } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1648,
+        272
+      ],
+      "id": "ed0657b8-1177-4444-a01d-a41cbaf0c4a0",
+      "name": "Normalize Extraction Result"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=http://blas.local/api/v1/bucket/extraction/",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "file_id",
+              "value": "={{ $('When Executed by Another Workflow').item.json.bucket_file_id }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Host",
+              "value": "={{ $('When Executed by Another Workflow').item.json.org_slug }}.blas.local"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('When Executed by Another Workflow').item.json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ extracted_content: $json.extracted_content }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1888,
+        272
+      ],
+      "id": "3299da1c-95f9-4244-972f-93097a3ee446",
+      "name": "Persist Extraction"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2128,
+        272
+      ],
+      "id": "f8aa3804-c937-4f57-b482-eb2dd4aac4d5",
+      "name": "Cache Miss Output"
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Check Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Cache": {
+      "main": [
+        [
+          {
+            "node": "Has Cached Content?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Cached Content?": {
+      "main": [
+        [
+          {
+            "node": "Cache Hit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Presigned URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Presigned URL": {
+      "main": [
+        [
+          {
+            "node": "Download File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download File": {
+      "main": [
+        [
+          {
+            "node": "Route by Mime Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Mime Type": {
+      "main": [
+        [
+          {
+            "node": "Extract: CSV",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract: XLS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract: XLSX",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract: ODS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract: PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract: HTML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract: JSON",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract: RTF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract: TEXT",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handler: Unsupported Format",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract: CSV": {
+      "main": [
+        [
+          {
+            "node": "Merge Extraction Branches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract: XLS": {
+      "main": [
+        [
+          {
+            "node": "Merge Extraction Branches",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Extract: XLSX": {
+      "main": [
+        [
+          {
+            "node": "Merge Extraction Branches",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Extract: ODS": {
+      "main": [
+        [
+          {
+            "node": "Merge Extraction Branches",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Extract: PDF": {
+      "main": [
+        [
+          {
+            "node": "Merge Extraction Branches",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Extract: HTML": {
+      "main": [
+        [
+          {
+            "node": "Merge Extraction Branches",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Extract: JSON": {
+      "main": [
+        [
+          {
+            "node": "Merge Extraction Branches",
+            "type": "main",
+            "index": 6
+          }
+        ]
+      ]
+    },
+    "Extract: RTF": {
+      "main": [
+        [
+          {
+            "node": "Merge Extraction Branches",
+            "type": "main",
+            "index": 7
+          }
+        ]
+      ]
+    },
+    "Extract: TEXT": {
+      "main": [
+        [
+          {
+            "node": "Merge Extraction Branches",
+            "type": "main",
+            "index": 8
+          }
+        ]
+      ]
+    },
+    "Merge Extraction Branches": {
+      "main": [
+        [
+          {
+            "node": "Normalize Extraction Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Extraction Result": {
+      "main": [
+        [
+          {
+            "node": "Persist Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Persist Extraction": {
+      "main": [
+        [
+          {
+            "node": "Cache Miss Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "nodeGroups": [],
+  "pinData": {},
+  "versionId": "3ebb62f5-2ff4-4241-b75f-06310a15e976",
+  "activeVersionId": "3ebb62f5-2ff4-4241-b75f-06310a15e976",
+  "versionCounter": 23,
+  "triggerCount": 0,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2026-08-03T13:44:37.409Z",
+      "createdAt": "2026-08-03T13:44:37.409Z",
+      "role": "workflow:owner",
+      "workflowId": "YsvWv7FNpeVx5N05",
+      "projectId": "cn74nHr8flg33zyq",
+      "project": {
+        "updatedAt": "2026-06-02T16:23:24.112Z",
+        "createdAt": "2026-06-02T15:58:19.168Z",
+        "id": "cn74nHr8flg33zyq",
+        "name": "Blas Vicco <blasvicco@gmail.cp>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "d4402dc6-b353-4e2a-b026-1725ba648b39"
+      }
+    }
+  ],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}

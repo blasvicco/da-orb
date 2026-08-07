@@ -3,10 +3,6 @@
 # Lib imports
 from rest_framework.exceptions import ValidationError
 
-# App imports
-from drf_api.models import MSeat
-
-
 class VSeatCapacityAvailable:  # pylint: disable=too-few-public-methods
 	"""Validates that an org has at least one unused seat and returns the org."""
 
@@ -20,6 +16,9 @@ class VSeatCapacityAvailable:  # pylint: disable=too-few-public-methods
 
 	def __call__(self, org):
 		"""Raise SEAT_LIMIT_EXCEEDED when the org has no remaining seat capacity."""
+		# pylint: disable=import-outside-toplevel
+		from drf_api.models import MSeat
+
 		active_count = MSeat.objects.filter(org=org, status="active").count()
 		if active_count >= org.seat_limit:
 			raise ValidationError(self.error_msg)

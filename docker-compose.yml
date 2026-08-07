@@ -50,6 +50,38 @@ services:
         aliases:
           - mcp.blas.local
 
+  minio:
+    container_name: da-sapot-minio
+    command: [ "server", "/data", "--console-address", ":9001" ]
+    env_file:
+      - ./app/backend/.env.dev
+    image: minio/minio:latest
+    networks:
+      da_sapot_net:
+        aliases:
+          - minio.blas.local
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - da_minio_data:/data
+
+  minio-init:
+    container_name: da-sapot-minio-init
+    entrypoint: [ "/bin/sh", "-c" ]
+    command: >
+      "
+        until mc alias set local $$STORAGE_ENDPOINT_URL $$STORAGE_ACCESS_KEY $$STORAGE_SECRET_KEY; do sleep 1; done &&
+        mc mb --ignore-existing local/$$STORAGE_BUCKET_NAME
+      "
+    depends_on:
+      - minio
+    env_file:
+      - ./app/backend/.env.dev
+    image: minio/mc:latest
+    networks:
+      - da_sapot_net
+
   n8n-main:
     build:
       context: .
@@ -100,9 +132,7 @@ services:
     env_file:
       - ./app/backend/.env.dev
     networks:
-      da_sapot_net:
-        aliases:
-          - n8n.blas.local
+      - da_sapot_net
 
   postgres:
     build:
@@ -151,5 +181,6 @@ volumes:
   da_n8n_main_data:
     external: true
     name: da-sapot_da_n8n_main_data
+  da_minio_data:
 
 # daphne -b 0.0.0.0 -p 8000 core.asgi:application

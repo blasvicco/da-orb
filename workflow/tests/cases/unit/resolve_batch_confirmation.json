@@ -1,0 +1,34 @@
+{
+  "node": "Resolve Batch Confirmation",
+  "cases": [
+    {
+      "description": "passes through unchanged when not awaiting a batch confirmation",
+      "input": { "message": "hello", "awaiting_batch_confirmation": false },
+      "nodeResults": {},
+      "expected": { "_resume_batch": false }
+    },
+    {
+      "description": "clears awaiting_batch_confirmation and pending_batch_items when the reply is not affirmative",
+      "input": { "message": "no gracias", "awaiting_batch_confirmation": true, "pending_batch_items": [{ "a": 1 }] },
+      "nodeResults": {},
+      "expected": { "_resume_batch": false, "awaiting_batch_confirmation": false, "pending_batch_items": [] }
+    },
+    {
+      "description": "resumes the batch on an affirmative reply, restoring output.items from pending_batch_items",
+      "input": { "message": "sí", "awaiting_batch_confirmation": true, "pending_batch_items": [{ "path": "p", "payload": { "Foo": 1 } }] },
+      "nodeResults": {},
+      "expected": {
+        "_resume_batch": true,
+        "awaiting_batch_confirmation": false,
+        "pending_batch_items": [],
+        "output": { "items": [{ "path": "p", "payload": { "Foo": 1 } }] }
+      }
+    },
+    {
+      "description": "recognizes other affirmative phrasing (English 'yes')",
+      "input": { "message": "yes please", "awaiting_batch_confirmation": true, "pending_batch_items": [{ "a": 1 }] },
+      "nodeResults": {},
+      "expected": { "_resume_batch": true }
+    }
+  ]
+}

@@ -3,10 +3,6 @@
 # Lib imports
 from rest_framework.exceptions import ValidationError
 
-# App imports
-from drf_api.models import MSeat
-
-
 class VSeatExists:  # pylint: disable=too-few-public-methods
 	"""Validates that a seat exists for the given org/username and returns it."""
 
@@ -16,6 +12,9 @@ class VSeatExists:  # pylint: disable=too-few-public-methods
 
 	def __call__(self, org, username):
 		"""Raise SEAT_NOT_FOUND when no seat row exists for this org/username."""
+		# pylint: disable=import-outside-toplevel
+		from drf_api.models import MSeat
+
 		try:
 			return MSeat.objects.get(org=org, username=username)
 		except MSeat.DoesNotExist as error:

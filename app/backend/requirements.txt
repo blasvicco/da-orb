@@ -1,4 +1,5 @@
 black-with-tabs
+boto3
 channels
 channels-redis
 cryptography

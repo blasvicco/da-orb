@@ -34,6 +34,18 @@
       }
     },
     {
+      "description": "recognizes a bare accented 'sí' as affirmative (regression test: \\b doesn't fire after a non-ASCII-word char in JS regex, so 'sí' alone used to silently fail to match while 'sí, dale' passed)",
+      "input": {},
+      "nodeResults": {
+        "Resolve Selection": {
+          "message": "sí",
+          "awaiting_stack_resume": true,
+          "process_stack": [{ "process_id": "p1", "process_definition": { "id": "p1" }, "form_state": { "x": 1 } }]
+        }
+      },
+      "expected": { "process_id": "p1", "awaiting_stack_resume": false }
+    },
+    {
       "description": "clears awaiting_stack_resume when the stack is empty despite an affirmative reply",
       "input": {},
       "nodeResults": { "Resolve Selection": { "message": "yes", "awaiting_stack_resume": true, "process_stack": [] } },

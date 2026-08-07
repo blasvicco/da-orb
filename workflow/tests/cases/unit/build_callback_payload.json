@@ -15,6 +15,7 @@
           "process_definition": { "id": "p1" },
           "processes": null,
           "process_stack": [],
+          "awaiting_batch_confirmation": false,
           "awaiting_stack_resume": false,
           "reset_process": false,
           "process_queue": [],
@@ -36,6 +37,8 @@
           "process_definition": { "id": "p1" },
           "pending_processes": null,
           "process_stack": [],
+          "awaiting_batch_confirmation": false,
+          "pending_batch_items": [],
           "awaiting_stack_resume": false,
           "reset_process": false,
           "process_queue": [],
@@ -51,13 +54,19 @@
       "description": "defaults intention_nodes/active_node_id/paused_node_ids/parent_override_id when Normalize Response omits them",
       "input": {},
       "nodeResults": { "Normalize Response": { "group_name": "g1", "session_id": "s1", "message": "Hi" } },
-      "expected": { "state": { "form_state": null, "process_id": null, "process_definition": null, "pending_processes": null, "process_stack": [], "awaiting_stack_resume": false, "reset_process": false, "process_queue": [], "last_bot_message": "Hi", "intention_nodes": [], "active_node_id": null, "paused_node_ids": [], "parent_override_id": null } }
+      "expected": { "state": { "form_state": null, "process_id": null, "process_definition": null, "pending_processes": null, "process_stack": [], "awaiting_batch_confirmation": false, "pending_batch_items": [], "awaiting_stack_resume": false, "reset_process": false, "process_queue": [], "last_bot_message": "Hi", "intention_nodes": [], "active_node_id": null, "paused_node_ids": [], "parent_override_id": null } }
     },
     {
       "description": "carries a persisted parent_override_id through into the callback state",
       "input": {},
       "nodeResults": { "Normalize Response": { "group_name": "g1", "session_id": "s1", "message": "Hi", "parent_override_id": "n0#0" } },
-      "expected": { "state": { "form_state": null, "process_id": null, "process_definition": null, "pending_processes": null, "process_stack": [], "awaiting_stack_resume": false, "reset_process": false, "process_queue": [], "last_bot_message": "Hi", "intention_nodes": [], "active_node_id": null, "paused_node_ids": [], "parent_override_id": "n0#0" } }
+      "expected": { "state": { "form_state": null, "process_id": null, "process_definition": null, "pending_processes": null, "process_stack": [], "awaiting_batch_confirmation": false, "pending_batch_items": [], "awaiting_stack_resume": false, "reset_process": false, "process_queue": [], "last_bot_message": "Hi", "intention_nodes": [], "active_node_id": null, "paused_node_ids": [], "parent_override_id": "n0#0" } }
+    },
+    {
+      "description": "carries pending batch-confirmation fields through into the callback state",
+      "input": {},
+      "nodeResults": { "Normalize Response": { "group_name": "g1", "session_id": "s1", "message": "Hi", "awaiting_batch_confirmation": true, "pending_batch_items": [{ "process_name": "Create Purchase Request" }] } },
+      "expected": { "state": { "form_state": null, "process_id": null, "process_definition": null, "pending_processes": null, "process_stack": [], "awaiting_batch_confirmation": true, "pending_batch_items": [{ "process_name": "Create Purchase Request" }], "awaiting_stack_resume": false, "reset_process": false, "process_queue": [], "last_bot_message": "Hi", "intention_nodes": [], "active_node_id": null, "paused_node_ids": [], "parent_override_id": null } }
     },
     {
       "description": "type=alert for a genuine error (not one of the soft NO_MATCH/MULTIPLE_PROCESSES/AGENT_ERROR statuses)",

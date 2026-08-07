@@ -12,10 +12,12 @@ from django.db import IntegrityError
 
 # App imports
 from drf_api.models import MChatMessage, MChatSession, MOrganization
+from drf_api.tests.factories.bucket_file import FBucketFile
 from web_socket.consumers.abstract import CAbstract
 from web_socket.consumers.chat import (
 	_MSG_AGENT_ERROR,
 	_MSG_AGENT_UNAVAILABLE,
+	_MSG_BATCH_TOO_LARGE,
 	_MSG_QUEUED,
 	CChat,
 	_create_session,
@@ -413,6 +415,95 @@ def test_broadcast_clears_chat_session_on_integrity_error(mocker):
 
 
 # ---------------------------------------------------------------------------
+# _ensure_session / session_ensure
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db(transaction=True)
+def test_ensure_session_creates_and_announces_when_none_exists():
+	"""Test _ensure_session creates the session and sends session.created when chat_session is None"""
+
+	with step("Arrange: A consumer with no chat_session yet."):
+		consumer = _make_consumer()
+		consumer.connection_key = "TESTDB"
+		consumer.chat_session = None
+
+	with step("Act: Call _ensure_session."):
+		async_to_sync(consumer._ensure_session)()  # pylint: disable=protected-access
+
+	with step("Assert: A session was created and announced, with no title set yet."):
+		assert consumer.chat_session is not None
+		assert consumer.chat_session.connection_key == "TESTDB"
+		assert consumer.chat_session.title == ""
+		consumer.send_json.assert_awaited_once_with(
+			{"session_id": consumer.chat_session.id, "type": "session.created"}
+		)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_ensure_session_is_a_noop_when_a_session_already_exists():
+	"""Test _ensure_session neither recreates nor re-announces an existing chat_session"""
+
+	with step("Arrange: A consumer with an existing chat_session."):
+		consumer = _make_consumer()
+		existing = MChatSession.objects.create(
+			connection_key="TESTDB", org=consumer.organization, username="bob"
+		)
+		consumer.chat_session = existing
+
+	with step("Act: Call _ensure_session."):
+		async_to_sync(consumer._ensure_session)()  # pylint: disable=protected-access
+
+	with step("Assert: The same session instance is kept and nothing was announced."):
+		assert consumer.chat_session is existing
+		consumer.send_json.assert_not_awaited()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_session_ensure_delegates_to_ensure_session():
+	"""Test the session_ensure WS entry point creates the session ahead of any message"""
+
+	with step("Arrange: A consumer with no chat_session yet."):
+		consumer = _make_consumer()
+		consumer.connection_key = "TESTDB"
+		consumer.chat_session = None
+
+	with step("Act: Call session_ensure as the WS dispatcher would."):
+		async_to_sync(consumer.session_ensure)({"type": "session.ensure"})
+
+	with step("Assert: A session now exists and was announced."):
+		assert consumer.chat_session is not None
+		consumer.send_json.assert_awaited_once_with(
+			{"session_id": consumer.chat_session.id, "type": "session.created"}
+		)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_message_send_titles_a_session_pre_created_by_session_ensure(mocker):
+	"""Test message_send still titles a session pre-created by an earlier session_ensure call"""
+
+	with step("Arrange: A session pre-created via session_ensure, with no title yet."):
+		consumer = _make_consumer()
+		consumer.connection_key = "TESTDB"
+		async_to_sync(consumer.session_ensure)({"type": "session.ensure"})
+		pre_created_session = consumer.chat_session
+		consumer.send_json.reset_mock()
+		consumer.n8n_queue = MagicMock(try_start=AsyncMock(return_value=True))
+		mocker.patch.object(consumer, "_fire_n8n", AsyncMock())
+		mocker.patch.object(consumer, "_broadcast", AsyncMock())
+
+	with step("Act: Call message_send with the first real message."):
+		async_to_sync(consumer.message_send)({"message": "Hello there"})
+
+	with step(
+		"Assert: The pre-existing session was titled, not recreated or re-announced."
+	):
+		assert consumer.chat_session.id == pre_created_session.id
+		assert consumer.chat_session.title == "Hello there"
+		consumer.send_json.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
 # message_send
 # ---------------------------------------------------------------------------
 
@@ -439,9 +530,12 @@ def test_message_send_creates_session_on_first_message(mocker):
 		consumer.send_json.assert_awaited_once_with(
 			{"session_id": consumer.chat_session.id, "type": "session.created"}
 		)
-		mock_broadcast.assert_awaited_once_with("Hello there", "user")
+		mock_broadcast.assert_awaited_once_with("Hello there", "user", extra=None)
 		mock_fire.assert_called_once_with(
-			"Hello there", active_node_override=None, expertise_level=2
+			"Hello there",
+			active_node_override=None,
+			bucket_file_ids=[],
+			expertise_level=2,
 		)
 
 
@@ -552,7 +646,10 @@ def test_message_send_normalises_expertise_level(mocker, payload):
 
 	with step("Assert: _fire_n8n was called with the normalised level."):
 		mock_fire.assert_called_once_with(
-			"hi", active_node_override=None, expertise_level=payload["expected"]
+			"hi",
+			active_node_override=None,
+			bucket_file_ids=[],
+			expertise_level=payload["expected"],
 		)
 
 
@@ -577,7 +674,7 @@ def test_message_send_forwards_active_node_override_to_fire_n8n(mocker):
 
 	with step("Assert: _fire_n8n received the override."):
 		mock_fire.assert_called_once_with(
-			"hi", active_node_override="n2#0", expertise_level=2
+			"hi", active_node_override="n2#0", bucket_file_ids=[], expertise_level=2
 		)
 
 
@@ -610,6 +707,145 @@ def test_message_send_queues_active_node_override_when_execution_in_flight(mocke
 	with step("Assert: The queued payload carries the active_node_override."):
 		queued_payload = consumer.n8n_queue.set_pending.call_args.args[0]
 		assert queued_payload["active_node_override"] == "n2#0"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_message_send_forwards_bucket_file_ids_to_fire_n8n(mocker):
+	"""Test message_send reads the one-shot bucket_file_ids and forwards them to _fire_n8n"""
+
+	with step("Arrange: A consumer and a message carrying bucket_file_ids."):
+		consumer = _make_consumer()
+		consumer.connection_key = "TESTDB"
+		consumer.chat_session = MChatSession.objects.create(
+			connection_key="TESTDB", org=consumer.organization, username="bob"
+		)
+		consumer.n8n_queue = MagicMock(try_start=AsyncMock(return_value=True))
+		mock_fire = mocker.patch.object(consumer, "_fire_n8n", AsyncMock())
+		mocker.patch.object(consumer, "_broadcast", AsyncMock())
+
+	with step("Act: Call message_send with bucket_file_ids."):
+		async_to_sync(consumer.message_send)(
+			{"bucket_file_ids": [7, 8], "message": "hi"}
+		)
+
+	with step("Assert: _fire_n8n received the references."):
+		mock_fire.assert_called_once_with(
+			"hi", active_node_override=None, bucket_file_ids=[7, 8], expertise_level=2
+		)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_message_send_rejects_batch_over_the_aggregate_size_cap(mocker, settings):
+	"""Test message_send broadcasts an alert and skips firing n8n when the attached files exceed the aggregate size cap"""
+
+	with step("Arrange: A session with two bucket files totalling over the cap."):
+		settings.BUCKET_MAX_BATCH_SIZE_MB = 20
+		consumer = _make_consumer()
+		consumer.connection_key = "TESTDB"
+		consumer.chat_session = MChatSession.objects.create(
+			connection_key="TESTDB", org=consumer.organization, username="bob"
+		)
+		file_a = FBucketFile(session=consumer.chat_session, size=15 * 1024 * 1024)
+		file_b = FBucketFile(session=consumer.chat_session, size=10 * 1024 * 1024)
+		consumer.n8n_queue = MagicMock(try_start=AsyncMock(return_value=True))
+		mock_fire = mocker.patch.object(consumer, "_fire_n8n", AsyncMock())
+		mock_broadcast = mocker.patch.object(consumer, "_broadcast", AsyncMock())
+
+	with step("Act: Call message_send referencing both files."):
+		async_to_sync(consumer.message_send)(
+			{"bucket_file_ids": [file_a.id, file_b.id], "message": "hi"}
+		)
+
+	with step("Assert: An alert was broadcast and n8n was never fired."):
+		mock_broadcast.assert_any_call(_MSG_BATCH_TOO_LARGE, "alert")
+		mock_fire.assert_not_called()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_message_send_allows_batch_within_the_aggregate_size_cap(mocker, settings):
+	"""Test message_send still fires n8n when the attached bucket files' combined size is within settings.BUCKET_MAX_BATCH_SIZE_MB"""
+
+	with step("Arrange: A session with two bucket files totalling under the cap."):
+		settings.BUCKET_MAX_BATCH_SIZE_MB = 20
+		consumer = _make_consumer()
+		consumer.connection_key = "TESTDB"
+		consumer.chat_session = MChatSession.objects.create(
+			connection_key="TESTDB", org=consumer.organization, username="bob"
+		)
+		file_a = FBucketFile(session=consumer.chat_session, size=5 * 1024 * 1024)
+		file_b = FBucketFile(session=consumer.chat_session, size=5 * 1024 * 1024)
+		consumer.n8n_queue = MagicMock(try_start=AsyncMock(return_value=True))
+		mock_fire = mocker.patch.object(consumer, "_fire_n8n", AsyncMock())
+		mocker.patch.object(consumer, "_broadcast", AsyncMock())
+
+	with step("Act: Call message_send referencing both files."):
+		async_to_sync(consumer.message_send)(
+			{"bucket_file_ids": [file_a.id, file_b.id], "message": "hi"}
+		)
+
+	with step("Assert: _fire_n8n was called normally."):
+		mock_fire.assert_called_once_with(
+			"hi",
+			active_node_override=None,
+			bucket_file_ids=[file_a.id, file_b.id],
+			expertise_level=2,
+		)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_message_send_persists_bucket_file_ids_as_extra_when_present(mocker):
+	"""Test message_send persists bucket_file_ids on the saved user message via the extra field"""
+
+	with step("Arrange: A consumer and a message carrying bucket_file_ids."):
+		consumer = _make_consumer()
+		consumer.connection_key = "TESTDB"
+		consumer.chat_session = MChatSession.objects.create(
+			connection_key="TESTDB", org=consumer.organization, username="bob"
+		)
+		consumer.n8n_queue = MagicMock(try_start=AsyncMock(return_value=True))
+		mocker.patch.object(consumer, "_fire_n8n", AsyncMock())
+		mock_broadcast = mocker.patch.object(consumer, "_broadcast", AsyncMock())
+
+	with step("Act: Call message_send with bucket_file_ids."):
+		async_to_sync(consumer.message_send)(
+			{"bucket_file_ids": [7, 8], "message": "hi"}
+		)
+
+	with step("Assert: _broadcast received the references as an extra field."):
+		mock_broadcast.assert_awaited_once_with(
+			"hi", "user", extra={"bucket_file_ids": [7, 8]}
+		)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_message_send_queues_bucket_file_ids_when_execution_in_flight(mocker):
+	"""Test message_send includes bucket_file_ids in the pending payload when queuing"""
+
+	with step(
+		"Arrange: An existing session, an in-flight execution, and bucket_file_ids."
+	):
+		consumer = _make_consumer()
+		consumer.connection_key = "TESTDB"
+		consumer.chat_session = MChatSession.objects.create(
+			connection_key="TESTDB", org=consumer.organization, username="bob"
+		)
+		consumer.n8n_queue = MagicMock(
+			set_pending=AsyncMock(), try_start=AsyncMock(return_value=False)
+		)
+		consumer.user.to_dict = MagicMock(return_value={"username": "bob"})
+		mocker.patch.object(
+			consumer.organization, "safe_to_dict", return_value={"slug": "acme"}
+		)
+		mocker.patch.object(consumer, "_broadcast", AsyncMock())
+
+	with step("Act: Call message_send with bucket_file_ids."):
+		async_to_sync(consumer.message_send)(
+			{"bucket_file_ids": [7, 8], "message": "hello"}
+		)
+
+	with step("Assert: The queued payload carries the bucket_file_ids."):
+		queued_payload = consumer.n8n_queue.set_pending.call_args.args[0]
+		assert queued_payload["bucket_file_ids"] == [7, 8]
 
 
 # ---------------------------------------------------------------------------
@@ -721,6 +957,7 @@ def test_fire_pending_if_any_fires_when_pending_exists(mocker):
 		consumer = _make_consumer()
 		pending = {
 			"active_node_override": "n2#0",
+			"bucket_file_ids": [5],
 			"expertise_level": 3,
 			"message": "queued",
 		}
@@ -736,7 +973,10 @@ def test_fire_pending_if_any_fires_when_pending_exists(mocker):
 
 	with step("Assert: The queued message, including its override, was fired."):
 		mock_fire.assert_called_once_with(
-			"queued", active_node_override="n2#0", expertise_level=3
+			"queued",
+			active_node_override="n2#0",
+			bucket_file_ids=[5],
+			expertise_level=3,
 		)
 
 

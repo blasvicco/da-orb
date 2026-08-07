@@ -60,6 +60,24 @@
       "expected": { "active_node_id": null }
     },
     {
+      "description": "defaults awaiting_batch_confirmation to false and pending_batch_items to [] when both the update and base omit them",
+      "input": { "message": "hi" },
+      "nodeResults": { "Parse & Enrich": {} },
+      "expected": { "awaiting_batch_confirmation": false, "pending_batch_items": [] }
+    },
+    {
+      "description": "falls back to the base awaiting_batch_confirmation/pending_batch_items when the update omits them",
+      "input": { "message": "si" },
+      "nodeResults": { "Parse & Enrich": { "awaiting_batch_confirmation": true, "pending_batch_items": [{ "process_name": "Create Purchase Request" }] } },
+      "expected": { "awaiting_batch_confirmation": true, "pending_batch_items": [{ "process_name": "Create Purchase Request" }] }
+    },
+    {
+      "description": "uses the update's awaiting_batch_confirmation/pending_batch_items when provided (clearing them once consumed)",
+      "input": { "awaiting_batch_confirmation": false, "pending_batch_items": [] },
+      "nodeResults": { "Parse & Enrich": { "awaiting_batch_confirmation": true, "pending_batch_items": [{ "process_name": "Create Purchase Request" }] } },
+      "expected": { "awaiting_batch_confirmation": false, "pending_batch_items": [] }
+    },
+    {
       "description": "falls back to the base parent_override_id when the update omits it",
       "input": { "message": "hi" },
       "nodeResults": { "Parse & Enrich": { "parent_override_id": "n0#0" } },

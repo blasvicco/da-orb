@@ -1,0 +1,253 @@
+{
+  "name": "Batch Intake Agent (test harness) v1",
+  "nodes": [
+    {
+      "parameters": {
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "Batch intake assistant for file-driven bulk process creation.\n\n## TASK\nThe user attached one or more files to create multiple Purchase Requests at once. For each attached bucket_file_id listed in the prompt, call the Read Bucket File tool to get its extracted content.\n\n## RULES\n- Call Read Bucket File once per attached bucket_file_id — never guess a file's content without reading it.\n- The number of Purchase Requests is NOT automatically the number of files, nor automatically the number of rows in a file. Look at the actual structure: a file may describe one request per row, or rows may be grouped into one request by a shared key (e.g. a request/order id column) with each row being a line item instead. Decide per file based on what the columns actually represent.\n- Rows/records are independent requests by default. Only merge multiple rows into ONE request's line items when they share an EXPLICIT grouping key that identifies them as the same document (e.g. the same order/request id column value). Rows that merely happen to share the same Supplier, date, or other header field are still SEPARATE requests — matching header values is not a grouping key, and must never cause you to merge otherwise-independent rows into one request.\n- Combine requests found across every attached file into a single flat list — do not keep them grouped by file.\n- Extract every request you find, even if it is missing a field the schema marks required (e.g. no OcrCode, OcrCode2, or TaxCode). NEVER drop or skip an incomplete request — include it in items with whatever fields ARE present, simply omitting the missing one from its payload. A later step asks the user to fill in anything missing; your job is complete extraction, not validation.\n- For every item, record which file(s) its data came from in source_files (the bucket_file_id is fine if no better identifier is available), so a later failure can be traced back to the right upload.\n- Return only the structured items array — do not execute anything and do not ask the user to confirm; that happens in a later step."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        256,
+        672
+      ],
+      "id": "480da6e6-d2d5-44ca-8c81-7ea2840c8fc3",
+      "name": "Agent: Batch Intake"
+    },
+    {
+      "parameters": {
+        "description": "Reads and extracts the text content of a bucket file the user attached to this conversation, given its bucket_file_id. Uses a cache, so the same file is never re-parsed twice. Call this once per attached file you need to read.",
+        "workflowId": {
+          "__rl": true,
+          "value": "YsvWv7FNpeVx5N05",
+          "mode": "list",
+          "cachedResultName": "Extract Bucket File Content v1"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "bucket_file_id": "={{ $fromAI('bucket_file_id', 'The bucket file ID to read', 'string') }}",
+            "org_slug": "={{ $('Webhook').item.json.body.organization.slug }}",
+            "access_token": "={{ $('Webhook').item.json.body.session.access_token }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "bucket_file_id",
+              "displayName": "bucket_file_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "org_slug",
+              "displayName": "org_slug",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "access_token",
+              "displayName": "access_token",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        352,
+        896
+      ],
+      "id": "eb77a6bc-b82f-481f-981a-e4adbcd84fb6",
+      "name": "Read Bucket File"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {
+          "maxTokens": 4000,
+          "reasoningEffort": "low"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        192,
+        896
+      ],
+      "id": "da762d09-90f7-4776-bb93-93784b85a3ae",
+      "name": "OpenAI Chat Model Batch Intake",
+      "credentials": {
+        "openAiApi": {
+          "id": "rtPUI8zcUazjFFXV",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"items\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"process_name\": {\n            \"type\": \"string\"\n          },\n          \"payload\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"Supplier\": {\n                \"type\": \"string\"\n              },\n              \"DocDate\": {\n                \"type\": \"string\"\n              },\n              \"RequriedDate\": {\n                \"type\": \"string\"\n              },\n              \"Comments\": {\n                \"type\": \"string\"\n              },\n              \"items\": {\n                \"type\": \"array\",\n                \"items\": {\n                  \"type\": \"object\",\n                  \"properties\": {\n                    \"ItemCode\": {\n                      \"type\": \"string\"\n                    },\n                    \"Quantity\": {\n                      \"type\": \"number\"\n                    },\n                    \"UnitPrice\": {\n                      \"type\": \"number\"\n                    },\n                    \"LineVendor\": {\n                      \"type\": \"string\"\n                    },\n                    \"TaxCode\": {\n                      \"type\": \"string\"\n                    },\n                    \"WarehouseCode\": {\n                      \"type\": \"string\"\n                    },\n                    \"UomCode\": {\n                      \"type\": \"string\"\n                    },\n                    \"ShipDate\": {\n                      \"type\": \"string\"\n                    },\n                    \"CostingCode\": {\n                      \"type\": \"string\"\n                    },\n                    \"CostingCode2\": {\n                      \"type\": \"string\"\n                    }\n                  },\n                  \"required\": [\n                    \"ItemCode\",\n                    \"Quantity\",\n                    \"LineVendor\",\n                    \"CostingCode\",\n                    \"CostingCode2\"\n                  ]\n                }\n              }\n            },\n            \"required\": [\n              \"RequriedDate\",\n              \"items\"\n            ]\n          },\n          \"source_files\": {\n            \"type\": \"array\",\n            \"items\": {\n              \"type\": \"string\"\n            }\n          },\n          \"path\": {\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\n          \"process_name\",\n          \"payload\",\n          \"source_files\",\n          \"path\"\n        ]\n      }\n    }\n  },\n  \"required\": [\n    \"items\"\n  ]\n}",
+        "autoFix": true
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        512,
+        896
+      ],
+      "id": "1989d6c1-3785-40ef-ab05-b689ab20a696",
+      "name": "Structured Output Parser: Batch Items"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $('Webhook').first().json.body;\nconst { bucket_file_ids, message } = raw;\nconst current_date = new Date().toISOString().split('T')[0];\nconst github_owner = 'blasvicco';\nconst github_repo = 'da-sapot-processes';\nconst github_tag = 'main';\nconst language = raw.session?.language || 'es';\nconst data = { ...raw, current_date, github_owner, github_repo, github_tag, language };\nconst ref = github_tag;\nconst fileList = (bucket_file_ids || [])\n  .map((id) => `- bucket_file_id: ${id}`)\n  .join('\\n');\nconst schemaReference = `Every item's payload MUST follow this exact structure and field names — do not invent your own, do not flatten the line items into the header, and omit (don't invent a value for) any field you can't find in the source data:\n{\n  \"Supplier\": \"\",\n  \"DocDate\": \"YYYY-MM-DD\",\n  \"RequriedDate\": \"YYYY-MM-DD\",\n  \"Comments\": \"\",\n  \"items\": [\n    {\n      \"ItemCode\": \"...\",\n      \"Quantity\": 0,\n      \"UnitPrice\": 0,\n      \"LineVendor\": \"...\",\n      \"TaxCode\": \"...\",\n      \"WarehouseCode\": \"...\",\n      \"UomCode\": \"...\",\n      \"ShipDate\": \"YYYY-MM-DD\",\n      \"CostingCode\": \"...\",\n      \"CostingCode2\": \"...\"\n    }\n  ]\n}\\n`;\nconst chatInput = `Today: ${current_date}. Respond in: ${language}.\\n\\nFor each DISTINCT kind of record you identify (e.g. \"Purchase Request\"), call get_file_contents with owner=${github_owner}, repo=${github_repo}, path={organization.target}/index.json, ref=${ref} (resolve {organization.target} from organization.target in the INPUT JSON below) to find its process-index entry, and copy that entry's exact \"path\" value into the \"path\" field of every item of that kind. Only do this lookup once per distinct process type, not once per item.\\n\\n${schemaReference}\\nUser message: \"${message}\"\\n\\nAttached files (call Read Bucket File once per id to get its content):\\n${fileList}\\n\\nINPUT:\\n\\`\\`\\`json\\n${JSON.stringify(data, null, 2)}\\n\\`\\`\\`\\n\\nDetermine how many purchase requests this describes in total across ALL attached files and/or the message text itself (a file's rows are not automatically 1 request each — look at the actual content structure), extract each one's field values into the exact payload shape above, resolve each item's \"path\" as instructed, and return the structured items array.`;\nreturn [{ json: { chatInput } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        672
+      ],
+      "id": "33225182-bfe6-47bc-988c-eafcac96b161",
+      "name": "Prompt: Batch Intake"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "batch-intake-test",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -240,
+        672
+      ],
+      "id": "9deded30-ac10-41a0-82d6-cb68ff1077b7",
+      "name": "Webhook",
+      "webhookId": "f3e20d76-d87e-4c69-958d-12365935399c"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        672,
+        672
+      ],
+      "id": "ef11a0f0-eee5-41b2-8f0f-61e1021b7662",
+      "name": "Batch Intake Result"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prompt: Batch Intake",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prompt: Batch Intake": {
+      "main": [
+        [
+          {
+            "node": "Agent: Batch Intake",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model Batch Intake": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agent: Batch Intake",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Structured Output Parser: Batch Items",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Bucket File": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent: Batch Intake",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser: Batch Items": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Agent: Batch Intake",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent: Batch Intake": {
+      "main": [
+        [
+          {
+            "node": "Batch Intake Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "10440c78-671f-4453-bfa0-34c61e7e8e02",
+  "meta": {
+    "instanceId": "da3330787aeb7f604f15e5dc9f1eeb5d8888bdf40d2655cc0fecda0d049befde"
+  },
+  "nodeGroups": [],
+  "id": "KmfKdmJarmLcUbOG",
+  "tags": []
+}
