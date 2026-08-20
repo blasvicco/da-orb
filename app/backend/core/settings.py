@@ -227,6 +227,16 @@ REDIS_PORT = int(CONFIG.get("REDIS_PORT", 6379))
 N8N_INFLIGHT_TTL_SECONDS = int(CONFIG.get("N8N_INFLIGHT_TTL_SECONDS", 300))
 FORM_STATE_TTL_SECONDS = int(CONFIG.get("FORM_STATE_TTL_SECONDS", 86400))
 
+# n8n's own REST API (executions endpoint), used by web_socket/helpers/n8n/usage.py to
+# walk a finished execution tree and compute token usage — distinct from N8nClient's
+# webhook URL (web_socket/helpers/n8n/client.py), which only ever sends messages to n8n,
+# never reads anything back from it.
+N8N_API_KEY = CONFIG.get("N8N_API_KEY", "")
+N8N_API_BASE_URL = CONFIG.get(
+	"N8N_API_BASE_URL",
+	f"{CONFIG.get('N8N_PROTOCOL', 'http')}://{CONFIG.get('N8N_HOST', 'localhost')}:{CONFIG.get('N8N_PORT', 5678)}/api/v1",
+)
+
 # Channel settings
 CHANNEL_LAYERS = {
 	"default": {

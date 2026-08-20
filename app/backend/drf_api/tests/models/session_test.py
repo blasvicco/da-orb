@@ -18,7 +18,6 @@ def test_defaults_when_constructed_without_kwargs():
 		assert session.database == ""
 		assert session.expires_at == 0
 		assert session.id_token != ""
-		assert session.language == "es"
 		assert session.org == ""
 		assert session.refresh_token == ""
 		assert session.user == {"password": "", "username": ""}
@@ -60,7 +59,6 @@ def test_to_dict_serialises_all_fields():
 			database="SBODEMOUS",
 			expires_at=123,
 			id_token="idt",
-			language="en",
 			org="acme",
 			refresh_token="ref",
 			user={"password": "pw", "username": "bob"},
@@ -75,7 +73,6 @@ def test_to_dict_serialises_all_fields():
 			"database": "SBODEMOUS",
 			"expires_at": 123,
 			"id_token": "idt",
-			"language": "en",
 			"org": "acme",
 			"refresh_token": "ref",
 			"user": {"password": "pw", "username": "bob"},

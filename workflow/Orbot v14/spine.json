@@ -1,0 +1,440 @@
+{
+  "name": "Orbot v14",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1024,
+        304
+      ],
+      "id": "eea1d260-7f06-4ef4-be02-9a928238dbe5",
+      "name": "Webhook",
+      "webhookId": "1cc2d21b-3349-4653-b8eb-49200df3f822"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "oZZLcG0NvmTtMiis",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -624,
+        304
+      ],
+      "id": "e42f793e-9a93-42ad-b9fc-58c48b4e2b9e",
+      "name": "Context Enrichment"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "FBxYP5ltZeEseUuc",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -416,
+        304
+      ],
+      "id": "26edbccf-00e8-4973-9ffa-756279de5e4d",
+      "name": "Agent: Intent Finder"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "ytOCDPmatCa5qaxb",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -208,
+        304
+      ],
+      "id": "f4a1b2c3-d4e5-4f6a-8b9c-0d1e2f3a4b5c",
+      "name": "Intent Manager"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "iD1HEeXReW1SXsI4",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        304
+      ],
+      "id": "996a40db-1654-4549-9132-ecb076e2cbcc",
+      "name": "Context Update"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "rt-gi",
+                    "leftValue": "={{ $json.route_key }}",
+                    "rightValue": "general_inquiry",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "general_inquiry"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "rt-form",
+                    "leftValue": "={{ $json.route_key }}",
+                    "rightValue": "sap_form_filling",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "sap_form_filling"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "rt-exec",
+                    "leftValue": "={{ $json.route_key }}",
+                    "rightValue": "sap_inquiry_execution",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "sap_inquiry_execution"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "rt-batch",
+                    "leftValue": "={{ $json.route_key }}",
+                    "rightValue": "batch_processing",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "batch_processing"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        192,
+        256
+      ],
+      "id": "9150c492-20d7-42ea-b62a-78d9ada866b4",
+      "name": "Router",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "zjREXKZ0zunTw3I9",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        -64
+      ],
+      "id": "58febf72-dccf-43d7-8eec-ac3f6572f0d2",
+      "name": "General Inquiry"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "iUUtXFfbvCxYPZVU",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        112
+      ],
+      "id": "b25730d4-808f-48c5-a4c6-0d84699d0e96",
+      "name": "SAP: Process Form Filling"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "1yNcmr17XAakSJo0",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        304
+      ],
+      "id": "3de88547-deb3-4502-b931-ff3ef9eb2774",
+      "name": "SAP: Inquiry Execution"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "M2ZeV5WXqSY2rXeX",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        496
+      ],
+      "id": "92eb8b52-a521-436f-a698-111799f61241",
+      "name": "Batch Processing"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        448,
+        704
+      ],
+      "id": "e5b48c8b-abd2-44c6-a7a1-58e17f80157a",
+      "name": "Unmatched Route (debug)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Captures the SPINE's own execution id, once, before anything downstream is called --\n// $execution.id inside any called sub-workflow refers to THAT sub-workflow's own\n// (different) execution, so this has to happen here, at the very top, before the first\n// Execute Workflow hop. Injected inside body (not at the top level) since\n// context-enrichment.json's own Enrich Context node is what unwraps the raw webhook\n// envelope via $json.body -- everything after that point reads flat context fields, this\n// is what makes _root_execution_id round-trip the same way as every other field from here\n// on, with no special-casing anywhere downstream. Consumed by response.json's Build\n// Callback Payload, which passes it to Django so the callback handler can, once this\n// entire turn has actually finished, walk the whole execution tree (every nested Execute\n// Workflow hop, chased via each call site's own metadata.subExecution.executionId) and\n// sum the token usage every Chat Model call produced along the way.\nreturn [{ json: { ...$json, body: { ...$json.body, _root_execution_id: $execution.id } } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -832,
+        304
+      ],
+      "id": "e5f8a2c1-9b4d-4e7a-8c1f-3d6b9a0e2f88",
+      "name": "Capture Root Execution"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Capture Root Execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Context Enrichment": {
+      "main": [
+        [
+          {
+            "node": "Agent: Intent Finder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent: Intent Finder": {
+      "main": [
+        [
+          {
+            "node": "Intent Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router": {
+      "main": [
+        [
+          {
+            "node": "General Inquiry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SAP: Process Form Filling",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SAP: Inquiry Execution",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Batch Processing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Unmatched Route (debug)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Context Update": {
+      "main": [
+        [
+          {
+            "node": "Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Intent Manager": {
+      "main": [
+        [
+          {
+            "node": "Context Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture Root Execution": {
+      "main": [
+        [
+          {
+            "node": "Context Enrichment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  }
+}

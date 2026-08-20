@@ -34,27 +34,20 @@ describe('AttachMenu', () => {
     expect(button.attributes('title')).toBe('Add attachment');
   });
 
-  it('badges the trigger with the total file count (uploaded + pending)', async () => {
-    mockBucket.files.mockResolvedValue([{ id: 1, name: 'a.csv', origin: 'user_upload', size: 5 }]);
-    const wrapper = mount(AttachMenu, { props: { sessionId: 42 } });
-    await flushPromises();
-
-    expect(wrapper.findComponent({ name: 'ABadge' }).props('count')).toBe(1);
-  });
-
   it('both drawers start closed', () => {
     const wrapper = mount(AttachMenu);
     const drawers = wrapper.findAllComponents({ name: 'ADrawer' });
     expect(drawers.every((drawer) => drawer.props('open') === false)).toBe(true);
   });
 
-  it('opens the bucket drawer when "Add files" is clicked', async () => {
+  it('emits pick-files and closes the menu when "Add files" is clicked, without opening the bucket drawer', async () => {
     const wrapper = mount(AttachMenu, { props: { sessionId: 42 } });
     await openMenu(wrapper);
     const options = body().findAll('.orb-attach-option');
     await options[0].trigger('click');
 
-    expect(wrapper.findComponent({ name: 'BucketTrigger' }).props('open')).toBe(true);
+    expect(wrapper.emitted('pick-files')).toHaveLength(1);
+    expect(wrapper.findComponent({ name: 'BucketTrigger' }).props('open')).toBe(false);
     expect(wrapper.findComponent({ name: 'IntentionStack' }).props('open')).toBe(false);
   });
 
@@ -71,13 +64,12 @@ describe('AttachMenu', () => {
   it('closes the intention graph drawer when the bucket drawer is opened afterwards', async () => {
     const wrapper = mount(AttachMenu, { props: { sessionId: 42 } });
     await openMenu(wrapper);
-    let options = body().findAll('.orb-attach-option');
+    const options = body().findAll('.orb-attach-option');
     await options[1].trigger('click');
     expect(wrapper.findComponent({ name: 'IntentionStack' }).props('open')).toBe(true);
 
-    await openMenu(wrapper);
-    options = body().findAll('.orb-attach-option');
-    await options[0].trigger('click');
+    wrapper.vm.openBucket();
+    await flushPromises();
 
     expect(wrapper.findComponent({ name: 'BucketTrigger' }).props('open')).toBe(true);
     expect(wrapper.findComponent({ name: 'IntentionStack' }).props('open')).toBe(false);
@@ -85,9 +77,8 @@ describe('AttachMenu', () => {
 
   it('switches from the bucket drawer to the intention graph drawer on switch-panel', async () => {
     const wrapper = mount(AttachMenu, { props: { sessionId: 42 } });
-    await openMenu(wrapper);
-    const options = body().findAll('.orb-attach-option');
-    await options[0].trigger('click');
+    wrapper.vm.openBucket();
+    await flushPromises();
     expect(wrapper.findComponent({ name: 'BucketTrigger' }).props('open')).toBe(true);
 
     await wrapper.findComponent({ name: 'BucketTrigger' }).vm.$emit('switch-panel');
@@ -119,12 +110,9 @@ describe('AttachMenu', () => {
     expect(intentionStack.props('sessionState')).toEqual(sessionState);
   });
 
-  it('re-emits resume/navigate from IntentionStack', async () => {
+  it('re-emits navigate from IntentionStack', async () => {
     const wrapper = mount(AttachMenu);
     const intentionStack = wrapper.findComponent({ name: 'IntentionStack' });
-
-    await intentionStack.vm.$emit('resume');
-    expect(wrapper.emitted('resume')).toHaveLength(1);
 
     await intentionStack.vm.$emit('navigate', { id: 'n1#0', label: 'Search Items' });
     expect(wrapper.emitted('navigate')[0][0]).toEqual({ id: 'n1#0', label: 'Search Items' });
@@ -146,5 +134,22 @@ describe('AttachMenu', () => {
     await bucketTrigger.vm.$emit('file-deleted', 3);
 
     expect(wrapper.emitted('file-deleted')).toEqual([[3]]);
+  });
+
+  it('forwards ensureSessionId to BucketTrigger', () => {
+    const ensureSessionId = vi.fn().mockResolvedValue(99);
+    const wrapper = mount(AttachMenu, { props: { ensureSessionId } });
+
+    expect(wrapper.findComponent({ name: 'BucketTrigger' }).props('ensureSessionId')).toBe(ensureSessionId);
+  });
+
+  it('exposes openBucket so a sibling button can open the bucket drawer directly', async () => {
+    const wrapper = mount(AttachMenu, { props: { sessionId: 42 } });
+
+    wrapper.vm.openBucket();
+    await flushPromises();
+
+    expect(wrapper.findComponent({ name: 'BucketTrigger' }).props('open')).toBe(true);
+    expect(wrapper.findComponent({ name: 'IntentionStack' }).props('open')).toBe(false);
   });
 });

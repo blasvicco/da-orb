@@ -1,0 +1,32 @@
+{
+  "node": "Fan Out Processes",
+  "cases": [
+    {
+      "description": "fans the processes array out into one n8n item per entry, each carrying an empty items list ready to be filled later, and drops the now-consumed processes field",
+      "input": {
+        "route_key": "sap_form_filling",
+        "language": "es",
+        "processes": [{ "path": "purchase/purch_request.json", "process_name": "Purchase Request" }]
+      },
+      "nodeResults": {},
+      "expectedItems": [
+        { "route_key": "sap_form_filling", "language": "es", "path": "purchase/purch_request.json", "process_name": "Purchase Request", "items": [] }
+      ]
+    },
+    {
+      "description": "a batch of 2 distinct processes fans out into 2 items",
+      "input": {
+        "route_key": "batch_processing",
+        "processes": [
+          { "path": "purchase/purch_request.json", "process_name": "Purchase Request" },
+          { "path": "warehouse/goods_receipt.json", "process_name": "Goods Receipt" }
+        ]
+      },
+      "nodeResults": {},
+      "expectedItems": [
+        { "path": "purchase/purch_request.json", "process_name": "Purchase Request", "items": [] },
+        { "path": "warehouse/goods_receipt.json", "process_name": "Goods Receipt", "items": [] }
+      ]
+    }
+  ]
+}

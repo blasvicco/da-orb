@@ -1,0 +1,76 @@
+{
+  "name": "Orbot v14 - Context Enrichment",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -400,
+        128
+      ],
+      "id": "9ac3a46a-c038-4a26-a3ef-baad80ee66a1",
+      "name": "Execute Workflow Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\n// Deterministic defaulting only (github_owner/github_repo/current_date). language and\n// expertise_level are never looked at, looked up, bounds-checked, or defaulted here --\n// both flow straight through the ...cleanBody spread from whatever the payload already\n// has, unchanged, across every workflow. Intention-Graph fields (active_node_id,\n// intention_nodes) pass through untouched via the ...cleanBody spread too -- interpreting/\n// normalizing them is Intent Manager's job, not this node's.\n// parent_override_id/pending_processes/awaiting_batch_confirmation/pending_batch_items/\n// process_stack/awaiting_stack_resume/paused_node_ids are dropped here -- confirmed dead\n// (2026-08-13 audit): nothing in v14 ever populates a real disambiguation menu or\n// batch-confirm gate, process_stack only ever duplicated data already on intention_nodes,\n// the stack-resume confirmation flow has no live trigger, and paused_node_ids was a pure\n// restatement of intention_nodes[id].status === 'paused' with zero external readers.\n// process_id/process_definition/form_state (root-level) are dropped too -- confirmed dead\n// the same audit: every consumer now reads intention_nodes[active_node_id] directly\n// instead of a root-level working copy that had to be kept in sync every turn.\n// active_node_override is dropped too -- clicking a node in the Intention Graph now\n// switches the active node directly in Django (active_node_switch, consumers/chat.py),\n// with no n8n round-trip at all; this workflow never receives that field anymore.\n// process_queue is dropped too -- confirmed dead the same audit: Agent: Form computed it\n// but nothing ever read it back (Django's _resolve_and_persist_state never persisted it,\n// SAP Inquiry Execution never looped over it), so multiple separate instances of a process\n// silently only ever created the first one. Requesting several instances at once is\n// already handled correctly by Agent: Find's own new_intent_status: 'batch' path.\nconst {\n  parent_override_id: _deadParentOverrideId,\n  pending_processes: _deadPendingProcesses,\n  awaiting_batch_confirmation: _deadAwaitingBatchConfirmation,\n  pending_batch_items: _deadPendingBatchItems,\n  process_stack: _deadProcessStack,\n  awaiting_stack_resume: _deadAwaitingStackResume,\n  paused_node_ids: _deadPausedNodeIds,\n  process_id: _deadProcessId,\n  process_definition: _deadProcessDefinition,\n  form_state: _deadFormState,\n  active_node_override: _deadActiveNodeOverride,\n  process_queue: _deadProcessQueue,\n  ...cleanBody\n} = body;\n\nreturn [{ json: {\n  ...cleanBody,\n  github_owner: 'blasvicco',\n  github_repo: 'da-sapot-processes',\n  current_date: new Date().toISOString().split('T')[0],\n  intention_nodes: body.intention_nodes || {},\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        128
+      ],
+      "id": "7311395a-b3e2-47f8-8ce3-754b68d98135",
+      "name": "Enrich Context"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "q12jR7z0JSPeddJY",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        80,
+        128
+      ],
+      "id": "9d0332e3-d205-4fc7-848c-72ad8e4e0bf4",
+      "name": "Execute Workflow: File Extraction Core"
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Enrich Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enrich Context": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow: File Extraction Core",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

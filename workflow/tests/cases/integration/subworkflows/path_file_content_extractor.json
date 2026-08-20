@@ -1,0 +1,69 @@
+{
+  "path": "file_content_extractor",
+  "target_workflow": "file-content-extractor.json",
+  "cases": [
+    {
+      "description": "cache hit -> Has Cached Content? routes straight to Return Extraction Result, Execute Workflow: File Extraction Item never runs",
+      "input": {
+        "bucket_file_id": 101,
+        "org_slug": "bvs",
+        "access_token": "tok-abc"
+      },
+      "pins": {
+        "Check Cache": {
+          "extracted_content": "col1,col2\n1,2"
+        }
+      },
+      "assert": {
+        "node": "Return Extraction Result",
+        "fields": {
+          "extracted_content": "col1,col2\n1,2"
+        }
+      }
+    },
+    {
+      "description": "cache miss (empty extracted_content) -> falls through to Execute Workflow: File Extraction Item for a real extraction",
+      "input": {
+        "bucket_file_id": 102,
+        "org_slug": "bvs",
+        "access_token": "tok-abc"
+      },
+      "pins": {
+        "Check Cache": {
+          "extracted_content": ""
+        },
+        "Execute Workflow: File Extraction Item": {
+          "extracted_content": "real extracted text",
+          "error": null
+        }
+      },
+      "assert": {
+        "node": "Return Extraction Result",
+        "fields": {
+          "extracted_content": "real extracted text"
+        }
+      }
+    },
+    {
+      "description": "Check Cache response has no extracted_content field at all (never-extracted file) -> same cache-miss fallthrough as an empty string",
+      "input": {
+        "bucket_file_id": 103,
+        "org_slug": "bvs",
+        "access_token": "tok-abc"
+      },
+      "pins": {
+        "Check Cache": {},
+        "Execute Workflow: File Extraction Item": {
+          "extracted_content": "real extracted text",
+          "error": null
+        }
+      },
+      "assert": {
+        "node": "Execute Workflow: File Extraction Item",
+        "fields": {
+          "extracted_content": "real extracted text"
+        }
+      }
+    }
+  ]
+}

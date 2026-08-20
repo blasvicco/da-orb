@@ -18,7 +18,6 @@ class MChatSession(models.Model):
 	username = models.CharField(max_length=150, db_index=True)
 	connection_key = models.CharField(max_length=150, blank=True, default="")
 	title = models.CharField(max_length=200, blank=True)
-	language = models.CharField(max_length=10, default="es")
 	n8n_state = models.JSONField(null=True, blank=True)
 	created_on = models.DateTimeField(auto_now_add=True, db_index=True)
 	updated_on = models.DateTimeField(auto_now=True)

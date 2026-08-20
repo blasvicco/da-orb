@@ -1,0 +1,108 @@
+{
+  "node": "Compute Form Outcome",
+  "cases": [
+    {
+      "description": "in_progress -> merges new field values into the node's own saved form_state (intention_nodes[active_node_id] -- no root-level copy anymore), keeps ready unset/false, does not execute",
+      "input": {
+        "_parsed": { "status": "in_progress", "message": "¿Cuál es el proveedor?", "form_state": { "CardCode": "C1" } },
+        "active_node_id": "purchase_request#0",
+        "intention_nodes": { "purchase_request#0": { "id": "purchase_request#0", "status": "active", "parent_id": null, "process_id": "purchase_request", "form_state": {} } }
+      },
+      "nodeResults": {},
+      "expected": {
+        "message": "¿Cuál es el proveedor?",
+        "_should_execute": false,
+        "_needs_error_parse": false,
+        "intention_nodes": { "purchase_request#0": { "id": "purchase_request#0", "status": "active", "parent_id": null, "process_id": "purchase_request", "form_state": { "CardCode": "C1" } } }
+      }
+    },
+    {
+      "description": "confirmed -> merges final field values, sets form_state.ready true, flags _should_execute -- mirrored onto the node's own saved copy",
+      "input": {
+        "_parsed": { "status": "confirmed", "message": "Confirmado", "form_state": { "CardCode": "C1" } },
+        "active_node_id": "purchase_request#0",
+        "intention_nodes": { "purchase_request#0": { "id": "purchase_request#0", "status": "active", "parent_id": null, "process_id": "purchase_request", "form_state": { "CardCode": "C1" } } }
+      },
+      "nodeResults": {},
+      "expected": {
+        "message": "Confirmado",
+        "_should_execute": true,
+        "_needs_error_parse": false,
+        "intention_nodes": { "purchase_request#0": { "id": "purchase_request#0", "status": "active", "parent_id": null, "process_id": "purchase_request", "form_state": { "CardCode": "C1", "ready": true } } }
+      }
+    },
+    {
+      "description": "cancelled, no parent -> resumes to null (nothing to hand control back to), delivers the cancellation message, marks the node itself 'abandoned', and forces reset_process so Django's resettable merge actually applies the null; form_state is preserved (not nulled), so the user can still copy collected data out of an abandoned node into a new intention later",
+      "input": {
+        "_parsed": { "status": "cancelled", "message": "Cancelado" },
+        "active_node_id": "purchase_request#0",
+        "intention_nodes": { "purchase_request#0": { "id": "purchase_request#0", "status": "active", "parent_id": null, "process_id": "purchase_request", "form_state": { "CardCode": "C1" } } }
+      },
+      "nodeResults": {},
+      "expected": {
+        "message": "Cancelado",
+        "active_node_id": null,
+        "reset_process": true,
+        "_should_execute": false,
+        "_needs_error_parse": false,
+        "intention_nodes": { "purchase_request#0": { "id": "purchase_request#0", "status": "abandoned", "parent_id": null, "process_id": "purchase_request", "form_state": { "CardCode": "C1" } } }
+      }
+    },
+    {
+      "description": "REGRESSION: cancelled with a paused parent -> auto-resumes: active_node_id switches to the parent, and the parent's own status flips back to 'active' (it was interrupted by this form-filling attempt in the first place)",
+      "input": {
+        "_parsed": { "status": "cancelled", "message": "Cancelado" },
+        "active_node_id": "vendor_create#1",
+        "intention_nodes": {
+          "purchase_request#0": { "id": "purchase_request#0", "status": "paused", "parent_id": null, "process_id": "purchase_request", "form_state": { "CardCode": "C1" } },
+          "vendor_create#1": { "id": "vendor_create#1", "status": "active", "parent_id": "purchase_request#0", "process_id": "vendor_create", "form_state": { "CardName": "Acme" } }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "message": "Cancelado",
+        "active_node_id": "purchase_request#0",
+        "reset_process": true,
+        "intention_nodes": {
+          "purchase_request#0": { "id": "purchase_request#0", "status": "active", "parent_id": null, "process_id": "purchase_request", "form_state": { "CardCode": "C1" } },
+          "vendor_create#1": { "id": "vendor_create#1", "status": "abandoned", "parent_id": "purchase_request#0", "process_id": "vendor_create", "form_state": { "CardName": "Acme" } }
+        }
+      }
+    },
+    {
+      "description": "unrecognized status (e.g. a stray switch_needed the prompt no longer asks for) -> surfaced as an error rather than mishandled",
+      "input": { "_parsed": { "status": "switch_needed", "message": "algo" } },
+      "nodeResults": {},
+      "expected": { "_needs_error_parse": true, "error": "FORM_ERROR" }
+    },
+    {
+      "description": "unparseable agent output -> treated as a genuine error",
+      "input": { "_parsed": null, "_parse_error": true },
+      "nodeResults": {},
+      "expected": { "_needs_error_parse": true, "error": "FORM_ERROR", "_should_execute": false }
+    },
+    {
+      "description": "active_node_id absent -> intention_nodes passes through untouched (no crash, nothing to sync into)",
+      "input": {
+        "_parsed": { "status": "in_progress", "message": "hi", "form_state": { "A": 1 } },
+        "intention_nodes": { "other#0": { "id": "other#0", "status": "paused", "form_state": {} } }
+      },
+      "nodeResults": {},
+      "expected": {
+        "intention_nodes": { "other#0": { "id": "other#0", "status": "paused", "form_state": {} } }
+      }
+    },
+    {
+      "description": "active_node_id set but not found in intention_nodes -> defensive no-op, object unchanged, no crash, no bogus key created",
+      "input": {
+        "_parsed": { "status": "in_progress", "message": "hi", "form_state": { "A": 1 } },
+        "active_node_id": "ghost#0",
+        "intention_nodes": { "purchase_request#0": { "id": "purchase_request#0", "status": "active", "form_state": {} } }
+      },
+      "nodeResults": {},
+      "expected": {
+        "intention_nodes": { "purchase_request#0": { "id": "purchase_request#0", "status": "active", "form_state": {} } }
+      }
+    }
+  ]
+}

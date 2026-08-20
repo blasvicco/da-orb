@@ -1,0 +1,43 @@
+{
+  "path": "context_enrichment",
+  "target_workflow": "context-enrichment.json",
+  "cases": [
+    {
+      "description": "no bucket_file_ids -> message, language, and expertise_level survive completely untouched (no trimming, no default, no bounds-check) through the full nested File Extraction Core call, extracted_files normalizes to null",
+      "input": { "message": "  hola  ", "language": "es", "expertise_level": 2 },
+      "pins": {},
+      "assert": {
+        "node": "Execute Workflow: File Extraction Core",
+        "fields": {
+          "language": "es",
+          "expertise_level": 2,
+          "message": "  hola  ",
+          "extracted_files": null,
+          "github_owner": "blasvicco"
+        }
+      }
+    },
+    {
+      "description": "the payload's language is honored even when it differs from the stale session.language (session.language is no longer read at all)",
+      "input": { "message": "hi", "language": "en", "expertise_level": 2, "session": { "language": "es" } },
+      "pins": {},
+      "assert": {
+        "node": "Execute Workflow: File Extraction Core",
+        "fields": {
+          "language": "en"
+        }
+      }
+    },
+    {
+      "description": "active_node_id survives the full chain untouched, not just Enrich Context in isolation -- this workflow no longer filters the payload at all; Django (N8nClient.fire) is solely responsible for only ever sending fields this workflow needs",
+      "input": { "message": "hi", "expertise_level": 2, "active_node_id": "node-789" },
+      "pins": {},
+      "assert": {
+        "node": "Execute Workflow: File Extraction Core",
+        "fields": {
+          "active_node_id": "node-789"
+        }
+      }
+    }
+  ]
+}

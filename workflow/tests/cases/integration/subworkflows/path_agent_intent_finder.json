@@ -1,0 +1,526 @@
+{
+  "path": "agent_intent_finder",
+  "target_workflow": "agent-intent-finder.json",
+  "cases": [
+    {
+      "description": "general_inquiry -> route_key general_inquiry",
+      "input": {
+        "message": "que hace este sistema",
+        "language": "es"
+      },
+      "pins": {
+        "Agent: Find": {
+          "output": "{\"status\":\"general_inquiry\"}"
+        },
+        "Status: Finding": {
+          "status_text": "stub"
+        },
+        "Agent: Intention Focus": {
+          "output": "{\"focus\": null}"
+        }
+      },
+      "assert": {
+        "node": "Return Intent Finder Result",
+        "fields": {
+          "route_key": "general_inquiry"
+        }
+      }
+    },
+    {
+      "description": "general_inquiry for a follow-up answerable from last_bot_message (e.g. 'los distintos tipos de socios' asked right after a vendor list showing a type column) -> route_key general_inquiry, NOT new_intent/no_match -- the still-active Purchase Request node/process_id/form_state survive untouched, same as any other general_inquiry turn, since this needs no fresh SAP lookup at all",
+      "input": {
+        "message": "me podes listar los distintos tipos de socios?",
+        "language": "es",
+        "last_bot_message": "| Código Proveedor | Nombre Proveedor | Tipo de Socio | ... |\n|---|---|---|---|\n| C1 | Acme | cLid | ... |\n| C2 | Beta | cCustomer | ... |",
+        "process_id": "purchase_request",
+        "active_node_id": "purchase_request#0",
+        "form_state": {
+          "RequriedDate": null
+        },
+        "intention_nodes": [
+          {
+            "id": "purchase_request#0",
+            "parent_id": null,
+            "process_id": "purchase_request",
+            "process_definition": {},
+            "form_state": {
+              "RequriedDate": null
+            },
+            "status": "active"
+          }
+        ]
+      },
+      "pins": {
+        "Agent: Find": {
+          "output": "{\"status\":\"general_inquiry\"}"
+        },
+        "Status: Finding": {
+          "status_text": "stub"
+        },
+        "Agent: Intention Focus": {
+          "output": "{\"focus\": null}"
+        }
+      },
+      "assert": {
+        "node": "Return Intent Finder Result",
+        "fields": {
+          "route_key": "general_inquiry",
+          "process_id": "purchase_request",
+          "active_node_id": "purchase_request#0",
+          "form_state": {
+            "RequriedDate": null
+          },
+          "intention_nodes": [
+            {
+              "id": "purchase_request#0",
+              "parent_id": null,
+              "process_id": "purchase_request",
+              "process_definition": {},
+              "form_state": {
+                "RequriedDate": null
+              },
+              "status": "active"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "new_intent/match -> route_key sap_form_filling, the single-entry processes list spread onto the result",
+      "input": {
+        "message": "quiero hacer una solicitud de compra",
+        "language": "es"
+      },
+      "pins": {
+        "Agent: Find": {
+          "output": "{\"status\":\"new_intent\",\"new_intent_status\":\"match\",\"processes\":[{\"path\":\"purchase/purch_request.json\",\"process_name\":\"Purchase Request\"}]}"
+        },
+        "Status: Finding": {
+          "status_text": "stub"
+        },
+        "Agent: Intention Focus": {
+          "output": "{\"focus\": null}"
+        }
+      },
+      "assert": {
+        "node": "Return Intent Finder Result",
+        "fields": {
+          "route_key": "sap_form_filling",
+          "processes": [
+            {
+              "path": "purchase/purch_request.json",
+              "process_name": "Purchase Request"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "new_intent/batch -> route_key batch_processing, the multi-entry processes list spread onto the result",
+      "input": {
+        "message": "crea 2 solicitudes de compra y una entrada de mercancía",
+        "language": "es"
+      },
+      "pins": {
+        "Agent: Find": {
+          "output": "{\"status\":\"new_intent\",\"new_intent_status\":\"batch\",\"processes\":[{\"path\":\"purchase/purch_request.json\",\"process_name\":\"Purchase Request\"},{\"path\":\"warehouse/goods_receipt.json\",\"process_name\":\"Goods Receipt\"}]}"
+        },
+        "Status: Finding": {
+          "status_text": "stub"
+        },
+        "Agent: Intention Focus": {
+          "output": "{\"focus\": null}"
+        }
+      },
+      "assert": {
+        "node": "Return Intent Finder Result",
+        "fields": {
+          "route_key": "batch_processing",
+          "processes": [
+            {
+              "path": "purchase/purch_request.json",
+              "process_name": "Purchase Request"
+            },
+            {
+              "path": "warehouse/goods_receipt.json",
+              "process_name": "Goods Receipt"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "pending_reply (process_id set, form_state.ready not yet true -- pending_kind was removed 2026-08-13, Agent: Find now reasons from process_id/form_state.ready directly) -> route_key sap_form_filling",
+      "input": {
+        "message": "500",
+        "language": "es",
+        "process_id": "p1",
+        "form_state": { "ready": false }
+      },
+      "pins": {
+        "Agent: Find": {
+          "output": "{\"status\":\"pending_reply\"}"
+        },
+        "Status: Finding": {
+          "status_text": "stub"
+        },
+        "Agent: Intention Focus": {
+          "output": "{\"focus\": null}"
+        }
+      },
+      "assert": {
+        "node": "Return Intent Finder Result",
+        "fields": {
+          "route_key": "sap_form_filling"
+        }
+      }
+    },
+    {
+      "description": "REGRESSION: new_intent/match while a process is already active with real in-progress form_state -> the active process's form_state survives to Return Intent Finder Result untouched, even though Agent: Find's pinned output includes a literal form_state: null (its real output contract for new_intent) -- a live test caught this wiping a user's in-progress purchase request the moment they asked an unrelated question, since Intent Manager (next in the spine, not exercised by this file's own suite) needs the real value intact to park it",
+      "input": {
+        "message": "me das la lista de grupos de artículos",
+        "language": "es",
+        "process_id": "purchase_request",
+        "form_state": {
+          "DocDate": "2026-08-12",
+          "items": [
+            {
+              "ItemCode": "NP-0047",
+              "Quantity": 1
+            }
+          ],
+          "ready": false
+        }
+      },
+      "pins": {
+        "Agent: Find": {
+          "output": "{\"status\":\"new_intent\",\"new_intent_status\":\"match\",\"message\":null,\"form_state\":null,\"processes\":[{\"path\":\"inventory/item_group_list.json\",\"process_name\":\"List Item Groups\"}]}"
+        },
+        "Status: Finding": {
+          "status_text": "stub"
+        },
+        "Agent: Intention Focus": {
+          "output": "{\"focus\": null}"
+        }
+      },
+      "assert": {
+        "node": "Return Intent Finder Result",
+        "fields": {
+          "route_key": "sap_form_filling",
+          "form_state": {
+            "DocDate": "2026-08-12",
+            "items": [
+              {
+                "ItemCode": "NP-0047",
+                "Quantity": 1
+              }
+            ],
+            "ready": false
+          }
+        }
+      }
+    },
+    {
+      "description": "REGRESSION: new_intent/match with a real user message -> the real message survives to Return Intent Finder Result untouched, even though Agent: Find's pinned output includes a literal message: null (its real output contract for new_intent/match) -- root cause of a live bug where every downstream node (Agent: Form's chatInput, specifically) saw the user's message as null on a fresh match/batch classification, traced through a real n8n execution (Webhook had the real message, Return Intent Finder Result did not)",
+      "input": {
+        "message": "Podes listarme los provedorees que esten asociados al grupo codigo 100 (No productivos), cuya moneda sea ARS y que el nombre no contenga \"NO USAR\".",
+        "language": "es"
+      },
+      "pins": {
+        "Agent: Find": {
+          "output": "{\"status\":\"new_intent\",\"new_intent_status\":\"match\",\"message\":null,\"processes\":[{\"path\":\"vendor/vendor_list.json\",\"process_name\":\"List Vendors\"}]}"
+        },
+        "Status: Finding": {
+          "status_text": "stub"
+        },
+        "Agent: Intention Focus": {
+          "output": "{\"focus\": null}"
+        }
+      },
+      "assert": {
+        "node": "Return Intent Finder Result",
+        "fields": {
+          "route_key": "sap_form_filling",
+          "message": "Podes listarme los provedorees que esten asociados al grupo codigo 100 (No productivos), cuya moneda sea ARS y que el nombre no contenga \"NO USAR\"."
+        }
+      }
+    },
+    {
+      "description": "new_intent/no_match for a single ambiguous request matching several sibling processes, with nothing in last_bot_message to answer it from (a fresh, out-of-context ask -- if a relevant list had just been shown instead, this should be general_inquiry, not no_match; see that case below) -> classified via the shared Error Parser with the agent's disambiguating message, and the still-active Purchase Request node/process_id/form_state survive completely untouched, since nothing here parks or clears them",
+      "input": {
+        "message": "necesito la lista de tipos de socios",
+        "language": "es",
+        "last_bot_message": null,
+        "process_id": "purchase_request",
+        "active_node_id": "purchase_request#0",
+        "form_state": {
+          "RequriedDate": null
+        },
+        "intention_nodes": [
+          {
+            "id": "purchase_request#0",
+            "parent_id": null,
+            "process_id": "purchase_request",
+            "process_definition": {},
+            "form_state": {
+              "RequriedDate": null
+            },
+            "status": "active"
+          }
+        ]
+      },
+      "pins": {
+        "Agent: Find": {
+          "output": "{\"status\":\"new_intent\",\"new_intent_status\":\"no_match\",\"message\":\"¿Te referís a Proveedores, Clientes o Leads?\"}"
+        },
+        "Status: Finding": {
+          "status_text": "stub"
+        },
+        "Agent: Intention Focus": {
+          "output": "{\"focus\": null}"
+        }
+      },
+      "assert": {
+        "node": "Execute Workflow: Error Parser (Route)",
+        "fields": {
+          "route_key": null,
+          "error": "NO_MATCH",
+          "message": "¿Te referís a Proveedores, Clientes o Leads?",
+          "process_id": "purchase_request",
+          "active_node_id": "purchase_request#0",
+          "form_state": {
+            "RequriedDate": null
+          },
+          "intention_nodes": [
+            {
+              "id": "purchase_request#0",
+              "parent_id": null,
+              "process_id": "purchase_request",
+              "process_definition": {},
+              "form_state": {
+                "RequriedDate": null
+              },
+              "status": "active"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "new_intent/no_match -> classified via the shared Error Parser with the agent's own composed message, route_key cleared so the Router's fallback safely absorbs it instead of dispatching a second time",
+      "input": {
+        "message": "prover",
+        "language": "es"
+      },
+      "pins": {
+        "Agent: Find": {
+          "output": "{\"status\":\"new_intent\",\"new_intent_status\":\"no_match\",\"message\":\"No logré entender tu mensaje\"}"
+        },
+        "Status: Finding": {
+          "status_text": "stub"
+        },
+        "Execute Workflow: Response": {
+          "delivered": true
+        },
+        "Agent: Intention Focus": {
+          "output": "{\"focus\": null}"
+        }
+      },
+      "assert": {
+        "node": "Execute Workflow: Error Parser (Route)",
+        "fields": {
+          "route_key": null,
+          "error": "NO_MATCH",
+          "message": "No logré entender tu mensaje"
+        }
+      }
+    },
+    {
+      "description": "new_intent/no_match -> actually reaches and calls Response for delivery (this was the bug: this branch used to skip straight to Return Intent Finder Result without ever calling Response) -- proven by the pinned Response's own output surviving to the final node, since Execute Workflow replaces the item wholesale",
+      "input": {
+        "message": "prover",
+        "language": "es"
+      },
+      "pins": {
+        "Agent: Find": {
+          "output": "{\"status\":\"new_intent\",\"new_intent_status\":\"no_match\",\"message\":\"No logré entender tu mensaje\"}"
+        },
+        "Status: Finding": {
+          "status_text": "stub"
+        },
+        "Execute Workflow: Response": {
+          "delivered": true
+        },
+        "Agent: Intention Focus": {
+          "output": "{\"focus\": null}"
+        }
+      },
+      "assert": {
+        "node": "Return Intent Finder Result",
+        "fields": {
+          "delivered": true
+        }
+      }
+    },
+    {
+      "description": "new_intent/error -> classified via the shared Error Parser as AGENT_ERROR, same self-contained deliver+clear pattern as no_match",
+      "input": {
+        "message": "buscar el ultimo pedido",
+        "language": "es"
+      },
+      "pins": {
+        "Agent: Find": {
+          "output": "{\"status\":\"new_intent\",\"new_intent_status\":\"error\",\"message\":\"algo salió mal\"}"
+        },
+        "Status: Finding": {
+          "status_text": "stub"
+        },
+        "Execute Workflow: Response": {
+          "delivered": true
+        },
+        "Agent: Intention Focus": {
+          "output": "{\"focus\": null}"
+        }
+      },
+      "assert": {
+        "node": "Execute Workflow: Error Parser (Route)",
+        "fields": {
+          "route_key": null,
+          "error": "AGENT_ERROR",
+          "message": "algo salió mal"
+        }
+      }
+    },
+    {
+      "description": "a genuine agent/tool failure is handled entirely within this sub-workflow (classify + deliver), bypassing the Router -- Response is pinned here only to avoid a live Django HTTP call in this test, not because that's how it behaves for real",
+      "input": {
+        "message": "buscar algo",
+        "language": "es"
+      },
+      "pins": {
+        "Agent: Find": {
+          "__error__": {
+            "error": {
+              "message": "Rate limit exceeded, tokens per min"
+            }
+          }
+        },
+        "Status: Finding": {
+          "status_text": "stub"
+        },
+        "Execute Workflow: Response": {
+          "delivered": true
+        },
+        "Agent: Intention Focus": {
+          "output": "{\"focus\": null}"
+        }
+      },
+      "assert": {
+        "node": "Execute Workflow: Error Parser (Agent Failure)",
+        "fields": {
+          "error": "RATE_LIMIT"
+        }
+      }
+    },
+    {
+      "description": "new_intent/batch mixing a create-type and a query-type process (e.g. 'create a purchase request and also list vendors') -> routes to batch_processing exactly like an all-create batch; Agent: Find is fully pinned here so this only proves the downstream routing doesn't care about process type -- the real regression guard for the classifier actually recognizing a create+query mix as batch (rather than match/no_match) is the live E2E test, since that requires a real LLM call",
+      "input": {
+        "message": "crea una solicitud de compra y también listame los proveedores",
+        "language": "es"
+      },
+      "pins": {
+        "Agent: Find": {
+          "output": "{\"status\":\"new_intent\",\"new_intent_status\":\"batch\",\"processes\":[{\"path\":\"purchase/purch_request.json\",\"process_name\":\"Purchase Request\"},{\"path\":\"purchase/vendor_list.json\",\"process_name\":\"List Vendors\"}]}"
+        },
+        "Status: Finding": {
+          "status_text": "stub"
+        },
+        "Agent: Intention Focus": {
+          "output": "{\"focus\": null}"
+        }
+      },
+      "assert": {
+        "node": "Return Intent Finder Result",
+        "fields": {
+          "route_key": "batch_processing",
+          "processes": [
+            {
+              "path": "purchase/purch_request.json",
+              "process_name": "Purchase Request"
+            },
+            {
+              "path": "purchase/vendor_list.json",
+              "process_name": "List Vendors"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "Agent: Intention Focus succeeds -> its focus statement reaches Prompt: Find (and from there, Agent: Find) via the state's focus field, surviving all the way to Return Intent Finder Result",
+      "input": {
+        "message": "listame los proveedores del grupo 100",
+        "language": "es",
+        "process_id": "purchase_request",
+        "active_node_id": "purchase_request#0",
+        "intention_nodes": [
+          {
+            "id": "purchase_request#0",
+            "parent_id": null,
+            "process_id": "purchase_request",
+            "process_definition": {},
+            "form_state": {},
+            "status": "paused"
+          }
+        ]
+      },
+      "pins": {
+        "Agent: Intention Focus": {
+          "output": "{\"focus\": \"The user is creating a purchase request and is now looking up a vendor code for one of its line items.\"}"
+        },
+        "Agent: Find": {
+          "output": "{\"status\":\"new_intent\",\"new_intent_status\":\"match\",\"processes\":[{\"path\":\"vendor/vendor_list.json\",\"process_name\":\"List Vendors\"}]}"
+        },
+        "Status: Finding": {
+          "status_text": "stub"
+        }
+      },
+      "assert": {
+        "node": "Return Intent Finder Result",
+        "fields": {
+          "route_key": "sap_form_filling",
+          "focus": "The user is creating a purchase request and is now looking up a vendor code for one of its line items."
+        }
+      }
+    },
+    {
+      "description": "Agent: Intention Focus fails (rate limit, etc.) -> degrades to focus: null rather than failing the whole turn; Agent: Find still runs and classifies normally from the message/state alone",
+      "input": {
+        "message": "quiero hacer una solicitud de compra",
+        "language": "es"
+      },
+      "pins": {
+        "Agent: Intention Focus": {
+          "__error__": {
+            "error": {
+              "message": "Rate limit exceeded, tokens per min"
+            }
+          }
+        },
+        "Agent: Find": {
+          "output": "{\"status\":\"new_intent\",\"new_intent_status\":\"match\",\"processes\":[{\"path\":\"purchase/purch_request.json\",\"process_name\":\"Purchase Request\"}]}"
+        },
+        "Status: Finding": {
+          "status_text": "stub"
+        }
+      },
+      "assert": {
+        "node": "Return Intent Finder Result",
+        "fields": {
+          "route_key": "sap_form_filling",
+          "focus": null
+        }
+      }
+    }
+  ]
+}

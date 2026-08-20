@@ -36,6 +36,10 @@
 
       .orb-intention-node-status {
         @apply shrink-0 text-base;
+
+        &.orb-intention-node-status--clickable {
+          @apply cursor-pointer;
+        }
       }
 
       .orb-intention-node-label {
@@ -52,9 +56,20 @@
         }
       }
     }
+  }
+}
 
-    .orb-intention-stack-actions {
-      @apply flex gap-2 items-center shrink-0;
-    }
+.orb-intention-error-popover {
+  @apply max-w-[260px];
+
+  .orb-intention-error-popover-label {
+    @apply font-medium text-sm;
+    color: var(--orb-header-title, #1e293b);
+  }
+
+  .orb-intention-error-popover-detail {
+    @apply text-sm whitespace-pre-wrap;
+    color: var(--orb-header-title, #1e293b);
+    opacity: 0.8;
   }
 }

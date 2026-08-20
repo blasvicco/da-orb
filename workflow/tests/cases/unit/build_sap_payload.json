@@ -6,17 +6,52 @@
       "input": {},
       "nodeResults": {
         "Status Text: Submitting": {
-          "process_definition": { "api": { "method": "GET", "service": "BusinessPartners" }, "query": { "key": { "id": "CardCode", "sap_field": "CardCode" } } },
-          "form_state": { "CardCode": "C001" },
-          "organization": { "integration": { "auth_driver": "b1s", "base_url": "https://sap.example.com" } },
-          "session": { "user": { "username": "u", "password": "p" }, "database": "TESTDB" }
+          "organization": {
+            "integration": {
+              "auth_driver": "b1s",
+              "base_url": "https://sap.example.com"
+            }
+          },
+          "session": {
+            "user": {
+              "username": "u",
+              "password": "p"
+            },
+            "database": "TESTDB"
+          },
+          "active_node_id": "n1#0",
+          "intention_nodes": {
+            "n1#0": {
+              "process_definition": {
+                "api": {
+                  "method": "GET",
+                  "service": "BusinessPartners"
+                },
+                "query": {
+                  "key": {
+                    "id": "CardCode",
+                    "sap_field": "CardCode"
+                  }
+                }
+              },
+              "form_state": {
+                "CardCode": "C001"
+              }
+            }
+          }
         }
       },
       "expected": {
         "sap_operation": "GET_SINGLE",
         "sap_service": "BusinessPartners",
         "sap_payload": null,
-        "sap_connection": { "authDriver": "b1s", "baseUrl": "https://sap.example.com", "username": "u", "password": "p", "companyDB": "TESTDB" }
+        "sap_connection": {
+          "authDriver": "b1s",
+          "baseUrl": "https://sap.example.com",
+          "username": "u",
+          "password": "p",
+          "companyDB": "TESTDB"
+        }
       }
     },
     {
@@ -24,88 +59,324 @@
       "input": {},
       "nodeResults": {
         "Status Text: Submitting": {
-          "process_definition": { "api": { "method": "GET", "service": "BusinessPartners" }, "query": { "key": { "id": "CardCode", "sap_field": "CardCode" } } },
-          "form_state": {},
           "organization": {},
-          "session": {}
+          "session": {},
+          "active_node_id": "n1#0",
+          "intention_nodes": {
+            "n1#0": {
+              "process_definition": {
+                "api": {
+                  "method": "GET",
+                  "service": "BusinessPartners"
+                },
+                "query": {
+                  "key": {
+                    "id": "CardCode",
+                    "sap_field": "CardCode"
+                  }
+                }
+              },
+              "form_state": {}
+            }
+          }
         }
       },
-      "expected": { "sap_operation": "GET_QUERY" }
+      "expected": {
+        "sap_operation": "GET_QUERY"
+      }
     },
     {
       "description": "POST_CREATE maps single-value section fields to their sap_field names",
       "input": {},
       "nodeResults": {
         "Status Text: Submitting": {
-          "process_definition": {
-            "api": { "method": "POST", "service": "Orders" },
-            "form": { "sections": [{ "id": "header", "fields": [{ "id": "customer", "sap_field": "CardCode", "required": true }] }] }
-          },
-          "form_state": { "customer": "C001" },
           "organization": {},
-          "session": {}
+          "session": {},
+          "active_node_id": "n1#0",
+          "intention_nodes": {
+            "n1#0": {
+              "process_definition": {
+                "api": {
+                  "method": "POST",
+                  "service": "Orders"
+                },
+                "form": {
+                  "sections": [
+                    {
+                      "id": "header",
+                      "fields": [
+                        {
+                          "id": "customer",
+                          "sap_field": "CardCode",
+                          "required": true
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "form_state": {
+                "customer": "C001"
+              }
+            }
+          }
         }
       },
-      "expected": { "sap_operation": "POST_CREATE", "sap_payload": { "CardCode": "C001" } }
+      "expected": {
+        "sap_operation": "POST_CREATE",
+        "sap_payload": {
+          "CardCode": "C001"
+        }
+      }
     },
     {
       "description": "POST_CREATE maps a multiple/line-item section into an array under its sap_field, dropping empty values",
       "input": {},
       "nodeResults": {
         "Status Text: Submitting": {
-          "process_definition": {
-            "api": { "method": "POST", "service": "Orders" },
-            "form": {
-              "sections": [
-                { "id": "lines", "multiple": true, "sap_field": "DocumentLines", "fields": [{ "id": "item_code", "sap_field": "ItemCode" }, { "id": "qty", "sap_field": "Quantity" }] }
-              ]
+          "organization": {},
+          "session": {},
+          "active_node_id": "n1#0",
+          "intention_nodes": {
+            "n1#0": {
+              "process_definition": {
+                "api": {
+                  "method": "POST",
+                  "service": "Orders"
+                },
+                "form": {
+                  "sections": [
+                    {
+                      "id": "lines",
+                      "multiple": true,
+                      "sap_field": "DocumentLines",
+                      "fields": [
+                        {
+                          "id": "item_code",
+                          "sap_field": "ItemCode"
+                        },
+                        {
+                          "id": "qty",
+                          "sap_field": "Quantity"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "form_state": {
+                "lines": [
+                  {
+                    "item_code": "A1",
+                    "qty": 2
+                  },
+                  {
+                    "item_code": "A2",
+                    "qty": null
+                  }
+                ]
+              }
             }
-          },
-          "form_state": { "lines": [{ "item_code": "A1", "qty": 2 }, { "item_code": "A2", "qty": null }] },
-          "organization": {},
-          "session": {}
+          }
         }
       },
-      "expected": { "sap_payload": { "DocumentLines": [{ "ItemCode": "A1", "Quantity": 2 }, { "ItemCode": "A2" }] } }
+      "expected": {
+        "sap_payload": {
+          "DocumentLines": [
+            {
+              "ItemCode": "A1",
+              "Quantity": 2
+            },
+            {
+              "ItemCode": "A2"
+            }
+          ]
+        }
+      }
     },
     {
-      "description": "POST_CREATE merges _extra_fields into the payload once every extra value is resolved",
+      "description": "REGRESSION: form_state._extra_fields is no longer read at all -- the escape hatch was removed since nothing in the pipeline ever wrote it (Agent: Form's own systemMessage says form_state holds ONLY actual field values) and it had zero schema validation if it ever were populated; POST_CREATE payload only ever contains fields declared in process_definition.form.sections",
       "input": {},
       "nodeResults": {
         "Status Text: Submitting": {
-          "process_definition": { "api": { "method": "POST", "service": "Orders" }, "form": { "sections": [{ "id": "header", "fields": [{ "id": "customer", "sap_field": "CardCode" }] }] } },
-          "form_state": { "customer": "C1", "_extra_fields": { "Comments": "urgent" } },
           "organization": {},
-          "session": {}
+          "session": {},
+          "active_node_id": "n1#0",
+          "intention_nodes": {
+            "n1#0": {
+              "process_definition": {
+                "api": {
+                  "method": "POST",
+                  "service": "Orders"
+                },
+                "form": {
+                  "sections": [
+                    {
+                      "id": "header",
+                      "fields": [
+                        {
+                          "id": "customer",
+                          "sap_field": "CardCode"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "form_state": {
+                "customer": "C1",
+                "_extra_fields": {
+                  "Comments": "urgent"
+                }
+              }
+            }
+          }
         }
       },
-      "expected": { "sap_payload": { "CardCode": "C1", "Comments": "urgent" } }
+      "expected": {
+        "sap_payload": {
+          "CardCode": "C1"
+        }
+      }
     },
     {
-      "description": "POST_CREATE skips _extra_fields entirely while any extra value is still unresolved",
+      "description": "forces the active node's own form_state.ready to false regardless of outcome (folded in from the old, error-only Reset Form Not Ready node -- speculative and unconditional here since Compute Execution Outcome's success branch never reads form_state.ready)",
       "input": {},
       "nodeResults": {
         "Status Text: Submitting": {
-          "process_definition": { "api": { "method": "POST", "service": "Orders" }, "form": { "sections": [{ "id": "header", "fields": [{ "id": "customer", "sap_field": "CardCode" }] }] } },
-          "form_state": { "customer": "C1", "_extra_fields": { "Comments": null } },
           "organization": {},
-          "session": {}
+          "session": {},
+          "active_node_id": "n1#0",
+          "intention_nodes": {
+            "n1#0": {
+              "process_definition": {
+                "api": {
+                  "method": "GET",
+                  "service": "BusinessPartners"
+                },
+                "query": {
+                  "key": {
+                    "id": "CardCode",
+                    "sap_field": "CardCode"
+                  }
+                }
+              },
+              "form_state": {
+                "CardCode": "C001",
+                "ready": true
+              }
+            }
+          }
         }
       },
-      "expected": { "sap_payload": { "CardCode": "C1" } }
+      "expected": {
+        "intention_nodes": {
+          "n1#0": {
+            "process_definition": {
+              "api": {
+                "method": "GET",
+                "service": "BusinessPartners"
+              },
+              "query": {
+                "key": {
+                  "id": "CardCode",
+                  "sap_field": "CardCode"
+                }
+              }
+            },
+            "form_state": {
+              "CardCode": "C001",
+              "ready": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "no active node at all -> defensive no-op rather than throwing or creating a bogus entry",
+      "input": {},
+      "nodeResults": {
+        "Status Text: Submitting": {
+          "organization": {},
+          "session": {},
+          "active_node_id": null,
+          "intention_nodes": {}
+        }
+      },
+      "expected": {
+        "intention_nodes": {}
+      }
+    },
+    {
+      "description": "GET_QUERY with a real query definition present -> builds a null payload (GET has no body), no error fields",
+      "input": {},
+      "nodeResults": {
+        "Status Text: Submitting": {
+          "organization": {},
+          "session": {},
+          "language": "es",
+          "active_node_id": "n1#0",
+          "intention_nodes": {
+            "n1#0": {
+              "process_definition": {
+                "api": {
+                  "method": "GET",
+                  "service": "BusinessPartners"
+                },
+                "query": {
+                  "key": {
+                    "id": "CardCode",
+                    "sap_field": "CardCode"
+                  },
+                  "select": []
+                }
+              },
+              "form_state": {}
+            }
+          }
+        }
+      },
+      "expected": {
+        "sap_operation": "GET_QUERY",
+        "sap_payload": null
+      }
     },
     {
       "description": "uses a token connection instead of username/password when auth_driver is not b1s",
       "input": {},
       "nodeResults": {
         "Status Text: Submitting": {
-          "process_definition": { "api": { "method": "GET", "service": "BusinessPartners" } },
-          "form_state": {},
-          "organization": { "integration": { "auth_driver": "oauth", "base_url": "https://sap2.example.com" } },
-          "session": { "access_token": "tok123" }
+          "organization": {
+            "integration": {
+              "auth_driver": "oauth",
+              "base_url": "https://sap2.example.com"
+            }
+          },
+          "session": {
+            "access_token": "tok123"
+          },
+          "active_node_id": "n1#0",
+          "intention_nodes": {
+            "n1#0": {
+              "process_definition": {
+                "api": {
+                  "method": "GET",
+                  "service": "BusinessPartners"
+                }
+              },
+              "form_state": {}
+            }
+          }
         }
       },
-      "expected": { "sap_operation": "GET_QUERY", "sap_connection": { "authDriver": "oauth", "baseUrl": "https://sap2.example.com", "token": "tok123" } }
+      "expected": {
+        "sap_operation": "GET_QUERY",
+        "sap_connection": {
+          "authDriver": "oauth",
+          "baseUrl": "https://sap2.example.com",
+          "token": "tok123"
+        }
+      }
     }
   ]
 }

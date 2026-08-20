@@ -1,5 +1,6 @@
 """Thin wrapper around the n8n REST API used to run ephemeral, disposable workflow copies."""
 import os
+import sys
 import time
 
 import requests
@@ -28,28 +29,112 @@ class N8nClient:
 		"""Create a workflow and return its full record, including the new id."""
 		return self._request('post', f'{API_BASE}/workflows', json=definition)
 
-	def deactivate_workflow(self, workflow_id):
-		"""Deactivate a workflow before deleting it."""
-		self._request('post', f'{API_BASE}/workflows/{workflow_id}/deactivate')
+	def cleanup_workflow(self, workflow_id, drain_timeout=60):
+		"""Wait for any still-running executions to finish, then deactivate and delete a
+		disposable test workflow, each step independent of the other's success.
+
+		The drain step matters: if a case's own wait_for_execution gave up early (its execution
+		was still genuinely running, just slow -- e.g. during a JS Task Runner slowdown), the old
+		code would delete the workflow anyway once the suite finished. Confirmed live: this left
+		orphaned in-flight executions with no workflow definition behind them (404 on lookup),
+		which the worker then appears to retry indefinitely against a target that no longer
+		exists -- a plausible driver of the repeated task-runner offer-rejection/heartbeat-failure
+		spiral seen this session. Draining first means delete only ever removes a workflow with
+		nothing left in flight.
+
+		Deactivate/delete themselves already retry on transient errors (see below), but a
+		*sustained* failure in one must never skip the other -- if deactivate is still down after
+		its own retries, delete is the one that actually removes the orphan (a deleted workflow
+		can't be active), so it's still worth attempting."""
+		try:
+			self._drain_executions(workflow_id, drain_timeout)
+		except Exception as exc:
+			print(f'warning: could not confirm executions drained for {workflow_id}, proceeding anyway: {exc}', file=sys.stderr)
+		try:
+			self.deactivate_workflow(workflow_id)
+		except Exception as exc:
+			print(f'warning: deactivate failed for {workflow_id}, attempting delete anyway: {exc}', file=sys.stderr)
+		try:
+			self.delete_workflow(workflow_id)
+		except Exception as exc:
+			print(f'warning: delete failed for {workflow_id} -- manual cleanup needed: {exc}', file=sys.stderr)
+
+	def _drain_executions(self, workflow_id, timeout):
+		"""Poll until every execution for workflow_id is in a terminal status, or give up after
+		timeout (logged by the caller, not raised -- draining is a best-effort safety net, not
+		something that should itself hang cleanup forever)."""
+		deadline = time.monotonic() + timeout
+		while time.monotonic() < deadline:
+			listing = self._request('get', f'{API_BASE}/executions', params={'workflowId': workflow_id, 'limit': 10})
+			executions = listing.get('data') or []
+			active = [e for e in executions if e['status'] not in TERMINAL_STATUSES]
+			if not active:
+				return
+			time.sleep(2)
+		raise TimeoutError(f'{workflow_id} still had non-terminal executions after {timeout}s')
+
+	def deactivate_workflow(self, workflow_id, attempts=3, retry_delay=2):
+		"""Deactivate a workflow before deleting it, retrying on transient errors — a disposable
+		test workflow left active after a flaky call here would keep its webhook registered
+		indefinitely (confirmed live: this is exactly how failed Tier 2 cleanups accumulated
+		leftover __test__ workflows during a period of n8n instability)."""
+		self._retry(lambda: self._request('post', f'{API_BASE}/workflows/{workflow_id}/deactivate'), attempts, retry_delay)
 
 	def delete_workflow(self, workflow_id, attempts=3, retry_delay=2):
-		"""Permanently remove a (disposable, test-only) workflow, retrying on transient 5xx errors."""
-		# A workflow with a still-settling recursive self-call chain (see path_queue) can 500 on
-		# delete for a moment after its last execution finishes; a short retry clears it reliably.
+		"""Permanently remove a (disposable, test-only) workflow, retrying on transient errors.
+		A workflow with a still-settling recursive self-call chain (see path_queue) can 500 on
+		delete for a moment after its last execution finishes; a short retry clears it reliably."""
+		self._retry(lambda: self._request('delete', f'{API_BASE}/workflows/{workflow_id}'), attempts, retry_delay)
+
+	@staticmethod
+	def _retry(action, attempts, retry_delay):
+		# Catches the broader RequestException, not just HTTPError -- a read timeout or a
+		# connection error during a transient overload never raises HTTPError at all, and would
+		# otherwise skip the retry entirely (confirmed live: n8n under load returned both a 503
+		# HTTPError and a plain ReadTimeout across different attempts of the same cleanup call).
 		for attempt in range(attempts):
 			try:
-				self._request('delete', f'{API_BASE}/workflows/{workflow_id}')
+				action()
 				return
-			except requests.HTTPError:
+			except requests.exceptions.RequestException:
 				if attempt == attempts - 1:
 					raise
 				time.sleep(retry_delay)
+
+	def list_workflows(self):
+		"""Return every workflow's summary record, paginating through n8n's cursor-based listing."""
+		results = []
+		cursor = None
+		while True:
+			params = {'limit': 250, **({'cursor': cursor} if cursor else {})}
+			page = self._request('get', f'{API_BASE}/workflows', params=params)
+			results.extend(page.get('data') or [])
+			cursor = page.get('nextCursor')
+			if not cursor:
+				return results
 
 	def get_latest_execution_id(self, workflow_id):
 		"""Snapshot the newest execution id for workflow_id, used as a baseline before triggering."""
 		listing = self._request('get', f'{API_BASE}/executions', params={'workflowId': workflow_id, 'limit': 1})
 		executions = listing.get('data') or []
 		return int(executions[0]['id']) if executions else 0
+
+	def get_child_execution_id(self, execution, node_name):
+		"""Return the linked sub-execution id an Execute Workflow node's latest run spawned, or
+		None — used to drill into a sub-workflow's own internal nodes, since the caller's own
+		runData for that node only carries the sub-workflow's final output, not every node inside
+		it (confirmed live: n8n embeds the final result inline AND links the full child execution
+		via metadata.subExecution)."""
+		run_data = execution.get('data', {}).get('resultData', {}).get('runData', {})
+		runs = run_data.get(node_name)
+		if not runs:
+			return None
+		return (runs[-1].get('metadata') or {}).get('subExecution', {}).get('executionId')
+
+	def get_execution(self, execution_id):
+		"""Fetch one execution's full data by id, e.g. a child execution reached via get_child_execution_id."""
+		params = {'includeData': 'true', 'redactExecutionData': 'false'}
+		return self._request('get', f'{API_BASE}/executions/{execution_id}', params=params)
 
 	def get_node_output(self, execution, node_name):
 		"""Return node_name's latest-run first item json, or None if it never ran in this execution."""

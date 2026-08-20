@@ -1,0 +1,51 @@
+{
+  "node": "Enrich Context",
+  "cases": [
+    {
+      "description": "passes message straight through completely untouched -- no trimming here, Django trims before it's ever sent",
+      "input": { "body": { "message": "  hola  ", "language": "es" } },
+      "nodeResults": {},
+      "expected": { "message": "  hola  ", "language": "es" }
+    },
+    {
+      "description": "passes language straight through with no default of its own",
+      "input": { "body": { "message": "hi", "language": "en" } },
+      "nodeResults": {},
+      "expected": { "language": "en" }
+    },
+    {
+      "description": "passes expertise_level straight through with no default or bounds-check of its own -- same as language",
+      "input": { "body": { "message": "hi", "language": "es", "expertise_level": 3 } },
+      "nodeResults": {},
+      "expected": { "expertise_level": 3 }
+    },
+    {
+      "description": "passes active_node_id and intention_nodes through exactly as given, no defaulting or reshaping -- that's Intent Manager's job, not this node's",
+      "input": {
+        "body": {
+          "message": "hi",
+          "language": "es",
+          "active_node_id": "node-789",
+          "intention_nodes": { "p1#0": { "id": "p1#0", "status": "active" } }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "active_node_id": "node-789",
+        "intention_nodes": { "p1#0": { "id": "p1#0", "status": "active" } }
+      }
+    },
+    {
+      "description": "passes any other payload field straight through untouched -- this node has no allowlist/denylist of its own, it trusts Django to have sent exactly what's needed and nothing else",
+      "input": { "body": { "message": "hi", "language": "es", "session_id": 42, "bucket_file_ids": [7, 8] } },
+      "nodeResults": {},
+      "expected": { "session_id": 42, "bucket_file_ids": [7, 8] }
+    },
+    {
+      "description": "sets the fixed GitHub owner/repo used to resolve process definitions",
+      "input": { "body": { "message": "hi", "language": "es" } },
+      "nodeResults": {},
+      "expected": { "github_owner": "blasvicco", "github_repo": "da-sapot-processes" }
+    }
+  ]
+}

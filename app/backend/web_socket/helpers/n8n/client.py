@@ -39,10 +39,10 @@ class N8nClient:  # pylint: disable=too-few-public-methods
 	async def fire(  # pylint: disable=too-many-arguments,too-many-locals
 		self,
 		*,
-		active_node_override=None,
 		bucket_file_ids=None,
-		expertise_level: int = 2,
+		expertise_level: int,
 		group_name: str,
+		language: str,
 		message: str,
 		organization,
 		session_id,
@@ -62,47 +62,41 @@ class N8nClient:  # pylint: disable=too-few-public-methods
 
 		payload = {
 			"active_node_id": current.get("active_node_id"),
-			# One-shot signal set only on the turn right after the user clicks a
-			# tree node in the Intention Graph — distinct from the persisted
-			# parent_override_id below, which survives turns where the workflow
-			# needs a clarifying follow-up before actually creating the new node.
-			"active_node_override": active_node_override,
-			"awaiting_batch_confirmation": current.get(
-				"awaiting_batch_confirmation", False
-			),
-			"awaiting_stack_resume": current.get("awaiting_stack_resume", False),
 			# References only — the Agent resolves each bucket file's content on demand
 			# via its own extraction tool rather than the platform embedding it here.
 			"bucket_file_ids": bucket_file_ids or [],
 			"expertise_level": expertise_level,
-			"form_state": current.get("form_state"),
 			"group_name": group_name,
-			"intention_nodes": current.get("intention_nodes") or [],
+			"intention_nodes": current.get("intention_nodes") or {},
+			"language": language,
 			"message": message,
-			"organization": organization_dict,
-			"parent_override_id": current.get("parent_override_id"),
-			"paused_node_ids": current.get("paused_node_ids") or [],
-			"pending_batch_items": current.get("pending_batch_items") or [],
-			"pending_processes": current.get("pending_processes"),
-			"process_id": current.get("process_id"),
-			"process_stack": current.get("process_stack") or [],
-			"session": session_payload,
+			# Only integration/slug are read by any v14 workflow node (SAP connection
+			# setup, GitHub schema lookups) — name/plan/seat_limit/created_on/id are
+			# never referenced, so they're dropped rather than round-tripped forever
+			# through every intention_nodes[id] copy stored in n8n_state.
+			"organization": {
+				"integration": organization_dict.get("integration"),
+				"slug": organization_dict.get("slug"),
+			},
+			# Only access_token/database/user are read by any v14 workflow node —
+			# expires_at/id_token/org/refresh_token are never referenced.
+			"session": {
+				"access_token": session_payload.get("access_token"),
+				"database": session_payload.get("database"),
+				"user": session_payload.get("user"),
+			},
 			"session_id": session_id,
 		}
 		# Only include last_bot_message when set — grounds Agent: Form on what it
 		# just asked, without ever growing beyond a single prior message.
 		if current.get("last_bot_message"):
 			payload["last_bot_message"] = current.get("last_bot_message")
-		# Only include process_definition when non-null to avoid polluting
-		# the AI agent context with a null field on the first message.
-		if current.get("process_definition") is not None:
-			payload["process_definition"] = current.get("process_definition")
 
 		logger.debug(
-			"N8nClient: firing to %s group=%s process_id=%s",
+			"N8nClient: firing to %s group=%s active_node_id=%s",
 			self._webhook_url,
 			group_name,
-			current.get("process_id"),
+			current.get("active_node_id"),
 		)
 		try:
 			# verify=False because the SAP B1 target uses a self-signed certificate.

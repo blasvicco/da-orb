@@ -33,25 +33,13 @@ describe('IntentionStack', () => {
     expect(wrapper.emitted('switch-panel')).toHaveLength(1);
   });
 
-  it('does not render a resume button when nothing is resumable', () => {
-    const wrapper = mount(IntentionStack, {
-      props: {
-        messages: [makeMessage({
-          intention_nodes: [{ id: 'pr#0', parent_id: null, process_id: 'purchase_request', status: 'active' }],
-        })],
-        open: true,
-      },
-    });
-    expect(wrapper.findComponent({ name: 'AButton' }).exists()).toBe(false);
-  });
-
   it('renders the tree from sessionState when no message carries its own state (a reloaded session)', () => {
     const wrapper = mount(IntentionStack, {
       props: {
         messages: [{ text: 'hi', type: 'user' }],
         open: true,
         sessionState: {
-          intention_nodes: [{ id: 'pr#0', parent_id: null, process_id: 'purchase_request', status: 'completed' }],
+          intention_nodes: { 'pr#0': { id: 'pr#0', parent_id: null, process_id: 'purchase_request', status: 'completed' } },
         },
       },
     });
@@ -63,27 +51,11 @@ describe('IntentionStack', () => {
     expect(wrapper.findComponent({ name: 'ATree' }).exists()).toBe(false);
   });
 
-  it('emits resume and update:open(false) when the resume button is clicked', async () => {
-    const wrapper = mount(IntentionStack, {
-      props: {
-        messages: [makeMessage({
-          awaiting_stack_resume: true,
-          intention_nodes: [{ id: 'si#0', parent_id: null, process_id: 'search_items', status: 'paused' }],
-          paused_node_ids: ['si#0'],
-        })],
-        open: true,
-      },
-    });
-    await wrapper.findComponent({ name: 'AButton' }).trigger('click');
-    expect(wrapper.emitted('resume')).toHaveLength(1);
-    expect(wrapper.emitted('update:open')).toEqual([[false]]);
-  });
-
   it('does not open the load-context confirm when the active node label is clicked', async () => {
     const wrapper = mount(IntentionStack, {
       props: {
         messages: [makeMessage({
-          intention_nodes: [{ id: 'pr#0', parent_id: null, process_id: 'purchase_request', status: 'active' }],
+          intention_nodes: { 'pr#0': { id: 'pr#0', parent_id: null, process_id: 'purchase_request', status: 'active' } },
         })],
         open: true,
       },
@@ -96,7 +68,7 @@ describe('IntentionStack', () => {
     mount(IntentionStack, {
       props: {
         messages: [makeMessage({
-          intention_nodes: [{ id: 'pr#0', parent_id: null, process_id: 'purchase_request', status: 'active' }],
+          intention_nodes: { 'pr#0': { id: 'pr#0', parent_id: null, process_id: 'purchase_request', status: 'active' } },
         })],
         open: true,
       },
@@ -113,7 +85,7 @@ describe('IntentionStack', () => {
     const wrapper = mount(IntentionStack, {
       props: {
         messages: [makeMessage({
-          intention_nodes: [{ id: 'pr#0', parent_id: null, process_id: 'purchase_request', status }],
+          intention_nodes: { 'pr#0': { id: 'pr#0', parent_id: null, process_id: 'purchase_request', status } },
         })],
         open: true,
       },
@@ -129,10 +101,10 @@ describe('IntentionStack', () => {
     const wrapper = mount(IntentionStack, {
       props: {
         messages: [makeMessage({
-          intention_nodes: [{
+          intention_nodes: { 'pr#0': {
             id: 'pr#0', parent_id: null,
             process_definition: { name: 'Purchase Request' }, process_id: 'purchase_request', status: 'completed',
-          }],
+          } },
         })],
         open: true,
       },
@@ -150,7 +122,7 @@ describe('IntentionStack', () => {
     const wrapper = mount(IntentionStack, {
       props: {
         messages: [makeMessage({
-          intention_nodes: [{ id: 'pr#0', parent_id: null, process_id: 'purchase_request', status: 'completed' }],
+          intention_nodes: { 'pr#0': { id: 'pr#0', parent_id: null, process_id: 'purchase_request', status: 'completed' } },
         })],
         open: true,
       },
@@ -166,7 +138,7 @@ describe('IntentionStack', () => {
     const wrapper = mount(IntentionStack, {
       props: {
         messages: [makeMessage({
-          intention_nodes: [{ id: 'pr#0', parent_id: null, process_id: 'purchase_request', status: 'completed' }],
+          intention_nodes: { 'pr#0': { id: 'pr#0', parent_id: null, process_id: 'purchase_request', status: 'completed' } },
         })],
         open: true,
       },
@@ -175,5 +147,112 @@ describe('IntentionStack', () => {
     await wrapper.findComponent({ name: 'APopconfirm' }).vm.$emit('openChange', false);
 
     expect(wrapper.findComponent({ name: 'APopconfirm' }).props('open')).toBe(false);
+  });
+
+  it('shows the generic status tooltip, not the error popover, when a failed node carries no error_detail', () => {
+    mount(IntentionStack, {
+      props: {
+        messages: [makeMessage({
+          intention_nodes: { 'pr#0': { id: 'pr#0', parent_id: null, process_id: 'purchase_request', status: 'failed' } },
+        })],
+        open: true,
+      },
+    });
+    // a-popconfirm (the navigate-confirm on the label) wraps its own internal Popover/Tooltip,
+    // so bare APopover/ATooltip existence checks would match those regardless of this node's
+    // own branch — the --clickable class is only present on the popover branch's icon.
+    expect(body().find('.orb-intention-node-status--clickable').exists()).toBe(false);
+    expect(body().find('.orb-intention-node-status').exists()).toBe(true);
+  });
+
+  it('shows the error popover instead of the tooltip when a failed node carries error_detail', () => {
+    mount(IntentionStack, {
+      props: {
+        messages: [makeMessage({
+          intention_nodes: { 'pr#0': {
+            id: 'pr#0', parent_id: null, process_id: 'purchase_request', status: 'failed', error_detail: 'Required date is missing (1)',
+          } },
+        })],
+        open: true,
+      },
+    });
+    expect(body().find('.orb-intention-node-status--clickable').exists()).toBe(true);
+  });
+
+  it('opens the error popover with the process label and verbatim error_detail when the status icon is clicked', async () => {
+    const wrapper = mount(IntentionStack, {
+      props: {
+        messages: [makeMessage({
+          intention_nodes: { 'pr#0': {
+            id: 'pr#0', parent_id: null,
+            process_definition: { name: 'Purchase Request' }, process_id: 'purchase_request', status: 'failed',
+            error_detail: 'Required date is missing (1)',
+          } },
+        })],
+        open: true,
+      },
+    });
+    await body().find('.orb-intention-node-status').trigger('click');
+
+    expect(wrapper.findComponent({ name: 'APopover' }).props('open')).toBe(true);
+    expect(body().find('.orb-intention-error-popover-label').text()).toBe('Purchase Request');
+    expect(body().find('.orb-intention-error-popover-detail').text()).toBe('Required date is missing (1)');
+  });
+
+  it('closes the error popover when its openChange reports closed', async () => {
+    const wrapper = mount(IntentionStack, {
+      props: {
+        messages: [makeMessage({
+          intention_nodes: { 'pr#0': {
+            id: 'pr#0', parent_id: null, process_id: 'purchase_request', status: 'failed', error_detail: 'boom',
+          } },
+        })],
+        open: true,
+      },
+    });
+    await body().find('.orb-intention-node-status').trigger('click');
+    await wrapper.findComponent({ name: 'APopover' }).vm.$emit('openChange', false);
+
+    expect(wrapper.findComponent({ name: 'APopover' }).props('open')).toBe(false);
+  });
+
+  it('opening the error popover closes an already-open navigate-confirm on the same node', async () => {
+    const wrapper = mount(IntentionStack, {
+      props: {
+        messages: [makeMessage({
+          intention_nodes: { 'pr#0': {
+            id: 'pr#0', parent_id: null, process_id: 'purchase_request', status: 'failed', error_detail: 'boom',
+          } },
+        })],
+        open: true,
+      },
+    });
+    await body().find('.orb-intention-node-label').trigger('click');
+    expect(wrapper.findComponent({ name: 'APopconfirm' }).props('open')).toBe(true);
+
+    await body().find('.orb-intention-node-status').trigger('click');
+
+    expect(wrapper.findComponent({ name: 'APopconfirm' }).props('open')).toBe(false);
+    expect(wrapper.findComponent({ name: 'APopover' }).props('open')).toBe(true);
+  });
+
+  it('opening the navigate-confirm closes an already-open error popover on the same node', async () => {
+    const wrapper = mount(IntentionStack, {
+      props: {
+        messages: [makeMessage({
+          intention_nodes: { 'pr#0': {
+            id: 'pr#0', parent_id: null, process_id: 'purchase_request', status: 'failed', error_detail: 'boom',
+          } },
+        })],
+        open: true,
+      },
+    });
+    await body().find('.orb-intention-node-status').trigger('click');
+    expect(wrapper.findComponent({ name: 'APopover' }).props('open')).toBe(true);
+
+    await body().find('.orb-intention-node-label').trigger('click');
+
+    expect(wrapper.findComponent({ name: 'APopover' }).props('open')).toBe(false);
+    expect(wrapper.findComponent({ name: 'APopconfirm' }).props('open')).toBe(true);
   });
 });

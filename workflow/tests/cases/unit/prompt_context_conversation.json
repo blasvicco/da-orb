@@ -1,0 +1,170 @@
+{
+  "node": "Prompt: Context & Conversation",
+  "cases": [
+    {
+      "description": "no active node, no error, no files -> selected_intention_node null, historical_intention_nodes empty (nothing to list)",
+      "expected": {
+        "chatInput": "Respond in: es.\n\nCURRENT STATE (for grounding your answer, not to repeat verbatim):\n```json\n{\n  \"selected_intention_node\": null,\n  \"historical_intention_nodes\": [],\n  \"current_turn_error\": null,\n  \"attached_files\": []\n}\n```\n\nUSER MESSAGE:\nque puedes hacer?"
+      },
+      "nodeResults": {
+        "Status Text: Answering": {
+          "language": "es",
+          "message": "que puedes hacer?",
+          "error": null,
+          "intention_nodes": {},
+          "extracted_files": null,
+          "active_node_id": null
+        }
+      },
+      "input": {}
+    },
+    {
+      "description": "a node is selected -> selected_intention_node carries its full state (status/form_state/error_detail); historical_intention_nodes is null even though OTHER nodes exist in intention_nodes -- selected-vs-not is exclusive, other nodes never leak in",
+      "expected": {
+        "chatInput": "Respond in: es.\n\nCURRENT STATE (for grounding your answer, not to repeat verbatim):\n```json\n{\n  \"selected_intention_node\": {\n    \"id\": \"p1#0\",\n    \"process_id\": \"purchase_request\",\n    \"name\": \"Create Purchase Request\",\n    \"status\": \"active\",\n    \"form_state\": {\n      \"Supplier\": \"C001\"\n    },\n    \"error_detail\": null\n  },\n  \"historical_intention_nodes\": null,\n  \"current_turn_error\": null,\n  \"attached_files\": []\n}\n```\n\nUSER MESSAGE:\npor que me pides eso?"
+      },
+      "nodeResults": {
+        "Status Text: Answering": {
+          "language": "es",
+          "message": "por que me pides eso?",
+          "error": null,
+          "intention_nodes": {
+            "p1#0": {
+              "id": "p1#0",
+              "process_id": "purchase_request",
+              "process_definition": {
+                "name": "Create Purchase Request"
+              },
+              "form_state": {
+                "Supplier": "C001"
+              },
+              "status": "active",
+              "error_detail": null
+            },
+            "p1#1": {
+              "id": "p1#1",
+              "process_id": "purchase_request",
+              "process_definition": {
+                "name": "Create Purchase Request"
+              },
+              "form_state": {},
+              "status": "completed",
+              "error_detail": null
+            }
+          },
+          "extracted_files": null,
+          "active_node_id": "p1#0"
+        }
+      },
+      "input": {}
+    },
+    {
+      "description": "REGRESSION (the actual production bug): the selected node has already failed with its own error_detail, but THIS turn is clean (current_turn_error null, e.g. the user just asked 'why did this fail') -> selected_intention_node.error_detail must still surface; it must never be hidden behind whether the current turn itself errored",
+      "expected": {
+        "chatInput": "Respond in: es.\n\nCURRENT STATE (for grounding your answer, not to repeat verbatim):\n```json\n{\n  \"selected_intention_node\": {\n    \"id\": \"p1#2\",\n    \"process_id\": \"purchase_request\",\n    \"name\": \"Create Purchase Request\",\n    \"status\": \"failed\",\n    \"form_state\": {\n      \"ItemCode\": \"NP-9999\"\n    },\n    \"error_detail\": \"Required date is missing (1)\"\n  },\n  \"historical_intention_nodes\": null,\n  \"current_turn_error\": null,\n  \"attached_files\": []\n}\n```\n\nUSER MESSAGE:\npor que fallo esta solicitud?"
+      },
+      "nodeResults": {
+        "Status Text: Answering": {
+          "language": "es",
+          "message": "por que fallo esta solicitud?",
+          "error": null,
+          "intention_nodes": {
+            "p1#2": {
+              "id": "p1#2",
+              "process_id": "purchase_request",
+              "process_definition": {
+                "name": "Create Purchase Request"
+              },
+              "form_state": {
+                "ItemCode": "NP-9999"
+              },
+              "status": "failed",
+              "error_detail": "Required date is missing (1)"
+            }
+          },
+          "extracted_files": null,
+          "active_node_id": "p1#2"
+        }
+      },
+      "input": {}
+    },
+    {
+      "description": "no node selected, multiple past nodes exist -> historical_intention_nodes lists all of them (including each one's own error_detail); selected_intention_node stays null -- this is the 'historical chats' branch, not a guess at which single node the question means",
+      "expected": {
+        "chatInput": "Respond in: es.\n\nCURRENT STATE (for grounding your answer, not to repeat verbatim):\n```json\n{\n  \"selected_intention_node\": null,\n  \"historical_intention_nodes\": [\n    {\n      \"id\": \"p1#0\",\n      \"process_id\": \"purchase_request\",\n      \"name\": \"Create Purchase Request\",\n      \"status\": \"completed\",\n      \"error_detail\": null\n    },\n    {\n      \"id\": \"p1#1\",\n      \"process_id\": \"purchase_request\",\n      \"name\": \"Create Purchase Request\",\n      \"status\": \"failed\",\n      \"error_detail\": \"Required date is missing (1)\"\n    }\n  ],\n  \"current_turn_error\": null,\n  \"attached_files\": []\n}\n```\n\nUSER MESSAGE:\nque hicimos hoy?"
+      },
+      "nodeResults": {
+        "Status Text: Answering": {
+          "language": "es",
+          "message": "que hicimos hoy?",
+          "error": null,
+          "intention_nodes": {
+            "p1#0": {
+              "id": "p1#0",
+              "process_id": "purchase_request",
+              "process_definition": {
+                "name": "Create Purchase Request"
+              },
+              "form_state": {},
+              "status": "completed",
+              "error_detail": null
+            },
+            "p1#1": {
+              "id": "p1#1",
+              "process_id": "purchase_request",
+              "process_definition": {
+                "name": "Create Purchase Request"
+              },
+              "form_state": {},
+              "status": "failed",
+              "error_detail": "Required date is missing (1)"
+            }
+          },
+          "extracted_files": null,
+          "active_node_id": null
+        }
+      },
+      "input": {}
+    },
+    {
+      "description": "current_turn_error (this turn's own agent/tool failure) surfaces independently of node selection -- a genuinely fresh error, not a past node's stored error_detail",
+      "expected": {
+        "chatInput": "Respond in: en.\n\nCURRENT STATE (for grounding your answer, not to repeat verbatim):\n```json\n{\n  \"selected_intention_node\": null,\n  \"historical_intention_nodes\": [],\n  \"current_turn_error\": \"AGENT_ERROR\",\n  \"attached_files\": []\n}\n```\n\nUSER MESSAGE:\nwhat happened?"
+      },
+      "nodeResults": {
+        "Status Text: Answering": {
+          "language": "en",
+          "message": "what happened?",
+          "error": "AGENT_ERROR",
+          "intention_nodes": {},
+          "extracted_files": null,
+          "active_node_id": null
+        }
+      },
+      "input": {}
+    },
+    {
+      "description": "attached file content is truncated to 2000 chars in the preview",
+      "expected": {
+        "chatInput": "Respond in: es.\n\nCURRENT STATE (for grounding your answer, not to repeat verbatim):\n```json\n{\n  \"selected_intention_node\": null,\n  \"historical_intention_nodes\": [],\n  \"current_turn_error\": null,\n  \"attached_files\": [\n    {\n      \"bucket_file_id\": 101,\n      \"content_preview\": \"01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\",\n      \"error\": null\n    }\n  ]\n}\n```\n\nUSER MESSAGE:\nque decia el archivo?"
+      },
+      "nodeResults": {
+        "Status Text: Answering": {
+          "language": "es",
+          "message": "que decia el archivo?",
+          "error": null,
+          "intention_nodes": {},
+          "extracted_files": [
+            {
+              "bucket_file_id": 101,
+              "extracted_content": "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+              "error": null
+            }
+          ],
+          "active_node_id": null
+        }
+      },
+      "input": {}
+    }
+  ]
+}

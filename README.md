@@ -137,7 +137,7 @@ Connected Tools & Systems  (SAP, CRMs, ticketing, internal APIs, ...)
 
 - **Multi-tenancy** — Organizations are isolated by slug, each with their own encrypted integration configs and tool connections.
 - **Session model** — Each chat session maps to a user + org combination, with full message history stored in PostgreSQL.
-- **Orchestration engine** — The core bot logic (intent routing, guided data collection, tool calls) runs as an n8n workflow (`Orbot v3.json`), making it auditable and modifiable without touching application code.
+- **Orchestration engine** — The core bot logic (intent routing, guided data collection, tool calls) runs as a set of n8n workflows (`workflow/Orbot v12/`: a thin `spine.json` orchestrator plus dedicated sub-workflows for schema resolution, output delivery, each LLM agent, batch processing, and file extraction), making it auditable and modifiable without touching application code.
 - **Configuration-driven processes** — Organizational processes are defined as configuration, not code, so new tools and workflows can be onboarded without a deployment.
 - **WebSocket streaming** — Agent responses stream in real time over Django Channels, giving users immediate feedback during longer operations.
 

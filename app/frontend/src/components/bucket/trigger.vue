@@ -15,6 +15,13 @@
   defineOptions({ name: 'BucketTrigger' });
 
   const props = defineProps({
+    // Resolves to a real session_id, creating the session first if needed — see
+    // handleFilesSelected(), which needs one to upload against even before the
+    // user has sent their first message.
+    ensureSessionId: {
+      default: async () => null,
+      type: Function,
+    },
     open: {
       default: false,
       type: Boolean,
@@ -45,10 +52,17 @@
 
   const triggerUpload = () => fileInput.value?.click();
 
+  // Mirrors the composer's drag-and-drop commitStagedFiles(): ensure a real session
+  // exists before uploading (so files never get stranded in bucket.pendingFiles with
+  // no "use as context" affordance), then auto-link every uploaded file as context —
+  // picking a file here is already an explicit choice to include it.
   const handleFilesSelected = async (event) => {
     const selected = Array.from(event.target.files || []);
     event.target.value = '';
-    await bucket.addFiles(props.sessionId, selected);
+    if (!selected.length) return;
+    const realSessionId = props.sessionId || await props.ensureSessionId();
+    const uploaded = await bucket.addFiles(realSessionId, selected);
+    uploaded.forEach((file) => emit('use-as-context', { id: file.id, name: file.name }));
   };
 
   const handleDownload = async (file) => {

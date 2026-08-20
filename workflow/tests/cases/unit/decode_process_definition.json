@@ -1,0 +1,54 @@
+{
+  "node": "Decode Process Definition",
+  "cases": [
+    {
+      "description": "falls back to NOT_FOUND when the fetch returned an error status",
+      "input": { "statusCode": 404 },
+      "nodeResults": { "Compute Schema Paths": { "github_api_base": "https://api.github.com/repos/blasvicco/da-sapot-processes/contents" } },
+      "expected": { "error": "NOT_FOUND", "process_definition": null, "schema_fetch_url": null }
+    },
+    {
+      "description": "falls back to NOT_FOUND when the base64 content does not parse as JSON",
+      "input": { "body": { "content": "bm90LWpzb24=" } },
+      "nodeResults": { "Compute Schema Paths": { "github_api_base": "https://api.github.com/repos/blasvicco/da-sapot-processes/contents" } },
+      "expected": { "error": "NOT_FOUND", "error_message": "Error al parsear la definición del proceso." }
+    },
+    {
+      "description": "decodes the process definition and sets schema_fetch_url from github_api_base (looked up via Compute Schema Paths, which computes it once per call and is guaranteed to have run exactly once)",
+      "input": {
+        "body": {
+          "content": "eyJpZCI6InB1cmNoYXNlX3JlcXVlc3QiLCJzY2hlbWEiOiJwdXJjaGFzZV9yZXF1ZXN0X3NjaGVtYSJ9",
+          "path": "purchase/purch_request/purch_request.json"
+        }
+      },
+      "nodeResults": { "Compute Schema Paths": { "github_api_base": "https://api.github.com/repos/blasvicco/da-sapot-processes/contents" } },
+      "expected": {
+        "process_definition": { "id": "purchase_request", "schema": "purchase_request_schema" },
+        "schema_fetch_url": "https://api.github.com/repos/blasvicco/da-sapot-processes/contents/purchase/purch_request/purchase_request_schema.json?ref=main",
+        "error": null
+      }
+    },
+    {
+      "description": "schema_fetch_url is null when the process definition has no schema slug",
+      "input": {
+        "body": {
+          "content": "eyJpZCI6InB1cmNoYXNlX3JlcXVlc3QifQ==",
+          "path": "purchase/purch_request/purch_request.json"
+        }
+      },
+      "nodeResults": { "Compute Schema Paths": { "github_api_base": "https://api.github.com/repos/blasvicco/da-sapot-processes/contents" } },
+      "expected": { "process_definition": { "id": "purchase_request" }, "schema_fetch_url": null }
+    },
+    {
+      "description": "uses a non-default github_ref from the trigger input when present",
+      "input": {
+        "body": {
+          "content": "eyJpZCI6InB1cmNoYXNlX3JlcXVlc3QiLCJzY2hlbWEiOiJwdXJjaGFzZV9yZXF1ZXN0X3NjaGVtYSJ9",
+          "path": "purchase/purch_request/purch_request.json"
+        }
+      },
+      "nodeResults": { "Compute Schema Paths": { "github_api_base": "https://api.github.com/repos/blasvicco/da-sapot-processes/contents", "github_ref": "dev" } },
+      "expected": { "schema_fetch_url": "https://api.github.com/repos/blasvicco/da-sapot-processes/contents/purchase/purch_request/purchase_request_schema.json?ref=dev" }
+    }
+  ]
+}

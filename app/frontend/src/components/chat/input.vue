@@ -10,6 +10,7 @@
     FilePdfOutlined,
     FileWordOutlined,
     FileZipOutlined,
+    FolderOpenOutlined,
     LinkOutlined,
   } from '@antdv-next/icons';
 
@@ -35,7 +36,7 @@
     // see commitStagedFiles(), which needs one to upload against even before
     // the user has sent their first message.
     ensureSessionId: {
-      default: () => async () => null,
+      default: async () => null,
       type: Function,
     },
     messages: {
@@ -56,10 +57,12 @@
     },
   });
 
-  const emit = defineEmits(['context-file', 'file-deleted', 'navigate', 'remove-context', 'resume', 'send', 'update:modelValue']);
+  const emit = defineEmits(['context-file', 'file-deleted', 'navigate', 'remove-context', 'send', 'update:modelValue']);
 
   const bucket = useBucket();
 
+  const attachMenuRef = ref(null);
+  const composerFileInput = ref(null);
   const promptTextarea = ref(null);
   const isDragging = ref(false);
   // Files dropped onto the composer, previewed here but not staged/uploaded to the
@@ -145,6 +148,17 @@
     const dropped = Array.from(event.dataTransfer?.files || []);
     if (dropped.length) stagedFiles.value = [...stagedFiles.value, ...dropped];
   };
+
+  // "Add files" (AttachMenu's pick-files event) goes straight to the native file
+  // picker instead of the bucket drawer, landing selected files in the exact same
+  // stagedFiles preview/commit-on-send flow as a drag-and-drop.
+  const triggerFilePicker = () => composerFileInput.value?.click();
+
+  const handleComposerFilesSelected = (event) => {
+    const selected = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (selected.length) stagedFiles.value = [...stagedFiles.value, ...selected];
+  };
 </script>
 
 <template>
@@ -215,16 +229,41 @@
         @input="onInput"
         @keydown="handleKeydown"
       />
+      <input
+        ref="composerFileInput"
+        class="orb-prompt-file-input"
+        multiple
+        type="file"
+        @change="handleComposerFilesSelected"
+      >
       <div class="orb-prompt-toolbar">
-        <AttachMenu
-          :messages="messages"
-          :session-id="sessionId"
-          :session-state="sessionState"
-          @context-file="(file) => emit('context-file', file)"
-          @file-deleted="(fileId) => emit('file-deleted', fileId)"
-          @navigate="(node) => emit('navigate', node)"
-          @resume="emit('resume')"
-        />
+        <div class="orb-prompt-toolbar-attachments">
+          <AttachMenu
+            ref="attachMenuRef"
+            :ensure-session-id="ensureSessionId"
+            :messages="messages"
+            :session-id="sessionId"
+            :session-state="sessionState"
+            @context-file="(file) => emit('context-file', file)"
+            @file-deleted="(fileId) => emit('file-deleted', fileId)"
+            @navigate="(node) => emit('navigate', node)"
+            @pick-files="triggerFilePicker"
+          />
+          <a-badge
+            class="orb-prompt-bucket-badge"
+            :count="bucket.files.length + bucket.pendingFiles.length"
+            :offset="[-2, 2]"
+            size="small"
+          >
+            <button
+              class="orb-prompt-bucket-btn"
+              :title="$t('chat.bucket.title')"
+              @click="attachMenuRef?.openBucket()"
+            >
+              <FolderOpenOutlined />
+            </button>
+          </a-badge>
+        </div>
         <button
           class="orb-prompt-send-btn"
           :disabled="!modelValue.trim() || disabled"

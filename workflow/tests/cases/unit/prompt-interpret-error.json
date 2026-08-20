@@ -1,0 +1,21 @@
+{
+  "node": "Prompt: Interpret Error",
+  "cases": [
+    {
+      "description": "builds a chatInput asking for an explanation in the request's language, carrying the raw error only for the agent's own understanding",
+      "input": { "errorText": "something bizarre happened", "language": "en" },
+      "nodeResults": {},
+      "expected": {
+        "chatInput": "Explain, in en, what likely went wrong for the user and what they can do next.\n\nRAW ERROR (technical -- for your understanding only, never quote this verbatim):\nsomething bizarre happened"
+      }
+    },
+    {
+      "description": "defaults to Spanish when language is missing",
+      "input": { "errorText": "boom" },
+      "nodeResults": {},
+      "expected": {
+        "chatInput": "Explain, in es, what likely went wrong for the user and what they can do next.\n\nRAW ERROR (technical -- for your understanding only, never quote this verbatim):\nboom"
+      }
+    }
+  ]
+}

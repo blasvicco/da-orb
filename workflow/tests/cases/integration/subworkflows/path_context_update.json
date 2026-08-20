@@ -1,0 +1,175 @@
+{
+  "path": "context_update",
+  "target_workflow": "context-update.json",
+  "cases": [
+    {
+      "description": "no processes list (e.g. general_inquiry, or a continuing/reviewing turn with nothing fresh to resolve) -> passes straight through untouched",
+      "input": { "route_key": "general_inquiry", "message": "test", "language": "es" },
+      "pins": {
+        "Execute Workflow: Schema Resolution": { "process_definition": { "id": "SHOULD_NOT_BE_CALLED" }, "error": null }
+      },
+      "assert": {
+        "node": "Return Context Update Result",
+        "fields": { "route_key": "general_inquiry", "message": "test" }
+      }
+    },
+    {
+      "description": "single match (form filling) -> schema resolves, process_id minted from the classic root-level fields Agent: Form already expects",
+      "input": {
+        "route_key": "sap_form_filling",
+        "language": "es",
+        "message": "quiero hacer una solicitud de compra",
+        "group_name": "g1",
+        "session_id": "s1",
+        "processes": [{ "path": "purchase/purch_request/purch_request.json", "process_name": "Purchase Request" }],
+        "github_owner": "blasvicco",
+        "github_repo": "da-sapot-processes"
+      },
+      "pins": {
+        "Execute Workflow: Schema Resolution": { "process_definition": { "id": "purchase_request", "form": { "sections": [] } }, "error": null, "route_key": "sap_form_filling" }
+      },
+      "assert": {
+        "node": "Execute Workflow: Register Intention Node",
+        "fields": {
+          "new_node_id": "purchase_request#0",
+          "active_node_id": "purchase_request#0",
+          "intention_nodes": {
+            "purchase_request#0": { "id": "purchase_request#0", "parent_id": null, "process_id": "purchase_request", "process_definition": { "id": "purchase_request", "form": { "sections": [] } }, "form_state": {}, "status": "active" }
+          }
+        }
+      }
+    },
+    {
+      "description": "single match (form filling) -> schema resolution fails -> classified via the real shared Error Parser and delivered, route_key cleared so the Router's fallback absorbs it",
+      "input": {
+        "route_key": "sap_form_filling",
+        "language": "es",
+        "message": "quiero hacer una solicitud de compra",
+        "group_name": "g1",
+        "session_id": "s1",
+        "processes": [{ "path": "purchase/purch_request/purch_request.json", "process_name": "Purchase Request" }],
+        "github_owner": "blasvicco",
+        "github_repo": "da-sapot-processes"
+      },
+      "pins": {
+        "Execute Workflow: Schema Resolution": { "error": "NOT_FOUND", "error_message": "No se encontró la definición del proceso.", "route_key": "sap_form_filling" },
+        "Execute Workflow: Response": { "delivered": true }
+      },
+      "assert": {
+        "node": "Execute Workflow: Error Parser (Schema)",
+        "fields": { "error": "NOT_FOUND" }
+      }
+    },
+    {
+      "description": "single match (form filling) while new_process_parent_id is set (Intent Manager just parked that node this same turn) -> the freshly minted node nests under it instead of registering as another root",
+      "input": {
+        "route_key": "sap_form_filling",
+        "language": "es",
+        "message": "podes listarme los proveedores del grupo 100",
+        "group_name": "g1",
+        "session_id": "s1",
+        "new_process_parent_id": "purchase_request#0",
+        "intention_nodes": { "purchase_request#0": { "id": "purchase_request#0", "parent_id": null, "process_id": "purchase_request", "process_definition": {}, "form_state": { "supplier": "V1" }, "status": "paused" } },
+        "processes": [{ "path": "business_partners/vendor_list/vendor_list.json", "process_name": "List Vendors" }],
+        "github_owner": "blasvicco",
+        "github_repo": "da-sapot-processes"
+      },
+      "pins": {
+        "Execute Workflow: Schema Resolution": {
+          "process_definition": { "id": "vendor_list" }, "error": null, "route_key": "sap_form_filling",
+          "new_process_parent_id": "purchase_request#0",
+          "intention_nodes": { "purchase_request#0": { "id": "purchase_request#0", "parent_id": null, "process_id": "purchase_request", "process_definition": {}, "form_state": { "supplier": "V1" }, "status": "paused" } }
+        }
+      },
+      "assert": {
+        "node": "Execute Workflow: Register Intention Node",
+        "fields": {
+          "new_node_id": "vendor_list#1",
+          "active_node_id": "vendor_list#1",
+          "intention_nodes": {
+            "purchase_request#0": { "id": "purchase_request#0", "parent_id": null, "process_id": "purchase_request", "process_definition": {}, "form_state": { "supplier": "V1" }, "status": "paused" },
+            "vendor_list#1": { "id": "vendor_list#1", "parent_id": "purchase_request#0", "process_id": "vendor_list", "process_definition": { "id": "vendor_list" }, "form_state": {}, "status": "active" }
+          }
+        }
+      }
+    },
+    {
+      "description": "batch with 2 distinct processes -> both resolve successfully -> Needs Batch Extraction? routes each through Agent: Extract Batch Records (one call per process, in Loop Over Processes' own per-process loop), items carries the extracted records instead of staying [] -- this is the new home for data resolution the old 'batch never resolves its own data' design used to defer to batch-processing.json's own now-removed agents",
+      "input": {
+        "route_key": "batch_processing",
+        "language": "es",
+        "message": "crea 2 solicitudes de compra y una entrada de mercancía",
+        "group_name": "g1",
+        "session_id": "s1",
+        "processes": [
+          { "path": "purchase/purch_request/purch_request.json", "process_name": "Purchase Request" },
+          { "path": "warehouse/goods_receipt/goods_receipt.json", "process_name": "Goods Receipt" }
+        ],
+        "github_owner": "blasvicco",
+        "github_repo": "da-sapot-processes"
+      },
+      "pins": {
+        "Execute Workflow: Schema Resolution": { "process_definition": { "id": "stub_definition" }, "error": null, "error_message": null, "route_key": "batch_processing" },
+        "Agent: Extract Batch Records": { "output": "{\"records\": [{\"CardCode\": \"V10000\"}]}" }
+      },
+      "assert": {
+        "node": "Return Context Update Result",
+        "fields": { "route_key": "batch_processing", "intents": [
+          { "path": "purchase/purch_request/purch_request.json", "process_name": "Purchase Request", "process_definition": { "id": "stub_definition" }, "error": null, "error_message": null, "items": [{ "CardCode": "V10000" }] },
+          { "path": "warehouse/goods_receipt/goods_receipt.json", "process_name": "Goods Receipt", "process_definition": { "id": "stub_definition" }, "error": null, "error_message": null, "items": [{ "CardCode": "V10000" }] }
+        ] }
+      }
+    },
+    {
+      "description": "batch extraction agent fails (rate limit, malformed output, etc.) -> surfaces via this intent's own error/error_message, the exact same channel a schema-resolution failure already uses -- no separate failure path needed in batch-processing.json",
+      "input": {
+        "route_key": "batch_processing",
+        "language": "es",
+        "message": "listame los proveedores que contengan Flete",
+        "group_name": "g1",
+        "session_id": "s1",
+        "processes": [
+          { "path": "business_partners/vendor_list/vendor_list.json", "process_name": "List Vendors" }
+        ],
+        "github_owner": "blasvicco",
+        "github_repo": "da-sapot-processes"
+      },
+      "pins": {
+        "Execute Workflow: Schema Resolution": { "process_definition": { "id": "vendor_list", "api": { "method": "GET" } }, "error": null, "error_message": null, "route_key": "batch_processing" },
+        "Agent: Extract Batch Records": { "__error__": { "error": { "message": "Rate limit exceeded, tokens per min" } } }
+      },
+      "assert": {
+        "node": "Return Context Update Result",
+        "fields": { "route_key": "batch_processing", "intents": [
+          { "path": "business_partners/vendor_list/vendor_list.json", "process_name": "List Vendors", "process_definition": { "id": "vendor_list", "api": { "method": "GET" } }, "error": "AGENT_ERROR", "error_message": "Rate limit exceeded, tokens per min", "items": [] }
+        ] }
+      }
+    },
+    {
+      "description": "batch where both processes fail to resolve (pinned uniformly, since a pin can't vary per call) -> both still appear in intents, route_key stays batch_processing -- proves a resolution failure doesn't abort the whole batch the way it does for form filling",
+      "input": {
+        "route_key": "batch_processing",
+        "language": "es",
+        "message": "crea una solicitud de compra y algo raro",
+        "group_name": "g1",
+        "session_id": "s1",
+        "processes": [
+          { "path": "purchase/purch_request/purch_request.json", "process_name": "Purchase Request" },
+          { "path": "bogus/path.json", "process_name": "Unknown" }
+        ],
+        "github_owner": "blasvicco",
+        "github_repo": "da-sapot-processes"
+      },
+      "pins": {
+        "Execute Workflow: Schema Resolution": { "error": "NOT_FOUND", "error_message": "No se encontró la definición del proceso.", "route_key": "batch_processing" }
+      },
+      "assert": {
+        "node": "Return Context Update Result",
+        "fields": { "route_key": "batch_processing", "intents": [
+          { "path": "purchase/purch_request/purch_request.json", "process_name": "Purchase Request", "process_definition": null, "error": "NOT_FOUND", "error_message": "No se encontró la definición del proceso.", "items": [] },
+          { "path": "bogus/path.json", "process_name": "Unknown", "process_definition": null, "error": "NOT_FOUND", "error_message": "No se encontró la definición del proceso.", "items": [] }
+        ] }
+      }
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "node": "Prompt: Extract Batch Records",
+  "cases": [
+    {
+      "description": "CREATE process -> SCHEMA block with form.sections, no FILTERS wording",
+      "input": {
+        "current_date": "2026-08-15",
+        "language": "es",
+        "process_name": "Purchase Request",
+        "process_definition": { "api": { "method": "POST" }, "form": { "sections": [{ "id": "supplier" }] } },
+        "message": "crea una solicitud para V10000",
+        "extracted_files": []
+      },
+      "nodeResults": {},
+      "expected": {
+        "chatInput": "Today: 2026-08-15. Respond in: es.\n\nPROCESS: Purchase Request\n\nThis is a CREATE process -- identify every separate record the message/files describe.\n\nSCHEMA:\n```json\n{\n  \"sections\": [\n    {\n      \"id\": \"supplier\"\n    }\n  ]\n}\n```\n\nUSER MESSAGE:\ncrea una solicitud para V10000\n\nATTACHED FILE CONTENT:\n(none)"
+      }
+    },
+    {
+      "description": "CREATE process with attached files -> file content embedded, method defaults to POST when absent",
+      "input": {
+        "current_date": "2026-08-15",
+        "language": "en",
+        "process_name": "Purchase Request",
+        "process_definition": { "form": { "sections": [] } },
+        "message": "create these",
+        "extracted_files": [{ "bucket_file_id": 101, "extracted_content": "row1,row2" }]
+      },
+      "nodeResults": {},
+      "expected": {
+        "chatInput": "Today: 2026-08-15. Respond in: en.\n\nPROCESS: Purchase Request\n\nThis is a CREATE process -- identify every separate record the message/files describe.\n\nSCHEMA:\n```json\n{\n  \"sections\": []\n}\n```\n\nUSER MESSAGE:\ncreate these\n\nATTACHED FILE CONTENT:\nFile 101:\nrow1,row2"
+      }
+    },
+    {
+      "description": "GET process -> FILTERS AVAILABLE block instead of SCHEMA, always exactly one record framing",
+      "input": {
+        "current_date": "2026-08-15",
+        "language": "es",
+        "process_name": "List Vendors",
+        "process_definition": { "api": { "method": "GET" }, "query": { "filters": [{ "id": "CardName", "label": "Vendor Name", "type": "string", "operator": ["contains", "not_contains"] }] } },
+        "message": "listame los proveedores que contengan Flete",
+        "extracted_files": []
+      },
+      "nodeResults": {},
+      "expected": {
+        "chatInput": "Today: 2026-08-15. Respond in: es.\n\nPROCESS: List Vendors\n\nThis is a SEARCH/QUERY process -- always produce exactly ONE record.\n\nFILTERS AVAILABLE FOR THIS SEARCH:\n  - CardName (Vendor Name, string) -- allowed operators: contains, not_contains\n\nUSER MESSAGE:\nlistame los proveedores que contengan Flete\n\nATTACHED FILE CONTENT:\n(none)"
+      }
+    },
+    {
+      "description": "GET process with a key declared -> key section appended after the filter list",
+      "input": {
+        "current_date": "2026-08-15",
+        "language": "es",
+        "process_name": "Get Purchase Order",
+        "process_definition": { "api": { "method": "GET" }, "query": { "key": { "id": "DocEntry", "sap_field": "DocEntry" }, "filters": [] } },
+        "message": "muestrame la OC 1050",
+        "extracted_files": []
+      },
+      "nodeResults": {},
+      "expected": {
+        "chatInput": "Today: 2026-08-15. Respond in: es.\n\nPROCESS: Get Purchase Order\n\nThis is a SEARCH/QUERY process -- always produce exactly ONE record.\n\nFILTERS AVAILABLE FOR THIS SEARCH:\n  (none declared)\nKEY (set key_value ONLY if the message names one specific record by this field; otherwise leave it null and use FILTERS below instead):\n  - DocEntry (DocEntry)\n\nUSER MESSAGE:\nmuestrame la OC 1050\n\nATTACHED FILE CONTENT:\n(none)"
+      }
+    }
+  ]
+}

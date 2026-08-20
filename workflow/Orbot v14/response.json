@@ -1,0 +1,122 @@
+{
+  "name": "Orbot v14 - Response",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -400,
+        128
+      ],
+      "id": "3a2b3c4d-0001-4a1a-8a1a-000000000001",
+      "name": "Execute Workflow Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Shared terminal delivery step -- any sub-workflow that's done for this turn calls this\n// instead of POSTing to Django itself, so the callback contract (and any future change to\n// it) lives in exactly one place.\n//\n// root_execution_id (set once, in spine.json, before anything downstream is ever called)\n// rides along here like any other context field and is passed straight through to Django.\n// Django's n8n_callback handler is the one place that actually computes token usage: once\n// this callback tells it the turn is done, it fires a background poll-then-walk of the\n// whole execution tree (every nested Execute Workflow hop, chased via each call site's own\n// metadata.subExecution.executionId) and sums whatever Chat Model usage it finds. That has\n// to happen from outside n8n, after the fact -- from inside any single execution, the\n// executions API only exposes runData once status is genuinely 'finished', and a node can\n// never see that for its own still-running execution (confirmed against a live run under\n// this deployment's EXECUTIONS_MODE=queue); and n8n's in-process $('NodeName') accessor\n// can't reach a Chat Model node's output at all, since that only exists on the\n// ai_languageModel connection type, not main (also confirmed live: 'No data found from\n// main input'). Bringing usage tracking back required moving it out of n8n entirely.\nconst d = $json;\nreturn [{ json: {\n  group_name: d.group_name,\n  session_id: d.session_id,\n  text: d.message || '',\n  type: (d.error && !['NO_MATCH', 'MULTIPLE_PROCESSES', 'AGENT_ERROR'].includes(d.error)) ? 'alert' : 'agent',\n  ...(d._root_execution_id ? { root_execution_id: d._root_execution_id } : {}),\n  state: {\n    last_bot_message: d.message ?? null,\n    intention_nodes: d.intention_nodes ?? {},\n    active_node_id: d.active_node_id ?? null,\n    reset_process: d.reset_process === true,\n  },\n  processes: d.processes ?? null,\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        128
+      ],
+      "id": "3a2b3c4d-0002-4a1a-8a1a-000000000002",
+      "name": "Build Callback Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://blas.local/api/v1/chat/n8n_callback/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        80,
+        128
+      ],
+      "id": "3a2b3c4d-0003-4a1a-8a1a-000000000003",
+      "name": "Django Callback",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3czPporgXpCWJNHz",
+          "name": "Orb Auth"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        320,
+        128
+      ],
+      "id": "3a2b3c4d-0004-4a1a-8a1a-000000000004",
+      "name": "Return Delivery Result"
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Build Callback Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Callback Payload": {
+      "main": [
+        [
+          {
+            "node": "Django Callback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Django Callback": {
+      "main": [
+        [
+          {
+            "node": "Return Delivery Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

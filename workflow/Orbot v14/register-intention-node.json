@@ -1,0 +1,69 @@
+{
+  "name": "Orbot v14 - Register Intention Node",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "68c12aa3-eab8-4e69-89b7-4faa6a5a774a",
+      "name": "Execute Workflow Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Shared node-registration step -- the v14 successor to v13's register-intention-node.json\n// (mints process_id the same way, same global counter id scheme), generalized so both\n// context-update.json's single-match path and batch-processing.json's per-record path call\n// this one implementation instead of each carrying their own copy.\n//\n// Processes $input.all() as ONE sequential pass, not one node id per input item -- confirmed\n// live (2026-08-15 probe) that Execute Workflow, given N items and no special options, calls\n// this sub-workflow exactly ONCE with all N, so this is the only place that can safely see\n// every registration in the same turn: n8n's own splitInBatches does NOT thread mutations\n// from one loop iteration to the next (also confirmed live), so any caller trying to\n// register one node per loop iteration would have every iteration compute newNodeId from\n// the same stale count and collide. A single caller normally sends exactly one item\n// (context-update.json's single-match path); this still works identically since the loop\n// below just runs once.\nconst items = $input.all().map((it) => it.json);\nlet intentionNodes = items[0]?.intention_nodes || {};\nconst registered = items.map((data) => {\n  const processId = data.process_definition?.id ?? data.process_definition?.slug ?? null;\n  const newNodeId = `${processId}#${Object.keys(intentionNodes).length}`;\n  const status = data.status ?? 'active';\n  // A node minted straight into 'completed' (the common batch-processing.json case --\n  // most records in a batch register already-done, never touching form-filling or SAP\n  // execution again) never needs its full schema again -- only .name, for display in the\n  // Intention Graph / general-inquiry context. Storing the whole process_definition here\n  // meant N identical multi-KB copies per batch, permanently, in every subsequent turn's\n  // wire payload and in Postgres. active/paused/failed nodes keep the full definition,\n  // since Prompt: Form / Build SAP Payload / Prompt: Intention Focus all still need it.\n  const storedDefinition = status === 'completed'\n    ? { name: data.process_definition?.name ?? null }\n    : data.process_definition;\n  intentionNodes = {\n    ...intentionNodes,\n    [newNodeId]: {\n      id: newNodeId,\n      parent_id: data.parent_id ?? null,\n      process_id: processId,\n      process_definition: storedDefinition,\n      form_state: data.form_state ?? {},\n      status,\n      error_detail: data.error_detail ?? null,\n    },\n  };\n  return { data, newNodeId };\n});\nreturn registered.map(({ data, newNodeId }) => ({ json: {\n  ...data,\n  intention_nodes: intentionNodes,\n  active_node_id: data.set_active ? newNodeId : data.active_node_id,\n  new_node_id: newNodeId,\n} }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "id": "729de83c-f439-4695-8433-cd6d0ad1dfb1",
+      "name": "Register Node"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        480,
+        0
+      ],
+      "id": "65aa3cf7-0151-4364-b797-a5232e7f0d89",
+      "name": "Return Registration Result"
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Register Node",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Register Node": {
+      "main": [
+        [
+          {
+            "node": "Return Registration Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

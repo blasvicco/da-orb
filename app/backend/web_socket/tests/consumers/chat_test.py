@@ -42,7 +42,13 @@ def _make_consumer(resume_session_id=None, session=None):
 	consumer.scope = {"organization": org}
 	consumer.organization = org
 	consumer.user = MagicMock(session=session, username="bob")
-	consumer.channel_layer = MagicMock(group_send=AsyncMock())
+	consumer.channel_layer = MagicMock(
+		group_add=AsyncMock(), group_discard=AsyncMock(), group_send=AsyncMock()
+	)
+	consumer.channel_name = "test-channel"
+	consumer.group_name = "chat_pending_token"
+	consumer.n8n_state = MagicMock(close=AsyncMock())
+	consumer.n8n_queue = MagicMock(close=AsyncMock())
 	consumer.send_json = AsyncMock()
 	consumer._resume_session_id = resume_session_id  # pylint: disable=protected-access
 	return consumer
@@ -57,7 +63,7 @@ def test_create_session_persists_connection_key():
 
 	with step("Act: Call _create_session."):
 		session = async_to_sync(_create_session)(
-			connection_key="TESTDB", language="es", org=org, username="bob"
+			connection_key="TESTDB", org=org, username="bob"
 		)
 
 	with step("Assert: The row was persisted with the connection_key."):
@@ -323,8 +329,10 @@ def test_resolve_process_selection(payload):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_broadcast_persists_message_for_non_ephemeral_types():
-	"""Test _broadcast sends to the channel group and persists non-system/status messages"""
+@pytest.mark.parametrize("msg_type", ["agent", "system"])
+def test_broadcast_persists_message_for_non_ephemeral_types(msg_type):
+	"""Test _broadcast sends to the channel group and persists every message type that
+	actually shows up as a chat bubble -- only "status" is excluded (see below)."""
 
 	with step("Arrange: A consumer with a persisted chat_session."):
 		consumer = _make_consumer()
@@ -332,9 +340,9 @@ def test_broadcast_persists_message_for_non_ephemeral_types():
 			org=consumer.organization, username="bob"
 		)
 
-	with step("Act: Call _broadcast with an 'agent' message."):
+	with step(f"Act: Call _broadcast with a '{msg_type}' message."):
 		async_to_sync(consumer._broadcast)(  # pylint: disable=protected-access
-			"hello", "agent"
+			"hello", msg_type
 		)
 
 	with step("Assert: The group was notified and the message was persisted."):
@@ -359,18 +367,18 @@ def test_broadcast_merges_extra_fields_into_the_payload():
 		assert sent_event["payload"]["processes"] == [{"name": "x"}]
 
 
-@pytest.mark.parametrize("msg_type", ["system", "status"])
-def test_broadcast_skips_persistence_for_ephemeral_types(mocker, msg_type):
-	"""Test _broadcast never persists system/status messages"""
+def test_broadcast_skips_persistence_for_status(mocker):
+	"""Test _broadcast never persists "status" messages -- the only type that's purely
+	an ephemeral typing-indicator ping and never becomes a bubble in the chat history"""
 
-	with step(f"Arrange: A consumer with a chat_session and msg_type={msg_type}."):
+	with step("Arrange: A consumer with a chat_session."):
 		consumer = _make_consumer()
 		consumer.chat_session = SimpleNamespace(pk=1)
 		mock_save = mocker.patch("web_socket.consumers.chat._save_message", AsyncMock())
 
-	with step("Act: Call _broadcast."):
+	with step("Act: Call _broadcast with a 'status' message."):
 		async_to_sync(consumer._broadcast)(  # pylint: disable=protected-access
-			"queued", msg_type
+			"queued", "status"
 		)
 
 	with step("Assert: No message was persisted."):
@@ -460,6 +468,58 @@ def test_ensure_session_is_a_noop_when_a_session_already_exists():
 
 
 @pytest.mark.django_db(transaction=True)
+def test_ensure_session_rekeys_group_for_a_brand_new_chat():
+	"""Test _ensure_session migrates the connection from its pre-session random-token
+	group to the deterministic session-id group once a brand-new chat gets a real id —
+	otherwise a reconnect that later resumes this same session (e.g. switching to
+	another chat and back before the reply arrives) would compute a different group
+	name and never receive the in-flight reply's broadcast."""
+
+	with step(
+		"Arrange: A consumer with no chat_session yet, still on its pre-session token group."
+	):
+		consumer = _make_consumer()
+		old_group_name = consumer.group_name
+		old_n8n_state = consumer.n8n_state
+		old_n8n_queue = consumer.n8n_queue
+		consumer.chat_session = None
+
+	with step("Act: Call _ensure_session with the n8n Redis helpers mocked out."):
+		with patch("web_socket.consumers.chat.N8nSessionState") as mock_state, patch(
+			"web_socket.consumers.chat.N8nQueueState"
+		) as mock_queue:
+			async_to_sync(
+				consumer._ensure_session
+			)()  # pylint: disable=protected-access
+
+	with step("Assert: The connection now sits on the deterministic session-id group."):
+		new_group_name = (
+			f"chat_{consumer.organization.id}_bob_{consumer.chat_session.id}"
+		)
+		assert new_group_name != old_group_name
+		assert consumer.group_name == new_group_name
+		assert (
+			consumer._resume_session_id == consumer.chat_session.id
+		)  # pylint: disable=protected-access
+		consumer.channel_layer.group_add.assert_awaited_once_with(
+			new_group_name, "test-channel"
+		)
+		consumer.channel_layer.group_discard.assert_awaited_once_with(
+			old_group_name, "test-channel"
+		)
+
+	with step(
+		"Assert: The old Redis-backed helpers were closed and replaced, keyed on the new group."
+	):
+		old_n8n_state.close.assert_awaited_once()
+		old_n8n_queue.close.assert_awaited_once()
+		mock_state.assert_called_once_with(group_name=new_group_name)
+		mock_queue.assert_called_once_with(group_name=new_group_name)
+		assert consumer.n8n_state is mock_state.return_value
+		assert consumer.n8n_queue is mock_queue.return_value
+
+
+@pytest.mark.django_db(transaction=True)
 def test_session_ensure_delegates_to_ensure_session():
 	"""Test the session_ensure WS entry point creates the session ahead of any message"""
 
@@ -493,7 +553,9 @@ def test_message_send_titles_a_session_pre_created_by_session_ensure(mocker):
 		mocker.patch.object(consumer, "_broadcast", AsyncMock())
 
 	with step("Act: Call message_send with the first real message."):
-		async_to_sync(consumer.message_send)({"message": "Hello there"})
+		async_to_sync(consumer.message_send)(
+			{"expertise_level": 2, "language": "es", "message": "Hello there"}
+		)
 
 	with step(
 		"Assert: The pre-existing session was titled, not recreated or re-announced."
@@ -501,6 +563,365 @@ def test_message_send_titles_a_session_pre_created_by_session_ensure(mocker):
 		assert consumer.chat_session.id == pre_created_session.id
 		assert consumer.chat_session.title == "Hello there"
 		consumer.send_json.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# active_node_switch
+# ---------------------------------------------------------------------------
+
+
+def test_active_node_switch_parks_old_and_activates_target():
+	"""Test active_node_switch parks the currently active node and activates the target"""
+
+	with step("Arrange: A consumer with two intention nodes, one active."):
+		consumer = _make_consumer()
+		current_state = {
+			"active_node_id": "n1#0",
+			"intention_nodes": {
+				"n1#0": {
+					"id": "n1#0",
+					"process_id": "purchase_request",
+					"status": "active",
+				},
+				"n2#1": {"id": "n2#1", "process_id": "vendor_list", "status": "paused"},
+			},
+		}
+		consumer.n8n_state = MagicMock(
+			load=AsyncMock(return_value=current_state), save=AsyncMock()
+		)
+
+	with step("Act: Call active_node_switch targeting the paused node."):
+		async_to_sync(consumer.active_node_switch)({"active_node_id": "n2#1"})
+
+	with step(
+		"Assert: The old node was parked, the target activated, and the result saved."
+	):
+		consumer.n8n_state.save.assert_awaited_once_with(
+			active_node_id="n2#1",
+			intention_nodes={
+				"n1#0": {
+					"id": "n1#0",
+					"process_id": "purchase_request",
+					"status": "paused",
+				},
+				"n2#1": {"id": "n2#1", "process_id": "vendor_list", "status": "active"},
+			},
+			last_bot_message=None,
+		)
+
+
+def test_active_node_switch_broadcasts_the_announcement_when_text_provided(mocker):
+	"""Test active_node_switch broadcasts the frontend-supplied announcement as a
+	"system" message once the switch succeeds, so it gets persisted like every other
+	visible chat bubble instead of only ever living in the frontend's local state"""
+
+	with step("Arrange: A consumer with two intention nodes, one active."):
+		consumer = _make_consumer()
+		consumer.n8n_state = MagicMock(
+			load=AsyncMock(
+				return_value={
+					"active_node_id": "n1#0",
+					"intention_nodes": {
+						"n1#0": {"id": "n1#0", "status": "active"},
+						"n2#1": {"id": "n2#1", "status": "paused"},
+					},
+				}
+			),
+			save=AsyncMock(),
+		)
+		mock_broadcast = mocker.patch.object(consumer, "_broadcast", AsyncMock())
+
+	with step("Act: Call active_node_switch with an announcement text."):
+		async_to_sync(consumer.active_node_switch)(
+			{"active_node_id": "n2#1", "text": "Context switched — now in Vendor List."}
+		)
+
+	with step("Assert: The announcement was broadcast as a 'system' message."):
+		mock_broadcast.assert_awaited_once_with(
+			"Context switched — now in Vendor List.", "system"
+		)
+
+
+def test_active_node_switch_does_not_broadcast_when_text_is_blank(mocker):
+	"""Test active_node_switch never broadcasts when no announcement text was sent --
+	e.g. a caller exercising only the Redis-state move in isolation"""
+
+	with step("Arrange: A consumer with two intention nodes, one active."):
+		consumer = _make_consumer()
+		consumer.n8n_state = MagicMock(
+			load=AsyncMock(
+				return_value={
+					"active_node_id": "n1#0",
+					"intention_nodes": {
+						"n1#0": {"id": "n1#0", "status": "active"},
+						"n2#1": {"id": "n2#1", "status": "paused"},
+					},
+				}
+			),
+			save=AsyncMock(),
+		)
+		mock_broadcast = mocker.patch.object(consumer, "_broadcast", AsyncMock())
+
+	with step("Act: Call active_node_switch with no text field."):
+		async_to_sync(consumer.active_node_switch)({"active_node_id": "n2#1"})
+
+	with step("Assert: Nothing was broadcast."):
+		mock_broadcast.assert_not_awaited()
+
+
+def test_active_node_switch_noop_when_target_unknown():
+	"""Test active_node_switch does nothing when the target id isn't in intention_nodes"""
+
+	with step("Arrange: A consumer whose intention_nodes has no matching id."):
+		consumer = _make_consumer()
+		consumer.n8n_state = MagicMock(
+			load=AsyncMock(
+				return_value={
+					"active_node_id": "n1#0",
+					"intention_nodes": {
+						"n1#0": {"id": "n1#0", "status": "active"},
+					},
+				}
+			),
+			save=AsyncMock(),
+		)
+
+	with step("Act: Call active_node_switch with an unknown target id."):
+		async_to_sync(consumer.active_node_switch)({"active_node_id": "ghost#0"})
+
+	with step("Assert: Nothing was saved."):
+		consumer.n8n_state.save.assert_not_awaited()
+
+
+def test_active_node_switch_noop_when_target_already_active():
+	"""Test active_node_switch does nothing when the target is already the active node"""
+
+	with step("Arrange: A consumer whose target id is already active."):
+		consumer = _make_consumer()
+		consumer.n8n_state = MagicMock(
+			load=AsyncMock(
+				return_value={
+					"active_node_id": "n1#0",
+					"intention_nodes": {
+						"n1#0": {"id": "n1#0", "status": "active"},
+					},
+				}
+			),
+			save=AsyncMock(),
+		)
+
+	with step("Act: Call active_node_switch targeting the already-active node."):
+		async_to_sync(consumer.active_node_switch)({"active_node_id": "n1#0"})
+
+	with step("Assert: Nothing was saved."):
+		consumer.n8n_state.save.assert_not_awaited()
+
+
+def test_active_node_switch_noop_when_no_target_id():
+	"""Test active_node_switch does nothing when the event carries no active_node_id"""
+
+	with step("Arrange: A consumer and an event with no active_node_id."):
+		consumer = _make_consumer()
+		consumer.n8n_state = MagicMock(load=AsyncMock(), save=AsyncMock())
+
+	with step("Act: Call active_node_switch with an empty event."):
+		async_to_sync(consumer.active_node_switch)({})
+
+	with step("Assert: state was never even loaded."):
+		consumer.n8n_state.load.assert_not_awaited()
+		consumer.n8n_state.save.assert_not_awaited()
+
+
+def test_active_node_switch_noop_when_payload_malformed():
+	"""Test active_node_switch drops the event when active_node_id isn't a string -- SActiveNodeSwitch rejects it before anything is read"""
+
+	with step("Arrange: A consumer and an event with a non-string active_node_id."):
+		consumer = _make_consumer()
+		consumer.n8n_state = MagicMock(load=AsyncMock(), save=AsyncMock())
+
+	with step("Act: Call active_node_switch with a malformed active_node_id."):
+		async_to_sync(consumer.active_node_switch)(
+			{"active_node_id": ["not", "a", "string"]}
+		)
+
+	with step("Assert: state was never even loaded."):
+		consumer.n8n_state.load.assert_not_awaited()
+		consumer.n8n_state.save.assert_not_awaited()
+
+
+def test_active_node_switch_activates_target_when_nothing_was_active():
+	"""Test active_node_switch activates the target with no park step when nothing was active"""
+
+	with step("Arrange: A consumer with a parked node and no currently active one."):
+		consumer = _make_consumer()
+		consumer.n8n_state = MagicMock(
+			load=AsyncMock(
+				return_value={
+					"active_node_id": None,
+					"intention_nodes": {
+						"n1#0": {
+							"id": "n1#0",
+							"process_id": "purchase_request",
+							"status": "paused",
+						},
+					},
+				}
+			),
+			save=AsyncMock(),
+		)
+
+	with step("Act: Call active_node_switch targeting the parked node."):
+		async_to_sync(consumer.active_node_switch)({"active_node_id": "n1#0"})
+
+	with step("Assert: The target was activated directly, nothing to park."):
+		consumer.n8n_state.save.assert_awaited_once_with(
+			active_node_id="n1#0",
+			intention_nodes={
+				"n1#0": {
+					"id": "n1#0",
+					"process_id": "purchase_request",
+					"status": "active",
+				},
+			},
+			last_bot_message=None,
+		)
+
+
+def test_active_node_switch_does_not_park_a_non_active_old_node():
+	"""Test active_node_switch leaves the old active_node_id's status untouched when it isn't
+	actually 'active' -- e.g. Compute Execution Outcome deliberately leaves active_node_id
+	pointing at a node it just marked 'completed'; switching away from it must not relabel
+	that terminal status 'paused'"""
+
+	with step("Arrange: active_node_id points at an already-completed node."):
+		consumer = _make_consumer()
+		current_state = {
+			"active_node_id": "n1#0",
+			"intention_nodes": {
+				"n1#0": {
+					"id": "n1#0",
+					"process_id": "purchase_request",
+					"status": "completed",
+				},
+				"n2#1": {"id": "n2#1", "process_id": "vendor_list", "status": "paused"},
+			},
+		}
+		consumer.n8n_state = MagicMock(
+			load=AsyncMock(return_value=current_state), save=AsyncMock()
+		)
+
+	with step("Act: Call active_node_switch targeting the paused node."):
+		async_to_sync(consumer.active_node_switch)({"active_node_id": "n2#1"})
+
+	with step(
+		"Assert: The completed node's status is untouched, not relabeled 'paused'."
+	):
+		consumer.n8n_state.save.assert_awaited_once_with(
+			active_node_id="n2#1",
+			intention_nodes={
+				"n1#0": {
+					"id": "n1#0",
+					"process_id": "purchase_request",
+					"status": "completed",
+				},
+				"n2#1": {"id": "n2#1", "process_id": "vendor_list", "status": "active"},
+			},
+			last_bot_message=None,
+		)
+
+
+def test_active_node_switch_does_not_reactivate_a_completed_target():
+	"""Test active_node_switch, clicking a completed node (REGRESSION), moves active_node_id
+	to it (so context questions like general_inquiry can reference it) but leaves its status
+	'completed' rather than flipping it back to 'active' -- a completed node's
+	process_definition is pruned down to {name} (register-intention-node.json /
+	sap-inquiry-execution.json), so routing it back into form-filling would hit
+	Build SAP Payload with nothing to build a payload from"""
+
+	with step("Arrange: A consumer with an active node and a completed one."):
+		consumer = _make_consumer()
+		current_state = {
+			"active_node_id": "n1#0",
+			"intention_nodes": {
+				"n1#0": {
+					"id": "n1#0",
+					"process_id": "purchase_request",
+					"status": "active",
+				},
+				"n2#1": {
+					"id": "n2#1",
+					"process_id": "vendor_list",
+					"status": "completed",
+					"process_definition": {"name": "Vendor List"},
+				},
+			},
+		}
+		consumer.n8n_state = MagicMock(
+			load=AsyncMock(return_value=current_state), save=AsyncMock()
+		)
+
+	with step("Act: Call active_node_switch targeting the completed node."):
+		async_to_sync(consumer.active_node_switch)({"active_node_id": "n2#1"})
+
+	with step(
+		"Assert: active_node_id moved to the completed node, but its status stayed 'completed'."
+	):
+		consumer.n8n_state.save.assert_awaited_once_with(
+			active_node_id="n2#1",
+			intention_nodes={
+				"n1#0": {
+					"id": "n1#0",
+					"process_id": "purchase_request",
+					"status": "paused",
+				},
+				"n2#1": {
+					"id": "n2#1",
+					"process_id": "vendor_list",
+					"status": "completed",
+					"process_definition": {"name": "Vendor List"},
+				},
+			},
+			last_bot_message=None,
+		)
+
+
+def test_active_node_switch_does_not_reactivate_an_abandoned_target():
+	"""Test active_node_switch leaves an 'abandoned' target's status untouched too -- only
+	'failed'/'paused' are genuinely resumable per UC-6"""
+
+	with step("Arrange: A consumer with no active node and one abandoned node."):
+		consumer = _make_consumer()
+		consumer.n8n_state = MagicMock(
+			load=AsyncMock(
+				return_value={
+					"active_node_id": None,
+					"intention_nodes": {
+						"n1#0": {
+							"id": "n1#0",
+							"process_id": "purchase_request",
+							"status": "abandoned",
+						},
+					},
+				}
+			),
+			save=AsyncMock(),
+		)
+
+	with step("Act: Call active_node_switch targeting the abandoned node."):
+		async_to_sync(consumer.active_node_switch)({"active_node_id": "n1#0"})
+
+	with step("Assert: active_node_id moved to it, status stayed 'abandoned'."):
+		consumer.n8n_state.save.assert_awaited_once_with(
+			active_node_id="n1#0",
+			intention_nodes={
+				"n1#0": {
+					"id": "n1#0",
+					"process_id": "purchase_request",
+					"status": "abandoned",
+				},
+			},
+			last_bot_message=None,
+		)
 
 
 # ---------------------------------------------------------------------------
@@ -516,12 +937,16 @@ def test_message_send_creates_session_on_first_message(mocker):
 		consumer = _make_consumer()
 		consumer.connection_key = "TESTDB"
 		consumer.chat_session = None
-		consumer.n8n_queue = MagicMock(try_start=AsyncMock(return_value=True))
+		consumer.n8n_queue = MagicMock(
+			close=AsyncMock(), try_start=AsyncMock(return_value=True)
+		)
 		mock_fire = mocker.patch.object(consumer, "_fire_n8n", AsyncMock())
 		mock_broadcast = mocker.patch.object(consumer, "_broadcast", AsyncMock())
 
 	with step("Act: Call message_send with the first message."):
-		async_to_sync(consumer.message_send)({"message": "Hello there"})
+		async_to_sync(consumer.message_send)(
+			{"expertise_level": 2, "language": "es", "message": "Hello there"}
+		)
 
 	with step("Assert: A session was created, titled, announced, and fired to n8n."):
 		assert consumer.chat_session is not None
@@ -533,33 +958,42 @@ def test_message_send_creates_session_on_first_message(mocker):
 		mock_broadcast.assert_awaited_once_with("Hello there", "user", extra=None)
 		mock_fire.assert_called_once_with(
 			"Hello there",
-			active_node_override=None,
 			bucket_file_ids=[],
 			expertise_level=2,
+			language="es",
 		)
 
 
 @pytest.mark.django_db(transaction=True)
-def test_message_send_uses_the_authenticated_session_language(mocker):
-	"""Test message_send reads the new session's language from the authenticated session, when present"""
+def test_message_send_trims_whitespace_from_message(mocker):
+	"""Test message_send trims whitespace once, up front, so the title, broadcast, and n8n payload all see the same clean text"""
 
-	with step(
-		"Arrange: A consumer whose user carries an authenticated session with a language."
-	):
-		consumer = _make_consumer(session=SimpleNamespace(language="en"))
+	with step("Arrange: A consumer with no chat_session yet."):
+		consumer = _make_consumer()
 		consumer.connection_key = "TESTDB"
 		consumer.chat_session = None
-		consumer.n8n_queue = MagicMock(try_start=AsyncMock(return_value=True))
-		mocker.patch.object(consumer, "_fire_n8n", AsyncMock())
-		mocker.patch.object(consumer, "_broadcast", AsyncMock())
+		consumer.n8n_queue = MagicMock(
+			close=AsyncMock(), try_start=AsyncMock(return_value=True)
+		)
+		mock_fire = mocker.patch.object(consumer, "_fire_n8n", AsyncMock())
+		mock_broadcast = mocker.patch.object(consumer, "_broadcast", AsyncMock())
 
-	with step("Act: Call message_send with the first message."):
-		async_to_sync(consumer.message_send)({"message": "Hello there"})
+	with step("Act: Call message_send with leading/trailing whitespace."):
+		async_to_sync(consumer.message_send)(
+			{"expertise_level": 2, "language": "es", "message": "  Hello there  "}
+		)
 
 	with step(
-		"Assert: The new session was created with the authenticated session's language."
+		"Assert: The title, broadcast, and n8n payload all received the trimmed text."
 	):
-		assert consumer.chat_session.language == "en"
+		assert consumer.chat_session.title == "Hello there"
+		mock_broadcast.assert_awaited_once_with("Hello there", "user", extra=None)
+		mock_fire.assert_called_once_with(
+			"Hello there",
+			bucket_file_ids=[],
+			expertise_level=2,
+			language="es",
+		)
 
 
 @pytest.mark.django_db(transaction=True)
@@ -581,7 +1015,9 @@ def test_message_send_retitles_session_after_process_selection(mocker):
 		mocker.patch.object(consumer, "_broadcast", AsyncMock())
 
 	with step("Act: Call message_send with a resolvable selection."):
-		async_to_sync(consumer.message_send)({"message": "1"})
+		async_to_sync(consumer.message_send)(
+			{"expertise_level": 2, "language": "es", "message": "1"}
+		)
 
 	with step("Assert: The session title reflects the resolved process name."):
 		consumer.chat_session.refresh_from_db()
@@ -608,7 +1044,9 @@ def test_message_send_queues_when_execution_already_in_flight(mocker):
 		mock_broadcast = mocker.patch.object(consumer, "_broadcast", AsyncMock())
 
 	with step("Act: Call message_send."):
-		async_to_sync(consumer.message_send)({"message": "hello"})
+		async_to_sync(consumer.message_send)(
+			{"expertise_level": 2, "language": "es", "message": "hello"}
+		)
 
 	with step("Assert: The message was queued and a status notice was broadcast."):
 		consumer.n8n_queue.set_pending.assert_awaited_once()
@@ -619,94 +1057,68 @@ def test_message_send_queues_when_execution_already_in_flight(mocker):
 
 
 @pytest.mark.django_db(transaction=True)
-@pytest.mark.parametrize(
-	"payload",
-	[
-		{"description": "a valid level is kept", "expected": 3, "given": 3},
-		{"description": "an invalid level falls back to 2", "expected": 2, "given": 99},
-	],
-)
-def test_message_send_normalises_expertise_level(mocker, payload):
-	"""Test message_send only accepts expertise_level 1/2/3, defaulting anything else to 2"""
-
-	with step(f"Arrange: {payload['description']}."):
-		consumer = _make_consumer()
-		consumer.connection_key = "TESTDB"
-		consumer.chat_session = MChatSession.objects.create(
-			connection_key="TESTDB", org=consumer.organization, username="bob"
-		)
-		consumer.n8n_queue = MagicMock(try_start=AsyncMock(return_value=True))
-		mock_fire = mocker.patch.object(consumer, "_fire_n8n", AsyncMock())
-		mocker.patch.object(consumer, "_broadcast", AsyncMock())
-
-	with step("Act: Call message_send with the given expertise_level."):
-		async_to_sync(consumer.message_send)(
-			{"expertise_level": payload["given"], "message": "hi"}
-		)
-
-	with step("Assert: _fire_n8n was called with the normalised level."):
-		mock_fire.assert_called_once_with(
-			"hi",
-			active_node_override=None,
-			bucket_file_ids=[],
-			expertise_level=payload["expected"],
-		)
-
-
-@pytest.mark.django_db(transaction=True)
-def test_message_send_forwards_active_node_override_to_fire_n8n(mocker):
-	"""Test message_send reads the one-shot active_node_override and forwards it to _fire_n8n"""
-
-	with step("Arrange: A consumer and a message carrying an active_node_override."):
-		consumer = _make_consumer()
-		consumer.connection_key = "TESTDB"
-		consumer.chat_session = MChatSession.objects.create(
-			connection_key="TESTDB", org=consumer.organization, username="bob"
-		)
-		consumer.n8n_queue = MagicMock(try_start=AsyncMock(return_value=True))
-		mock_fire = mocker.patch.object(consumer, "_fire_n8n", AsyncMock())
-		mocker.patch.object(consumer, "_broadcast", AsyncMock())
-
-	with step("Act: Call message_send with an active_node_override."):
-		async_to_sync(consumer.message_send)(
-			{"active_node_override": "n2#0", "message": "hi"}
-		)
-
-	with step("Assert: _fire_n8n received the override."):
-		mock_fire.assert_called_once_with(
-			"hi", active_node_override="n2#0", bucket_file_ids=[], expertise_level=2
-		)
-
-
-@pytest.mark.django_db(transaction=True)
-def test_message_send_queues_active_node_override_when_execution_in_flight(mocker):
-	"""Test message_send includes active_node_override in the pending payload when queuing"""
+def test_message_send_forwards_expertise_level_to_fire_n8n(mocker):
+	"""Test message_send reads the payload's expertise_level as-is, with no default or
+	normalisation of its own, and forwards it to _fire_n8n -- same as language"""
 
 	with step(
-		"Arrange: An existing session, an in-flight execution, and an active_node_override."
+		"Arrange: A consumer and a message carrying a non-default expertise_level."
 	):
 		consumer = _make_consumer()
 		consumer.connection_key = "TESTDB"
 		consumer.chat_session = MChatSession.objects.create(
 			connection_key="TESTDB", org=consumer.organization, username="bob"
 		)
-		consumer.n8n_queue = MagicMock(
-			set_pending=AsyncMock(), try_start=AsyncMock(return_value=False)
-		)
-		consumer.user.to_dict = MagicMock(return_value={"username": "bob"})
-		mocker.patch.object(
-			consumer.organization, "safe_to_dict", return_value={"slug": "acme"}
-		)
+		consumer.n8n_queue = MagicMock(try_start=AsyncMock(return_value=True))
+		mock_fire = mocker.patch.object(consumer, "_fire_n8n", AsyncMock())
 		mocker.patch.object(consumer, "_broadcast", AsyncMock())
 
-	with step("Act: Call message_send with an active_node_override."):
+	with step("Act: Call message_send with expertise_level=3."):
 		async_to_sync(consumer.message_send)(
-			{"active_node_override": "n2#0", "message": "hello"}
+			{"expertise_level": 3, "language": "es", "message": "hi"}
 		)
 
-	with step("Assert: The queued payload carries the active_node_override."):
-		queued_payload = consumer.n8n_queue.set_pending.call_args.args[0]
-		assert queued_payload["active_node_override"] == "n2#0"
+	with step("Assert: _fire_n8n received the payload's expertise_level unchanged."):
+		mock_fire.assert_called_once_with(
+			"hi",
+			bucket_file_ids=[],
+			expertise_level=3,
+			language="es",
+		)
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize(
+	"payload",
+	[
+		{"description": "no expertise_level at all", "message": {"language": "es"}},
+		{
+			"description": "an out-of-range expertise_level",
+			"message": {"expertise_level": 99, "language": "es"},
+		},
+	],
+)
+def test_message_send_drops_payload_with_invalid_expertise_level(mocker, payload):
+	"""Test message_send silently drops the message when expertise_level is missing or out
+	of the 1-3 range -- SMessageSend requires it, same as language, there is no fallback"""
+
+	with step(f"Arrange: {payload['description']}."):
+		consumer = _make_consumer()
+		consumer.connection_key = "TESTDB"
+		consumer.chat_session = None
+		consumer.n8n_queue = MagicMock(try_start=AsyncMock(return_value=True))
+		mock_fire = mocker.patch.object(consumer, "_fire_n8n", AsyncMock())
+		mock_broadcast = mocker.patch.object(consumer, "_broadcast", AsyncMock())
+
+	with step("Act: Call message_send with the given payload."):
+		async_to_sync(consumer.message_send)({**payload["message"], "message": "hi"})
+
+	with step(
+		"Assert: Nothing was created, broadcast, or fired -- the payload was rejected."
+	):
+		assert consumer.chat_session is None
+		mock_broadcast.assert_not_awaited()
+		mock_fire.assert_not_called()
 
 
 @pytest.mark.django_db(transaction=True)
@@ -725,12 +1137,42 @@ def test_message_send_forwards_bucket_file_ids_to_fire_n8n(mocker):
 
 	with step("Act: Call message_send with bucket_file_ids."):
 		async_to_sync(consumer.message_send)(
-			{"bucket_file_ids": [7, 8], "message": "hi"}
+			{
+				"bucket_file_ids": [7, 8],
+				"expertise_level": 2,
+				"language": "es",
+				"message": "hi",
+			}
 		)
 
 	with step("Assert: _fire_n8n received the references."):
 		mock_fire.assert_called_once_with(
-			"hi", active_node_override=None, bucket_file_ids=[7, 8], expertise_level=2
+			"hi", bucket_file_ids=[7, 8], expertise_level=2, language="es"
+		)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_message_send_forwards_language_to_fire_n8n(mocker):
+	"""Test message_send reads the payload's language as-is, with no default of its own, and forwards it to _fire_n8n"""
+
+	with step("Arrange: A consumer and a message carrying an explicit language."):
+		consumer = _make_consumer()
+		consumer.connection_key = "TESTDB"
+		consumer.chat_session = MChatSession.objects.create(
+			connection_key="TESTDB", org=consumer.organization, username="bob"
+		)
+		consumer.n8n_queue = MagicMock(try_start=AsyncMock(return_value=True))
+		mock_fire = mocker.patch.object(consumer, "_fire_n8n", AsyncMock())
+		mocker.patch.object(consumer, "_broadcast", AsyncMock())
+
+	with step("Act: Call message_send with language='en'."):
+		async_to_sync(consumer.message_send)(
+			{"expertise_level": 2, "language": "en", "message": "hi"}
+		)
+
+	with step("Assert: _fire_n8n received the payload's language unchanged."):
+		mock_fire.assert_called_once_with(
+			"hi", bucket_file_ids=[], expertise_level=2, language="en"
 		)
 
 
@@ -753,7 +1195,12 @@ def test_message_send_rejects_batch_over_the_aggregate_size_cap(mocker, settings
 
 	with step("Act: Call message_send referencing both files."):
 		async_to_sync(consumer.message_send)(
-			{"bucket_file_ids": [file_a.id, file_b.id], "message": "hi"}
+			{
+				"bucket_file_ids": [file_a.id, file_b.id],
+				"expertise_level": 2,
+				"language": "es",
+				"message": "hi",
+			}
 		)
 
 	with step("Assert: An alert was broadcast and n8n was never fired."):
@@ -780,15 +1227,20 @@ def test_message_send_allows_batch_within_the_aggregate_size_cap(mocker, setting
 
 	with step("Act: Call message_send referencing both files."):
 		async_to_sync(consumer.message_send)(
-			{"bucket_file_ids": [file_a.id, file_b.id], "message": "hi"}
+			{
+				"bucket_file_ids": [file_a.id, file_b.id],
+				"expertise_level": 2,
+				"language": "es",
+				"message": "hi",
+			}
 		)
 
 	with step("Assert: _fire_n8n was called normally."):
 		mock_fire.assert_called_once_with(
 			"hi",
-			active_node_override=None,
 			bucket_file_ids=[file_a.id, file_b.id],
 			expertise_level=2,
+			language="es",
 		)
 
 
@@ -808,7 +1260,12 @@ def test_message_send_persists_bucket_file_ids_as_extra_when_present(mocker):
 
 	with step("Act: Call message_send with bucket_file_ids."):
 		async_to_sync(consumer.message_send)(
-			{"bucket_file_ids": [7, 8], "message": "hi"}
+			{
+				"bucket_file_ids": [7, 8],
+				"expertise_level": 2,
+				"language": "es",
+				"message": "hi",
+			}
 		)
 
 	with step("Assert: _broadcast received the references as an extra field."):
@@ -840,12 +1297,71 @@ def test_message_send_queues_bucket_file_ids_when_execution_in_flight(mocker):
 
 	with step("Act: Call message_send with bucket_file_ids."):
 		async_to_sync(consumer.message_send)(
-			{"bucket_file_ids": [7, 8], "message": "hello"}
+			{
+				"bucket_file_ids": [7, 8],
+				"expertise_level": 2,
+				"language": "es",
+				"message": "hello",
+			}
 		)
 
 	with step("Assert: The queued payload carries the bucket_file_ids."):
 		queued_payload = consumer.n8n_queue.set_pending.call_args.args[0]
 		assert queued_payload["bucket_file_ids"] == [7, 8]
+
+
+@pytest.mark.django_db(transaction=True)
+def test_message_send_queues_language_when_execution_in_flight(mocker):
+	"""Test message_send includes the payload's language, unchanged, in the pending payload when queuing"""
+
+	with step(
+		"Arrange: An existing session, an in-flight execution, and an explicit language."
+	):
+		consumer = _make_consumer()
+		consumer.connection_key = "TESTDB"
+		consumer.chat_session = MChatSession.objects.create(
+			connection_key="TESTDB", org=consumer.organization, username="bob"
+		)
+		consumer.n8n_queue = MagicMock(
+			set_pending=AsyncMock(), try_start=AsyncMock(return_value=False)
+		)
+		consumer.user.to_dict = MagicMock(return_value={"username": "bob"})
+		mocker.patch.object(
+			consumer.organization, "safe_to_dict", return_value={"slug": "acme"}
+		)
+		mocker.patch.object(consumer, "_broadcast", AsyncMock())
+
+	with step("Act: Call message_send with language='en'."):
+		async_to_sync(consumer.message_send)(
+			{"expertise_level": 2, "language": "en", "message": "hello"}
+		)
+
+	with step("Assert: The queued payload carries the language unchanged."):
+		queued_payload = consumer.n8n_queue.set_pending.call_args.args[0]
+		assert queued_payload["language"] == "en"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_message_send_drops_payload_missing_required_language(mocker):
+	"""Test message_send silently drops the message when language is absent -- SMessageSend requires it, there is no default to fall back to"""
+
+	with step("Arrange: A consumer and a message with no language field at all."):
+		consumer = _make_consumer()
+		consumer.connection_key = "TESTDB"
+		consumer.chat_session = None
+		consumer.n8n_queue = MagicMock(try_start=AsyncMock(return_value=True))
+		mock_fire = mocker.patch.object(consumer, "_fire_n8n", AsyncMock())
+		mock_broadcast = mocker.patch.object(consumer, "_broadcast", AsyncMock())
+
+	with step("Act: Call message_send without language."):
+		async_to_sync(consumer.message_send)({"message": "hello"})
+
+	with step(
+		"Assert: Nothing was created, broadcast, or fired -- the payload was rejected."
+	):
+		assert consumer.chat_session is None
+		mock_broadcast.assert_not_awaited()
+		mock_fire.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -863,7 +1379,9 @@ def test_fire_n8n_succeeds_on_first_attempt():
 		consumer.n8n_state = MagicMock()
 
 	with step("Act: Call _fire_n8n."):
-		async_to_sync(consumer._fire_n8n)("hello")  # pylint: disable=protected-access
+		async_to_sync(consumer._fire_n8n)(
+			"hello", expertise_level=2
+		)  # pylint: disable=protected-access
 
 	with step("Assert: fire was called exactly once, no error broadcast."):
 		consumer.n8n_client.fire.assert_awaited_once()
@@ -890,7 +1408,7 @@ def test_fire_n8n_retries_then_gives_up_on_client_error(mocker):
 
 	with step("Act: Call _fire_n8n with a small retry budget."):
 		async_to_sync(consumer._fire_n8n)(  # pylint: disable=protected-access
-			"hello", max_retries=2, retry_delay=0
+			"hello", expertise_level=2, max_retries=2, retry_delay=0
 		)
 
 	with step(
@@ -919,7 +1437,9 @@ def test_fire_n8n_handles_generic_exception_immediately(mocker):
 		)
 
 	with step("Act: Call _fire_n8n."):
-		async_to_sync(consumer._fire_n8n)("hello")  # pylint: disable=protected-access
+		async_to_sync(consumer._fire_n8n)(
+			"hello", expertise_level=2
+		)  # pylint: disable=protected-access
 
 	with step(
 		"Assert: No retry happened, the lock was released, and the user was notified."
@@ -956,9 +1476,9 @@ def test_fire_pending_if_any_fires_when_pending_exists(mocker):
 	with step("Arrange: A consumer with a pending message and a free lock."):
 		consumer = _make_consumer()
 		pending = {
-			"active_node_override": "n2#0",
 			"bucket_file_ids": [5],
 			"expertise_level": 3,
+			"language": "en",
 			"message": "queued",
 		}
 		consumer.n8n_queue = MagicMock(
@@ -971,12 +1491,14 @@ def test_fire_pending_if_any_fires_when_pending_exists(mocker):
 		fire = consumer._fire_pending_if_any  # pylint: disable=protected-access
 		async_to_sync(fire)()
 
-	with step("Assert: The queued message, including its override, was fired."):
+	with step(
+		"Assert: The queued message, including its language, was fired unchanged."
+	):
 		mock_fire.assert_called_once_with(
 			"queued",
-			active_node_override="n2#0",
 			bucket_file_ids=[5],
 			expertise_level=3,
+			language="en",
 		)
 
 
@@ -1031,7 +1553,7 @@ def test_resolve_context_restores_n8n_state_for_a_resumed_session():
 		org = _make_org()
 		session = MChatSession.objects.create(
 			connection_key="TESTDB",
-			n8n_state={"process_id": 5},
+			n8n_state={"active_node_id": "n1"},
 			org=org,
 			username="bob",
 		)
@@ -1052,7 +1574,9 @@ def test_resolve_context_restores_n8n_state_for_a_resumed_session():
 
 	with step("Assert: The session was loaded and its state restored."):
 		assert consumer.chat_session.id == session.id
-		mock_state.return_value.restore.assert_awaited_once_with({"process_id": 5})
+		mock_state.return_value.restore.assert_awaited_once_with(
+			{"active_node_id": "n1"}
+		)
 
 
 @pytest.mark.django_db(transaction=True)

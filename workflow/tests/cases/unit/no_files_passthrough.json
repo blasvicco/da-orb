@@ -1,0 +1,10 @@
+{
+  "node": "No Files: Passthrough",
+  "cases": [
+    {
+      "description": "no bucket files on this turn -> passes through the full input unchanged, normalizing extracted_files to null (not absent) for a consistent caller contract",
+      "input": { "message": "hola", "process_id": "p1" },
+      "expected": { "message": "hola", "process_id": "p1", "extracted_files": null }
+    }
+  ]
+}

@@ -1,0 +1,251 @@
+{
+  "node": "Prompt: Find",
+  "cases": [
+    {
+      "description": "no focus, no active process (fresh session) -> chatInput shows ACTIVE PROCESS: None and an empty INTENTION NODE HISTORY, omits the FOCUS section entirely",
+      "input": {
+        "language": "es",
+        "current_date": "2026-08-13",
+        "github_owner": "blasvicco",
+        "github_repo": "da-sapot-processes",
+        "github_tag": null,
+        "message": "quiero crear una solicitud de compra",
+        "focus": null,
+        "active_node_id": null,
+        "intention_nodes": {},
+        "organization": {
+          "integration": {
+            "target": "b1s"
+          },
+          "slug": "bvs"
+        },
+        "extracted_files": null
+      },
+      "nodeResults": {
+        "Status Text: Finding": {
+          "language": "es",
+          "current_date": "2026-08-13",
+          "github_owner": "blasvicco",
+          "github_repo": "da-sapot-processes",
+          "github_tag": null,
+          "message": "quiero crear una solicitud de compra",
+          "focus": null,
+          "active_node_id": null,
+          "intention_nodes": {},
+          "organization": {
+            "integration": {
+              "target": "b1s"
+            },
+            "slug": "bvs"
+          },
+          "extracted_files": null
+        }
+      },
+      "expected": {
+        "chatInput": "Today: 2026-08-13. Respond in: es.\n\n## ACTIVE PROCESS\nNone -- no process is currently open.\n\n## INTENTION NODE HISTORY (every node so far, active or not)\n[]\n\n## ATTACHED FILES\n(none)\n\n## STEPS\n1. Call get_file_contents with owner=blasvicco, repo=da-sapot-processes, path=b1s/index.json, ref=main. Always call this first.\n2. Match the user message to one index entry using: keywords → when_to_use → name/slug.\n\n## USER MESSAGE\n\"quiero crear una solicitud de compra\""
+      }
+    },
+    {
+      "description": "focus present + a real active process -> chatInput surfaces FOCUS as authoritative, an ACTIVE PROCESS block, and a trimmed INTENTION NODE HISTORY (no full process_definition dump)",
+      "input": {
+        "language": "es",
+        "current_date": "2026-08-18",
+        "github_owner": "blasvicco",
+        "github_repo": "da-sapot-processes",
+        "github_tag": null,
+        "message": "no se el codigo, me listas los articulos cuyo nombre contengan la palabra reclutamiento",
+        "focus": "El usuario esta creando una solicitud de compra y necesita el codigo del unico articulo; por eso solicita que se le liste los articulos cuyo nombre contenga 'reclutamiento' para elegir el codigo.",
+        "active_node_id": "1#0",
+        "intention_nodes": {
+          "1#0": {
+            "id": "1#0",
+            "status": "active",
+            "parent_id": null,
+            "process_id": 1,
+            "error_detail": null,
+            "process_definition": {
+              "id": 1,
+              "name": "Create Purchase Request"
+            }
+          }
+        },
+        "organization": {
+          "integration": {
+            "target": "b1s"
+          },
+          "slug": "bvs"
+        },
+        "extracted_files": null
+      },
+      "nodeResults": {
+        "Status Text: Finding": {
+          "language": "es",
+          "current_date": "2026-08-18",
+          "github_owner": "blasvicco",
+          "github_repo": "da-sapot-processes",
+          "github_tag": null,
+          "message": "no se el codigo, me listas los articulos cuyo nombre contengan la palabra reclutamiento",
+          "focus": "El usuario esta creando una solicitud de compra y necesita el codigo del unico articulo; por eso solicita que se le liste los articulos cuyo nombre contenga 'reclutamiento' para elegir el codigo.",
+          "active_node_id": "1#0",
+          "intention_nodes": {
+            "1#0": {
+              "id": "1#0",
+              "status": "active",
+              "parent_id": null,
+              "process_id": 1,
+              "error_detail": null,
+              "process_definition": {
+                "id": 1,
+                "name": "Create Purchase Request"
+              }
+            }
+          },
+          "organization": {
+            "integration": {
+              "target": "b1s"
+            },
+            "slug": "bvs"
+          },
+          "extracted_files": null
+        }
+      },
+      "expected": {
+        "chatInput": "Today: 2026-08-18. Respond in: es.\n\n## USER'S CURRENT FOCUS (from Agent: Intention Focus -- it already read the real conversation history to work out WHY this message was sent, specifically whether it continues the process below or is a side-step/detour/lookup done in service of it. Its read on continuation-vs-detour is AUTHORITATIVE -- apply it via STEP 0 before anything else in this prompt. It is not authoritative about WHICH process to match in STEP 2 -- that judgment is still yours.)\nEl usuario esta creando una solicitud de compra y necesita el codigo del unico articulo; por eso solicita que se le liste los articulos cuyo nombre contenga 'reclutamiento' para elegir el codigo.\n\n## ACTIVE PROCESS (a process is genuinely open right now)\n- process: Create Purchase Request\n- status: active\n\n## INTENTION NODE HISTORY (every node so far, active or not)\n[\n  {\n    \"id\": \"1#0\",\n    \"process\": \"Create Purchase Request\",\n    \"status\": \"active\",\n    \"error_detail\": null,\n    \"parent_id\": null\n  }\n]\n\n## ATTACHED FILES\n(none)\n\n## STEPS\n1. Call get_file_contents with owner=blasvicco, repo=da-sapot-processes, path=b1s/index.json, ref=main. Always call this first.\n2. Match the user message to one index entry using: keywords → when_to_use → name/slug.\n\n## USER MESSAGE\n\"no se el codigo, me listas los articulos cuyo nombre contengan la palabra reclutamiento\""
+      }
+    },
+    {
+      "description": "intention_nodes has a completed sibling alongside the active node -> INTENTION NODE HISTORY lists both, not just the active one (needed for the 'asking about a past node's outcome' exception)",
+      "input": {
+        "language": "es",
+        "current_date": "2026-08-18",
+        "github_owner": "blasvicco",
+        "github_repo": "da-sapot-processes",
+        "github_tag": null,
+        "message": "por que fallo la solicitud anterior?",
+        "focus": null,
+        "active_node_id": "1#0",
+        "intention_nodes": {
+          "1#0": {
+            "id": "1#0",
+            "status": "active",
+            "parent_id": null,
+            "process_id": 1,
+            "error_detail": null,
+            "process_definition": {
+              "id": 1,
+              "name": "Create Purchase Request"
+            }
+          },
+          "1#1": {
+            "id": "1#1",
+            "status": "completed",
+            "parent_id": null,
+            "process_id": 1,
+            "error_detail": "SAP error 1002: debe completar el indicador de impuesto en todas las lineas",
+            "process_definition": {
+              "id": 1,
+              "name": "Create Purchase Request"
+            }
+          }
+        },
+        "organization": {
+          "integration": {
+            "target": "b1s"
+          },
+          "slug": "bvs"
+        },
+        "extracted_files": null
+      },
+      "nodeResults": {
+        "Status Text: Finding": {
+          "language": "es",
+          "current_date": "2026-08-18",
+          "github_owner": "blasvicco",
+          "github_repo": "da-sapot-processes",
+          "github_tag": null,
+          "message": "por que fallo la solicitud anterior?",
+          "focus": null,
+          "active_node_id": "1#0",
+          "intention_nodes": {
+            "1#0": {
+              "id": "1#0",
+              "status": "active",
+              "parent_id": null,
+              "process_id": 1,
+              "error_detail": null,
+              "process_definition": {
+                "id": 1,
+                "name": "Create Purchase Request"
+              }
+            },
+            "1#1": {
+              "id": "1#1",
+              "status": "completed",
+              "parent_id": null,
+              "process_id": 1,
+              "error_detail": "SAP error 1002: debe completar el indicador de impuesto en todas las lineas",
+              "process_definition": {
+                "id": 1,
+                "name": "Create Purchase Request"
+              }
+            }
+          },
+          "organization": {
+            "integration": {
+              "target": "b1s"
+            },
+            "slug": "bvs"
+          },
+          "extracted_files": null
+        }
+      },
+      "expected": {
+        "chatInput": "Today: 2026-08-18. Respond in: es.\n\n## ACTIVE PROCESS (a process is genuinely open right now)\n- process: Create Purchase Request\n- status: active\n\n## INTENTION NODE HISTORY (every node so far, active or not)\n[\n  {\n    \"id\": \"1#0\",\n    \"process\": \"Create Purchase Request\",\n    \"status\": \"active\",\n    \"error_detail\": null,\n    \"parent_id\": null\n  },\n  {\n    \"id\": \"1#1\",\n    \"process\": \"Create Purchase Request\",\n    \"status\": \"completed\",\n    \"error_detail\": \"SAP error 1002: debe completar el indicador de impuesto en todas las lineas\",\n    \"parent_id\": null\n  }\n]\n\n## ATTACHED FILES\n(none)\n\n## STEPS\n1. Call get_file_contents with owner=blasvicco, repo=da-sapot-processes, path=b1s/index.json, ref=main. Always call this first.\n2. Match the user message to one index entry using: keywords → when_to_use → name/slug.\n\n## USER MESSAGE\n\"por que fallo la solicitud anterior?\""
+      }
+    },
+    {
+      "description": "REGRESSION: message contains embedded literal double-quotes (e.g. quoting a search term) -> chatInput must escape them via JSON.stringify, not interpolate raw (a raw '\"${message}\"' template produced unbalanced/unescaped quotes here, which a live LLM call confirmed was enough to derail Agent: Find into echoing a malformed nested output shape instead of classifying normally)",
+      "input": {
+        "language": "es",
+        "current_date": "2026-08-18",
+        "github_owner": "blasvicco",
+        "github_repo": "da-sapot-processes",
+        "github_tag": null,
+        "message": "tiene un solo articulo, pero no se el codigo, me listas los articulos cuyo nombre contengan la palabra \"reclutamiento\"",
+        "focus": null,
+        "active_node_id": null,
+        "intention_nodes": {},
+        "organization": {
+          "integration": {
+            "target": "b1s"
+          },
+          "slug": "bvs"
+        },
+        "extracted_files": null
+      },
+      "expected": {
+        "chatInput": "Today: 2026-08-18. Respond in: es.\n\n## ACTIVE PROCESS\nNone -- no process is currently open.\n\n## INTENTION NODE HISTORY (every node so far, active or not)\n[]\n\n## ATTACHED FILES\n(none)\n\n## STEPS\n1. Call get_file_contents with owner=blasvicco, repo=da-sapot-processes, path=b1s/index.json, ref=main. Always call this first.\n2. Match the user message to one index entry using: keywords → when_to_use → name/slug.\n\n## USER MESSAGE\n\"tiene un solo articulo, pero no se el codigo, me listas los articulos cuyo nombre contengan la palabra \\\"reclutamiento\\\"\""
+      },
+      "nodeResults": {
+        "Status Text: Finding": {
+          "language": "es",
+          "current_date": "2026-08-18",
+          "github_owner": "blasvicco",
+          "github_repo": "da-sapot-processes",
+          "github_tag": null,
+          "message": "tiene un solo articulo, pero no se el codigo, me listas los articulos cuyo nombre contengan la palabra \"reclutamiento\"",
+          "focus": null,
+          "active_node_id": null,
+          "intention_nodes": {},
+          "organization": {
+            "integration": {
+              "target": "b1s"
+            },
+            "slug": "bvs"
+          },
+          "extracted_files": null
+        }
+      }
+    }
+  ]
+}

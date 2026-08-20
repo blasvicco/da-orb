@@ -2,6 +2,7 @@
 
 # General imports
 import logging
+import threading
 from datetime import UTC, datetime
 
 # Lib imports
@@ -17,10 +18,20 @@ from rest_framework.response import Response
 from drf_api.models import MChatMessage, MChatSession, MUsageEvent
 from drf_api.resources.auth.helpers import resolve_request_identity
 from drf_api.resources.chat.permission import PChat, PN8nCallback
-from drf_api.resources.chat.serializer import SChatMessage, SChatSession
-from web_socket.helpers.n8n import N8nClient, N8nQueueState, N8nSessionState
+from drf_api.resources.chat.serializer import SChatMessage, SChatSession, SN8nCallback
+from web_socket.helpers.n8n import (
+	N8nClient,
+	N8nQueueState,
+	N8nSessionState,
+	collect_execution_tree_usage,
+)
 
 _logger = logging.getLogger(__name__)
+
+# Every v14 workflow Chat Model node uses the same model — collect_execution_tree_usage
+# sums raw token counts from n8n's execution data, which never records which model
+# produced them, so this is asserted here rather than threaded through the whole walk.
+_USAGE_MODEL_NAME = "gpt-5-mini"
 
 
 class _DictShim:
@@ -48,20 +59,8 @@ async def _persist_n8n_state(group_name, *, merged):
 	try:
 		await state.save(
 			active_node_id=merged.get("active_node_id"),
-			awaiting_batch_confirmation=merged.get(
-				"awaiting_batch_confirmation", False
-			),
-			awaiting_stack_resume=merged.get("awaiting_stack_resume", False),
-			form_state=merged.get("form_state"),
 			intention_nodes=merged.get("intention_nodes"),
 			last_bot_message=merged.get("last_bot_message"),
-			parent_override_id=merged.get("parent_override_id"),
-			paused_node_ids=merged.get("paused_node_ids"),
-			pending_batch_items=merged.get("pending_batch_items"),
-			pending_processes=merged.get("pending_processes"),
-			process_definition=merged.get("process_definition"),
-			process_id=merged.get("process_id"),
-			process_stack=merged.get("process_stack"),
 		)
 	finally:
 		await state.close()
@@ -74,6 +73,23 @@ async def _load_n8n_state(group_name):
 		return await state_store.load()
 	finally:
 		await state_store.close()
+
+
+def _validate_callback_payload(data):
+	"""Validate and curate n8n_callback's raw payload via SN8nCallback; raises on malformed input."""
+	serializer = SN8nCallback(data=data)
+	serializer.is_valid(raise_exception=True)
+	validated = serializer.validated_data
+	return (
+		validated["group_name"],
+		validated["text"],
+		validated["type"],
+		validated["extra"] or {},
+		validated["state"] or {},
+		validated["session_id"],
+		validated["processes"],
+		validated["root_execution_id"],
+	)
 
 
 def _resolve_and_persist_state(group_name, incoming):
@@ -101,72 +117,73 @@ def _resolve_and_persist_state(group_name, incoming):
 
 	merged = {
 		"active_node_id": _merge_field("active_node_id", resettable=True),
-		"awaiting_batch_confirmation": _merge_field(
-			"awaiting_batch_confirmation", default=False
-		),
-		"awaiting_stack_resume": _merge_field("awaiting_stack_resume", default=False),
-		"form_state": _merge_field("form_state", resettable=True),
-		"intention_nodes": _merge_field("intention_nodes", default=[]),
+		"intention_nodes": _merge_field("intention_nodes", default={}),
 		"last_bot_message": _merge_field("last_bot_message", resettable=True),
-		# Gated the same as active_node_id/process_id (not a plain pass-through):
-		# Decode & Set Process consumes this exactly when it resolves a new node,
-		# which is also when it sets reset_process, so the same reset_process gate
-		# that lets process_id/active_node_id be explicitly cleared to null also
-		# lets this one-shot override be explicitly cleared once consumed.
-		"parent_override_id": _merge_field("parent_override_id", resettable=True),
-		"paused_node_ids": _merge_field("paused_node_ids", default=[]),
-		"pending_batch_items": _merge_field("pending_batch_items", default=[]),
-		"pending_processes": _merge_field("pending_processes"),
-		"process_definition": _merge_field("process_definition", resettable=True),
-		"process_id": _merge_field("process_id", resettable=True),
-		"process_stack": _merge_field("process_stack", default=[]),
 	}
 	async_to_sync(_persist_n8n_state)(group_name, merged=merged)
 	return merged
 
 
+def _active_node(effective_state):
+	"""Return the currently active intention_nodes entry, or {} if none.
+
+	intention_nodes is keyed by each node's own id — the single source of truth for its
+	process_id/process_definition/form_state, no separate root-level copy anymore.
+	"""
+	state = effective_state or {}
+	return (state.get("intention_nodes") or {}).get(state.get("active_node_id")) or {}
+
+
 def _resolve_process_name(effective_state, processes):
 	"""Return the best available human-readable process name for this callback."""
-	process_definition = (effective_state or {}).get("process_definition") or {}
+	active_node = _active_node(effective_state)
+	process_definition = active_node.get("process_definition") or {}
 	# process_id is the process definition's opaque numeric key, not a display
 	# name — prefer the definition's own name, then the disambiguation list's
 	# name, and only fall back to the raw id if neither is available.
 	return (
 		process_definition.get("name")
 		or (processes[0]["name"] if processes else "")
-		or str((effective_state or {}).get("process_id") or "")
+		or str(active_node.get("process_id") or "")
 	)
 
 
-def _record_usage_events(session, *, effective_state, extra, occurred_on, processes):
-	"""Persist token-usage and/or process-execution events for this callback, if present."""
-	has_process = bool(
-		processes or (effective_state and effective_state.get("process_id"))
+def _collect_and_record_usage(*, process_name, root_execution_id, session_id):
+	"""Background-thread entry point: wait for the whole execution tree to finish, then record its token usage."""
+	# Runs off the request/response cycle entirely (see its threading.Thread call site) —
+	# collect_execution_tree_usage polls for up to _POLL_TIMEOUT_SECONDS, which would
+	# otherwise hold the n8n callback's own HTTP connection open needlessly; n8n's
+	# "Django Callback" node doesn't wait on this response for anything.
+	usage = collect_execution_tree_usage(root_execution_id)
+	if usage is None:
+		return
+	try:
+		session = MChatSession.objects.get(id=session_id)
+	except MChatSession.DoesNotExist:
+		return
+	MUsageEvent.objects.create(
+		completion_tokens=usage.get("completion_tokens"),
+		connection_key=session.connection_key,
+		event_type="token_usage",
+		model_name=_USAGE_MODEL_NAME,
+		occurred_on=datetime.now(UTC),
+		org=session.org,
+		process_name=process_name,
+		prompt_tokens=usage.get("prompt_tokens"),
+		session=session,
+		total_tokens=usage.get("total_tokens"),
+		username=session.username,
 	)
+
+
+def _record_usage_events(
+	session, *, effective_state, occurred_on, processes, root_execution_id
+):
+	"""Persist a process-execution event if a process was involved, and kick off background token-usage collection."""
+	has_process = bool(processes or _active_node(effective_state))
 	process_name = (
 		_resolve_process_name(effective_state, processes) if has_process else ""
 	)
-
-	# Token-usage events depend on n8n's "Build Callback Payload" node forwarding a
-	# usage sub-object inside extra, summed from the OpenAI Chat Model nodes'
-	# tokenUsageEstimate output. Left None-safe since callers without that node
-	# change (or callbacks with no usage to report) simply omit the key.
-	usage = extra.get("usage")
-	if usage:
-		MUsageEvent.objects.create(
-			completion_tokens=usage.get("completion_tokens"),
-			connection_key=session.connection_key,
-			event_type="token_usage",
-			model_name=usage.get("model", ""),
-			occurred_on=occurred_on,
-			org=session.org,
-			process_name=process_name,
-			prompt_tokens=usage.get("prompt_tokens"),
-			session=session,
-			total_tokens=usage.get("total_tokens"),
-			username=session.username,
-		)
-
 	if has_process:
 		MUsageEvent.objects.create(
 			connection_key=session.connection_key,
@@ -177,6 +194,19 @@ def _record_usage_events(session, *, effective_state, extra, occurred_on, proces
 			session=session,
 			username=session.username,
 		)
+	if root_execution_id:
+		# Fire-and-forget: this callback's own HTTP response to n8n ("Django Callback",
+		# neverError) doesn't need to wait on this, and collect_execution_tree_usage's
+		# own poll can take several seconds.
+		threading.Thread(
+			daemon=True,
+			target=_collect_and_record_usage,
+			kwargs={
+				"process_name": process_name,
+				"root_execution_id": root_execution_id,
+				"session_id": session.id,
+			},
+		).start()
 
 
 async def _release_and_refire(group_name):
@@ -201,9 +231,9 @@ async def _release_and_refire(group_name):
 		state = N8nSessionState(group_name=group_name)
 		try:
 			await client.fire(
-				active_node_override=pending.get("active_node_override"),
-				expertise_level=pending.get("expertise_level", 2),
+				expertise_level=pending["expertise_level"],
 				group_name=pending.get("group_name", group_name),
+				language=pending.get("language"),
 				message=pending.get("message"),
 				organization=_DictShim(pending.get("organization")),
 				session_id=pending.get("session_id"),
@@ -257,24 +287,30 @@ class VSChat(viewsets.ViewSet):
 	def n8n_callback(self, request, *args, **kwargs):
 		"""Receive an async result from the n8n workflow and push it to the WebSocket group."""
 		# Expected payload from n8n:
-		#   group_name  – channel group to broadcast to, scoped per chat (e.g. "chat_<org>_<user>_<chat_key>")
-		#   session_id  – MChatSession pk (for DB persistence; ignored for type "status")
-		#   text        – reply text
-		#   type        – message type: "agent" | "alert" | "system" | "status"
-		#   extra       – optional dict merged into the broadcast payload
-		#   state       – optional dict with form_state / process_id to persist in Redis
-		#   processes   – optional list; when present, signals the consumer to store them
-		#                as pending_processes for the next disambiguation reply
+		#   group_name         – channel group to broadcast to, scoped per chat (e.g. "chat_<org>_<user>_<chat_key>")
+		#   session_id         – MChatSession pk (for DB persistence; ignored for type "status")
+		#   text               – reply text
+		#   type               – message type: "agent" | "alert" | "system" | "status"
+		#   extra              – optional dict merged into the broadcast payload
+		#   state              – optional dict with active_node_id / intention_nodes to persist in Redis
+		#   processes          – optional list; when present, signals the consumer to store them
+		#                       as pending_processes for the next disambiguation reply
+		#   root_execution_id  – optional; this turn's spine execution id, used to walk the whole
+		#                       execution tree and record token usage in the background once it's
+		#                       confirmed done (see _collect_and_record_usage)
 		#
 		# "status" messages are ephemeral: they are broadcast to the WebSocket group but
 		# never persisted to the database, and they do not update Redis state.
-		group_name = request.data.get("group_name", "")
-		text = request.data.get("text", "")
-		msg_type = request.data.get("type", "agent")
-		extra = request.data.get("extra") or {}
-		state = request.data.get("state") or {}
-		session_id = request.data.get("session_id")
-		processes = request.data.get("processes")
+		(
+			group_name,
+			text,
+			msg_type,
+			extra,
+			state,
+			session_id,
+			processes,
+			root_execution_id,
+		) = _validate_callback_payload(request.data)
 
 		if processes:
 			extra["processes"] = processes
@@ -297,14 +333,13 @@ class VSChat(viewsets.ViewSet):
 		if effective_state:
 			payload["state"] = effective_state
 
-		layer = get_channel_layer()
-		async_to_sync(layer.group_send)(
+		async_to_sync(get_channel_layer().group_send)(
 			group_name, {"type": "broadcast", "payload": payload}
 		)
 
 		# Tell the consumer to store the process list for the next disambiguation reply.
 		if processes:
-			async_to_sync(layer.group_send)(
+			async_to_sync(get_channel_layer().group_send)(
 				group_name, {"type": "set_processes", "processes": processes}
 			)
 
@@ -327,9 +362,9 @@ class VSChat(viewsets.ViewSet):
 				_record_usage_events(
 					session,
 					effective_state=effective_state,
-					extra=extra,
 					occurred_on=datetime.fromisoformat(payload["time"]),
 					processes=processes,
+					root_execution_id=root_execution_id,
 				)
 			except MChatSession.DoesNotExist:
 				pass

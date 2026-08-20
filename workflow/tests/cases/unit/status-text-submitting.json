@@ -1,0 +1,35 @@
+{
+  "node": "Status Text: Submitting",
+  "cases": [
+    {
+      "description": "non-batch call (single form-fill confirm or a live GET) -> generic submitting text, es default",
+      "input": {},
+      "nodeResults": {},
+      "expected": { "status_text": "Enviando a SAP" }
+    },
+    {
+      "description": "non-batch call, en -> generic submitting text",
+      "input": { "language": "en" },
+      "nodeResults": {},
+      "expected": { "status_text": "Submitting to SAP" }
+    },
+    {
+      "description": "batch record (Fan Out Intents stamped _record_index/_record_total) -> per-record progress text instead of the generic one, es",
+      "input": { "language": "es", "_record_index": 3, "_record_total": 10 },
+      "nodeResults": {},
+      "expected": { "status_text": "Procesando 3 de 10 solicitudes..." }
+    },
+    {
+      "description": "batch record, en",
+      "input": { "language": "en", "_record_index": 3, "_record_total": 10 },
+      "nodeResults": {},
+      "expected": { "status_text": "Processing 3 of 10 requests..." }
+    },
+    {
+      "description": "_record_index without _record_total (shouldn't happen, but 0/undefined _record_total must not produce a broken message) -> falls back to the generic text",
+      "input": { "language": "es", "_record_index": 1 },
+      "nodeResults": {},
+      "expected": { "status_text": "Enviando a SAP" }
+    }
+  ]
+}

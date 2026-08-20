@@ -382,9 +382,8 @@ export default {
     intentionGraph: {
       contextSwitch: 'Cambiaste de contexto — ahora estás en **{label}**.',
       empty: 'Aún no hay intenciones — inicia un proceso para verlo aquí.',
+      errorDetail: 'Detalle del error',
       navigateConfirm: '¿Cargar el contexto de la intención "{label}"?',
-      resume: 'Continuar',
-      resumeReply: 'Sí',
       status: {
         abandoned: 'Abandonado',
         active: 'Activo',

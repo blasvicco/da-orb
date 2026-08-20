@@ -24,7 +24,7 @@
   // App assets imports
   import orbLogo from '@/assets/img/logo.svg?url';
 
-  const { t, te } = useI18n();
+  const { locale, t, te } = useI18n({ useScope: 'global' });
   const router = useRouter();
   const auth = useAuth();
 
@@ -51,7 +51,6 @@
   const connectionStatus = ref('connecting');
   const isTyping = ref(false);
   const messages = ref([]);
-  const pendingActiveNodeOverride = ref(null);
   const pendingContextFiles = ref([]);
   const promptText = ref('');
   const sessionId = ref(null);
@@ -137,10 +136,9 @@
     // Don't blindly clear the typing indicator — if this chat is still waiting on
     // an agent reply (per the sidebar's last-known pending state), keep showing it
     // so the user doesn't lose track of which chats are still in progress. The
-    // specific status text (e.g. "Identificando proceso") isn't persisted, only
+    // specific status text (e.g. "Interpretando mensaje") isn't persisted, only
     // whether a reply is pending, so we fall back to the generic typing dots.
     isTyping.value = !!sessions.value.find((s) => s.id === id)?.pending;
-    pendingActiveNodeOverride.value = null;
     pendingContextFiles.value = [];
     sessionId.value = id;
     statusText.value = null;
@@ -157,6 +155,12 @@
         time: _timestamp(m.timestamp),
         type: m.type,
       }));
+      // The sidebar's cached `pending` flag (used above, before this fetch resolved)
+      // can be stale if the agent replied while this chat was in the background —
+      // trust the freshly fetched history instead: a session is only still pending
+      // if its very last message is from the user.
+      const last = result[result.length - 1];
+      isTyping.value = !!last && last.type === 'user';
       scrollToBottom();
     }
   };
@@ -176,7 +180,6 @@
     chat.sessionId = null;
     isTyping.value = false;
     messages.value = [];
-    pendingActiveNodeOverride.value = null;
     pendingContextFiles.value = [];
     sessionId.value = null;
     statusText.value = null;
@@ -198,40 +201,27 @@
     if (!promptText.value.trim() || connectionStatus.value !== 'connected') return;
     chat.sendMessage(
       promptText.value.trim(),
+      locale.value,
       expertiseLevel.value,
-      pendingActiveNodeOverride.value,
       pendingContextFiles.value.map((file) => file.id),
     );
-    pendingActiveNodeOverride.value = null;
     pendingContextFiles.value = [];
     promptText.value = '';
   };
 
-  // Explicit click-to-resume from the Intention Graph sidebar — sends the same
-  // affirmative reply the n8n workflow already expects from the conversational
-  // yes/no resume gate, so no backend/workflow change is needed for this action.
-  const handleResume = () => {
-    if (isTyping.value || connectionStatus.value !== 'connected') return;
-    chat.sendMessage(t('chat.intentionGraph.resumeReply'), expertiseLevel.value);
-  };
-
-  // Explicit click-to-navigate from the Intention Graph sidebar — announces the
-  // context switch immediately as a local system bubble, then arms a one-shot
-  // override that rides along with the user's next typed message. This is a UI/state
-  // event, not a round trip: nothing is sent to n8n until the user actually types.
+  // Explicit click-to-navigate from the Intention Graph sidebar — switches the active
+  // node immediately (resolved directly in Django, no n8n round-trip). The announcement
+  // bubble is NOT pushed locally here — it's translated up front (only the frontend
+  // knows the active locale) and sent along for the backend to broadcast back as a
+  // 'system' message, the same round trip a typed message takes, so it lands in
+  // messages.value via onSystemMessage below and gets persisted for session review.
   const handleNavigate = ({ id, label }) => {
-    pendingActiveNodeOverride.value = id;
-    messages.value.push({
-      text: t('chat.intentionGraph.contextSwitch', { label }),
-      time: _timestamp(),
-      type: 'system',
-    });
-    scrollToBottom();
+    chat.switchActiveNode(id, t('chat.intentionGraph.contextSwitch', { label }));
   };
 
   // "Use as context" from the bucket panel, and/or files dropped onto the composer
   // that just finished uploading — both arm a one-shot reference that rides along
-  // with the user's next message, mirroring pendingActiveNodeOverride above.
+  // with the user's next message.
   const handleContextFile = (file) => {
     if (pendingContextFiles.value.some((entry) => entry.id === file.id)) return;
     pendingContextFiles.value = [...pendingContextFiles.value, file];
@@ -471,7 +461,6 @@
       @file-deleted="handleRemoveContext"
       @navigate="handleNavigate"
       @remove-context="handleRemoveContext"
-      @resume="handleResume"
       @send="handleSend"
     />
   </ChatLayout>

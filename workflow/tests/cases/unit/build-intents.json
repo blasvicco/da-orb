@@ -1,0 +1,90 @@
+{
+  "node": "Build Intents",
+  "cases": [
+    {
+      "description": "a single resolved entry (form filling) bundles into a one-entry intents list, with error/error_message mirrored at root for the shared Error Parser",
+      "input": {},
+      "inputItems": [
+        { "route_key": "sap_form_filling", "language": "es", "path": "purchase/purch_request.json", "process_name": "Purchase Request", "process_definition": { "id": "purchase_request" }, "error": null, "error_message": null, "items": [] }
+      ],
+      "expected": {
+        "route_key": "sap_form_filling",
+        "language": "es",
+        "error": null,
+        "error_message": null,
+        "intents": [
+          { "path": "purchase/purch_request.json", "process_name": "Purchase Request", "process_definition": { "id": "purchase_request" }, "error": null, "error_message": null, "items": [] }
+        ]
+      }
+    },
+    {
+      "description": "a single failed entry (form filling) mirrors its error at root so it can be classified without a separate lifting step",
+      "input": {},
+      "inputItems": [
+        { "route_key": "sap_form_filling", "path": "purchase/purch_request.json", "process_name": "Purchase Request", "process_definition": null, "error": "NOT_FOUND", "error_message": "No se encontró la definición del proceso.", "items": [] }
+      ],
+      "expected": {
+        "error": "NOT_FOUND",
+        "error_message": "No se encontró la definición del proceso.",
+        "intents": [
+          { "path": "purchase/purch_request.json", "process_name": "Purchase Request", "process_definition": null, "error": "NOT_FOUND", "error_message": "No se encontró la definición del proceso.", "items": [] }
+        ]
+      }
+    },
+    {
+      "description": "a batch of 2 resolved entries bundles both into intents, sharedContext (e.g. group_name) taken from the first item",
+      "input": {},
+      "inputItems": [
+        { "route_key": "batch_processing", "group_name": "g1", "path": "purchase/purch_request.json", "process_name": "Purchase Request", "process_definition": { "id": "purchase_request" }, "error": null, "error_message": null, "items": [] },
+        { "route_key": "batch_processing", "group_name": "g1", "path": "warehouse/goods_receipt.json", "process_name": "Goods Receipt", "process_definition": { "id": "goods_receipt" }, "error": null, "error_message": null, "items": [] }
+      ],
+      "expected": {
+        "route_key": "batch_processing",
+        "group_name": "g1",
+        "error": null,
+        "intents": [
+          { "path": "purchase/purch_request.json", "process_name": "Purchase Request", "process_definition": { "id": "purchase_request" }, "error": null, "error_message": null, "items": [] },
+          { "path": "warehouse/goods_receipt.json", "process_name": "Goods Receipt", "process_definition": { "id": "goods_receipt" }, "error": null, "error_message": null, "items": [] }
+        ]
+      }
+    },
+    {
+      "description": "one intent carrying multiple already-extracted records (e.g. Agent: Extract Batch Records identified 3 CSV rows + 1 PDF record, threaded through by Recover State: Extract Batch Records into this entry's own items) -> all N items pass through into the single intent untouched, in order -- this is the exact shape batch-processing.json's Fan Out Intents expects to flatten into individual SAP calls",
+      "input": {},
+      "inputItems": [
+        {
+          "route_key": "batch_processing",
+          "group_name": "g1",
+          "path": "purchase/purch_request.json",
+          "process_name": "Purchase Request",
+          "process_definition": { "id": "purchase_request" },
+          "error": null,
+          "error_message": null,
+          "items": [
+            { "Supplier": "C30715652664", "RequriedDate": "2026-08-05", "items": [{ "ItemCode": "NP-0047", "Quantity": 50 }] },
+            { "Supplier": "C30715652664", "RequriedDate": "2026-08-05", "items": [{ "ItemCode": "NP-0047", "Quantity": 20 }] },
+            { "Supplier": "C30715652664", "RequriedDate": "2026-08-05", "items": [{ "ItemCode": "NP-9999", "Quantity": 8 }] },
+            { "Supplier": "C30715652664", "RequriedDate": "2026-08-05", "Comments": "Reposición de stock", "items": [{ "ItemCode": "NP-0047", "Quantity": 15 }] }
+          ]
+        }
+      ],
+      "expected": {
+        "intents": [
+          {
+            "path": "purchase/purch_request.json",
+            "process_name": "Purchase Request",
+            "process_definition": { "id": "purchase_request" },
+            "error": null,
+            "error_message": null,
+            "items": [
+              { "Supplier": "C30715652664", "RequriedDate": "2026-08-05", "items": [{ "ItemCode": "NP-0047", "Quantity": 50 }] },
+              { "Supplier": "C30715652664", "RequriedDate": "2026-08-05", "items": [{ "ItemCode": "NP-0047", "Quantity": 20 }] },
+              { "Supplier": "C30715652664", "RequriedDate": "2026-08-05", "items": [{ "ItemCode": "NP-9999", "Quantity": 8 }] },
+              { "Supplier": "C30715652664", "RequriedDate": "2026-08-05", "Comments": "Reposición de stock", "items": [{ "ItemCode": "NP-0047", "Quantity": 15 }] }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

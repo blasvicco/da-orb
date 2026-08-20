@@ -330,7 +330,7 @@
     {
       "parameters": {
         "options": {
-          "systemMessage": "Intent recognition agent. Load the process index via GitHub MCP and return the best match.\n\nOUTPUT (standardized JSON):\nSingle match: {\"status\": \"match\", \"message\": null, \"form_state\": null, \"processes\": null, ...plus all entry fields at root}\nBatch (multiple instances to create): {\"status\": \"batch\", \"message\": null, \"form_state\": null, \"processes\": null}\nNo match: {\"status\": \"no_match\", \"message\": \"<in the response language>\", \"form_state\": null, \"processes\": null}\nMultiple equal: {\"status\": \"multiple_processes\", \"message\": \"<numbered list in the response language>\", \"processes\": [...with display_name], \"form_state\": null}\nError: {\"status\": \"error\", \"message\": \"<in the response language>\", \"form_state\": null, \"processes\": null}\n\nRULES:\n- Return \"match\" whenever the user's message clearly describes an actionable request that corresponds to one process's purpose (keywords/when_to_use) \u2014 a short, terse, or briefly-worded message is still a clear match if its meaning is unambiguous (e.g. \"l\u00edstame los art\u00edculos que contengan X\" is clear and actionable even though it's short). Reserve \"no_match\" for messages that are GENUINELY unclear: a lone stray word with no verb/object (e.g. \"prover\"), a likely typo, random characters, or chit-chat with no actionable SAP request at all \u2014 not for clear requests that simply happen to be brief. When in doubt about whether a real, parseable request exists, prefer matching it over rejecting it.\n- Return \"batch\" instead of \"match\" when the message asks to create MULTIPLE separate process instances at once \u2014 whether the data for each instance is written inline in the message itself (e.g. \"crea 2 solicitudes de compra: ...\", a numbered list of records) or comes from attached files (the input JSON's bucket_file_ids is non-empty and the message asks to use their content to create records). A single request \u2014 even one with several line items belonging to that one request \u2014 is still \"match\", not \"batch\": reserve \"batch\" for when the message clearly asks for more than one SEPARATE instance. When in doubt between \"match\" and \"batch\", prefer \"match\"; only use \"batch\" when plurality is explicit (an explicit count, \"estas solicitudes\", \"todas\", a numbered list, multiple attached files each describing separate records, etc.). Do NOT call GitHub MCP or resolve which process(es) are involved for \"batch\" \u2014 that resolution happens in a later step; just recognize the bulk-creation intent and return immediately.\n- For \"no_match\", write a warm, conversational message in the user's language saying you didn't understand and inviting them to say what they need in their own words (e.g., \"No logr\u00e9 entender tu mensaje, \u00bfpodr\u00edas contarme qu\u00e9 necesitas hacer?\"). This is a single friendly response, not the start of a forced back-and-forth \u2014 don't ask a follow-up question that demands a specific structured reply.\n- Never fetch process definition files. Never call SAP MCP.\nReturn ONLY a raw JSON object \u2014 no code fences, no markdown wrapping, no extra text."
+          "systemMessage": "Intent recognition agent. Load the process index via GitHub MCP and return the best match.\n\nOUTPUT (standardized JSON):\nSingle match: {\"status\": \"match\", \"message\": null, \"form_state\": null, \"processes\": null, ...plus all entry fields at root}\nBatch (multiple instances to create): {\"status\": \"batch\", \"message\": null, \"form_state\": null, \"processes\": null}\nNo match: {\"status\": \"no_match\", \"message\": \"<in the response language>\", \"form_state\": null, \"processes\": null}\nMultiple equal: {\"status\": \"multiple_processes\", \"message\": \"<numbered list in the response language>\", \"processes\": [...with display_name], \"form_state\": null}\nError: {\"status\": \"error\", \"message\": \"<in the response language>\", \"form_state\": null, \"processes\": null}\nIntention query (user is asking about a specific past node they just navigated to, not creating/continuing/retrying anything): {\"status\": \"intention_query\", \"message\": null, \"form_state\": null, \"processes\": null}\n\nRULES:\n- Return \"match\" whenever the user's message clearly describes an actionable request that corresponds to one process's purpose (keywords/when_to_use) \u2014 a short, terse, or briefly-worded message is still a clear match if its meaning is unambiguous (e.g. \"l\u00edstame los art\u00edculos que contengan X\" is clear and actionable even though it's short). Reserve \"no_match\" for messages that are GENUINELY unclear: a lone stray word with no verb/object (e.g. \"prover\"), a likely typo, random characters, or chit-chat with no actionable SAP request at all \u2014 not for clear requests that simply happen to be brief. When in doubt about whether a real, parseable request exists, prefer matching it over rejecting it.\n- Return \"batch\" instead of \"match\" when the message asks to create MULTIPLE separate process instances at once \u2014 whether the data for each instance is written inline in the message itself (e.g. \"crea 2 solicitudes de compra: ...\", a numbered list of records) or comes from attached files (the input JSON's bucket_file_ids is non-empty and the message asks to use their content to create records). A single request \u2014 even one with several line items belonging to that one request \u2014 is still \"match\", not \"batch\": reserve \"batch\" for when the message clearly asks for more than one SEPARATE instance. When in doubt between \"match\" and \"batch\", prefer \"match\"; only use \"batch\" when plurality is explicit (an explicit count, \"estas solicitudes\", \"todas\", a numbered list, multiple attached files each describing separate records, etc.). Do NOT call GitHub MCP or resolve which process(es) are involved for \"batch\" \u2014 that resolution happens in a later step; just recognize the bulk-creation intent and return immediately.\n- For \"no_match\", write a warm, conversational message in the user's language saying you didn't understand and inviting them to say what they need in their own words (e.g., \"No logr\u00e9 entender tu mensaje, \u00bfpodr\u00edas contarme qu\u00e9 necesitas hacer?\"). This is a single friendly response, not the start of a forced back-and-forth \u2014 don't ask a follow-up question that demands a specific structured reply.\n- Return \"intention_query\" instead of \"match\"/\"no_match\"/\"batch\" only when the INPUT JSON's parent_override_id is non-null (the user just navigated to a specific past node in the Intention Graph sidebar) AND the user's message is a pure informational question about that node itself \u2014 its status, why it failed, what data/values it held, what happened to it \u2014 with no new field value, correction, or action request anywhere in the same message. Do NOT call GitHub MCP for this outcome \u2014 there is nothing to fetch or match. You may consult the INPUT JSON's intention_nodes entry whose id === parent_override_id only to confirm there is something there worth asking about; do not read out, quote, paraphrase, or summarize any of that entry's fields in your own message \u2014 leave message null.\n- Do NOT return \"intention_query\" \u2014 classify normally instead \u2014 if the message: (a) supplies any new or corrected field value, (b) asks to retry, redo, or fix the action, (c) concerns a different process than the one at parent_override_id, or (d) has no clear connection to that node. When a message mixes a genuine question with new data or a retry request (e.g. \"why did it fail, and can you retry with today's date\"), prefer \"match\" over \"intention_query\" \u2014 the informational half goes unanswered that turn, but the actionable half isn't silently dropped.\n- Never fetch process definition files. Never call SAP MCP.\nReturn ONLY a raw JSON object \u2014 no code fences, no markdown wrapping, no extra text."
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
@@ -1009,6 +1009,30 @@
               },
               "renameOutput": true,
               "outputKey": "batch"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "rs-intention-query",
+                    "leftValue": "={{ $json._status }}",
+                    "rightValue": "intention_query",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "intention_query"
             },
             {
               "conditions": {
@@ -2162,6 +2186,19 @@
       ],
       "id": "b2c1d3e4-0004-4a1a-9c1a-000000000004",
       "name": "Is Batch Confirmation Resume?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const base = $('Status Text: Finding').first().json;\nconst node = (base.intention_nodes || []).find((n) => n.id === base.parent_override_id);\nconst lang = base.language || 'es';\n\nif (!node) {\n  const message = lang === 'en' ? \"I can't find that request anymore.\" : 'No encontr\u00e9 esa intenci\u00f3n en el historial.';\n  return [{ json: { ...base, message, parent_override_id: null, reset_process: true, responde: true } }];\n}\n\nconst label = node.process_definition?.name || node.process_id || '';\nconst fields = Object.keys(node.form_state || {});\nconst collectedEn = fields.length ? ` with this data so far: ${fields.join(', ')}` : ', nothing recorded yet';\nconst collectedEs = fields.length ? ` con estos datos hasta ahora: ${fields.join(', ')}` : ', sin datos registrados a\u00fan';\nconst messagesByStatus = {\n  failed: lang === 'en' ? `**${label}**: ${node.error_detail || 'An error occurred.'}` : `**${label}**: ${node.error_detail || 'Ocurri\u00f3 un error.'}`,\n  completed: lang === 'en' ? `**${label}** completed successfully.` : `**${label}** se complet\u00f3 correctamente.`,\n  abandoned: lang === 'en' ? `**${label}** was abandoned.` : `**${label}** fue abandonada.`,\n  active: lang === 'en' ? `**${label}** is active${collectedEn}.` : `**${label}** est\u00e1 activa${collectedEs}.`,\n  paused: lang === 'en' ? `**${label}** is paused${collectedEn}.` : `**${label}** est\u00e1 pausada${collectedEs}.`,\n};\nconst message = messagesByStatus[node.status] || (lang === 'en' ? `**${label}**: status ${node.status}.` : `**${label}**: estado ${node.status}.`);\n\nreturn [{ json: { ...base, message, responde: true } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        8916
+      ],
+      "id": "4b0b43a1-3bfc-4b2b-a2b5-72e561e285d1",
+      "name": "Handler: Intention Query"
     }
   ],
   "connections": {
@@ -2621,6 +2658,13 @@
         ],
         [
           {
+            "node": "Handler: Intention Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Handler: Error",
             "type": "main",
             "index": 0
@@ -2695,6 +2739,17 @@
       ]
     },
     "Handler: Multi or No Match": {
+      "main": [
+        [
+          {
+            "node": "Normalize Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handler: Intention Query": {
       "main": [
         [
           {

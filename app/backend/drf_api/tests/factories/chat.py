@@ -17,7 +17,6 @@ class FChatSession(DjangoModelFactory):
 		model = MChatSession
 
 	connection_key = factory.Faker("word")
-	language = "es"
 	n8n_state = None
 	org = factory.SubFactory(FOrganization)
 	title = factory.Faker("sentence")

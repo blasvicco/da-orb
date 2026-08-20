@@ -1,0 +1,58 @@
+{
+  "node": "Compose Batch Summary",
+  "cases": [
+    {
+      "description": "aggregates every intent's results into one summary message for this turn's reply",
+      "input": {},
+      "inputItems": [
+        { "language": "es", "group_name": "g1", "path": "purchase/purch_request.json", "process_name": "Purchase Request", "process_definition": { "id": "purchase_request" }, "error": null, "error_message": null, "items": [{ "payload": { "Supplier": "V1" }, "status": "completed", "message": "ok" }, { "payload": { "Supplier": "V2" }, "status": "failed", "message": "missing field" }] },
+        { "language": "es", "group_name": "g1", "path": "warehouse/goods_receipt.json", "process_name": "Goods Receipt", "process_definition": { "id": "goods_receipt" }, "error": null, "error_message": null, "items": [{ "payload": { "Warehouse": "01" }, "status": "completed", "message": "ok" }] }
+      ],
+      "expected": {
+        "group_name": "g1",
+        "message": "**Ejecución por lotes completada**\n- Purchase Request: 1 creadas, 1 fallidas\n- Goods Receipt: 1 creadas, 0 fallidas"
+      }
+    },
+    {
+      "description": "an intent that failed schema resolution (never executed, no items) -> summarized as unresolved rather than 0/0",
+      "input": {},
+      "inputItems": [
+        { "language": "es", "path": "bogus/path.json", "process_name": "Unknown", "process_definition": null, "error": "NOT_FOUND", "error_message": "No se encontró la definición del proceso.", "items": [] }
+      ],
+      "expected": {
+        "message": "**Ejecución por lotes completada**\n- Unknown: no se pudo resolver (No se encontró la definición del proceso.)"
+      }
+    },
+    {
+      "description": "English",
+      "input": {},
+      "inputItems": [
+        { "language": "en", "path": "purchase/purch_request.json", "process_name": "Purchase Request", "process_definition": { "id": "purchase_request" }, "error": null, "error_message": null, "items": [{ "payload": {}, "status": "completed", "message": "ok" }] }
+      ],
+      "expected": {
+        "message": "**Batch execution completed**\n- Purchase Request: 1 created, 0 failed"
+      }
+    },
+    {
+      "description": "GET-type intent -> renders the query's own result message instead of a created/failed count, since the result data is the point",
+      "input": {},
+      "inputItems": [
+        { "language": "es", "path": "purchase/vendor_list.json", "process_name": "List Vendors", "process_definition": { "id": "vendor_list", "api": { "method": "GET" } }, "error": null, "error_message": null, "items": [{ "payload": {}, "status": "completed", "message": "| Code | Name |\n|---|---|\n| V1 | Acme |" }] }
+      ],
+      "expected": {
+        "message": "**Ejecución por lotes completada**\n- List Vendors:\n| Code | Name |\n|---|---|\n| V1 | Acme |"
+      }
+    },
+    {
+      "description": "mixed create + GET batch -> the create intent keeps its count line, the GET intent gets its own result embedded",
+      "input": {},
+      "inputItems": [
+        { "language": "es", "path": "purchase/purch_request.json", "process_name": "Purchase Request", "process_definition": { "id": "purchase_request" }, "error": null, "error_message": null, "items": [{ "payload": { "Supplier": "V1" }, "status": "completed", "message": "ok" }] },
+        { "language": "es", "path": "purchase/vendor_list.json", "process_name": "List Vendors", "process_definition": { "id": "vendor_list", "api": { "method": "GET" } }, "error": null, "error_message": null, "items": [{ "payload": {}, "status": "completed", "message": "No se encontraron proveedores." }] }
+      ],
+      "expected": {
+        "message": "**Ejecución por lotes completada**\n- Purchase Request: 1 creadas, 0 fallidas\n- List Vendors:\nNo se encontraron proveedores."
+      }
+    }
+  ]
+}

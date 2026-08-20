@@ -23,6 +23,7 @@ const mockChat = vi.hoisted(() => {
     onUserMessage: vi.fn((cb) => { handlers.user = cb; }),
     sendMessage: vi.fn(),
     sessionId: null,
+    switchActiveNode: vi.fn(),
   };
   return { handlers, instance };
 });
@@ -48,7 +49,7 @@ vi.mock('@/modules/api', () => ({
 
 // App imports
 import AppAPI from '@/modules/api';
-import { buildRouter, flushPromises, mount } from '@/tests/helpers/mount';
+import { buildI18n, buildRouter, flushPromises, mount } from '@/tests/helpers/mount';
 import ChatView from '@/views/chat.vue';
 import ChatBubble from '@/components/chat/bubble.vue';
 import ChatHeader from '@/components/chat/header.vue';
@@ -219,6 +220,49 @@ describe('ChatView sidebar actions', () => {
     vi.useRealTimers();
   });
 
+  it("clears a stale typing indicator once the freshly loaded session's last message turns out to already be the agent's reply", async () => {
+    // The sidebar's cached `pending: true` predates the agent actually replying —
+    // e.g. the reply arrived while this chat was in the background and its live
+    // WS broadcast was missed. The freshly fetched history is the source of truth.
+    vi.useFakeTimers();
+    AppAPI.Chat.sessions.mockResolvedValue([{ id: 5, pending: true, title: 'Old chat' }]);
+    AppAPI.Chat.messages.mockResolvedValue([
+      { extra: null, text: 'hi', timestamp: '2026-01-01T00:00:00Z', type: 'user' },
+      { extra: null, text: 'here is the answer', timestamp: '2026-01-01T00:00:01Z', type: 'agent' },
+    ]);
+    const wrapper = mount(ChatView);
+    await mockChat.handlers.open?.();
+    await flushPromises();
+
+    await wrapper.findComponent(ChatHistory).vm.$emit('select', 5);
+    await flushPromises();
+
+    expect(wrapper.find('.orb-chat-typing').exists()).toBe(false);
+    expect(wrapper.text()).toContain('here is the answer');
+
+    await vi.advanceTimersByTimeAsync(300);
+    vi.useRealTimers();
+  });
+
+  it('keeps the typing indicator when the freshly loaded session genuinely still has no reply', async () => {
+    vi.useFakeTimers();
+    AppAPI.Chat.sessions.mockResolvedValue([{ id: 5, pending: true, title: 'Old chat' }]);
+    AppAPI.Chat.messages.mockResolvedValue([
+      { extra: null, text: 'hi', timestamp: '2026-01-01T00:00:00Z', type: 'user' },
+    ]);
+    const wrapper = mount(ChatView);
+    await mockChat.handlers.open?.();
+    await flushPromises();
+
+    await wrapper.findComponent(ChatHistory).vm.$emit('select', 5);
+    await flushPromises();
+
+    expect(wrapper.find('.orb-chat-typing').exists()).toBe(true);
+
+    await vi.advanceTimersByTimeAsync(300);
+    vi.useRealTimers();
+  });
+
   it('translates a loaded message whose text is a known i18n key, defaulting a missing timestamp to now', async () => {
     AppAPI.Chat.sessions.mockResolvedValue([{ id: 5, pending: false, title: 'Old chat' }]);
     AppAPI.Chat.messages.mockResolvedValue([
@@ -260,7 +304,7 @@ describe('ChatView sidebar actions', () => {
   });
 
   it('passes the active session n8n_state through to ChatInput so a reloaded session keeps its intention graph', async () => {
-    const n8nState = { intention_nodes: [{ id: 'pr#0', parent_id: null, process_id: 'purchase_request', status: 'completed' }] };
+    const n8nState = { intention_nodes: { 'pr#0': { id: 'pr#0', parent_id: null, process_id: 'purchase_request', status: 'completed' } } };
     AppAPI.Chat.sessions.mockResolvedValue([{ id: 5, n8n_state: n8nState, pending: false, title: 'Old chat' }]);
     AppAPI.Chat.messages.mockResolvedValue([]);
     const wrapper = mount(ChatView);
@@ -394,8 +438,21 @@ describe('ChatView sending a prompt', () => {
     await wrapper.findComponent(ChatInput).vm.$emit('update:modelValue', '  hello  ');
     await wrapper.findComponent(ChatInput).vm.$emit('send');
 
-    expect(mockChat.instance.sendMessage).toHaveBeenCalledWith('hello', 2, null, []);
+    expect(mockChat.instance.sendMessage).toHaveBeenCalledWith('hello', 'en', 2, []);
     expect(wrapper.findComponent(ChatInput).props('modelValue')).toBe('');
+  });
+
+  it('sends whatever the current UI locale is, even after the user switches it mid-chat', async () => {
+    const i18n = buildI18n();
+    const wrapper = mount(ChatView, { global: { i18n } });
+    await mockChat.handlers.open?.();
+    await flushPromises();
+
+    i18n.global.locale.value = 'es';
+    await wrapper.findComponent(ChatInput).vm.$emit('update:modelValue', 'hola');
+    await wrapper.findComponent(ChatInput).vm.$emit('send');
+
+    expect(mockChat.instance.sendMessage).toHaveBeenCalledWith('hola', 'es', 2, []);
   });
 
   it('uses a suggestion from the welcome screen as the prompt', async () => {
@@ -405,28 +462,20 @@ describe('ChatView sending a prompt', () => {
   });
 });
 
-describe('ChatView resuming from the Intention Graph sidebar', () => {
-  it('does nothing while disconnected', async () => {
-    const wrapper = mount(ChatView);
-    await wrapper.findComponent(ChatInput).vm.$emit('resume');
-    expect(mockChat.instance.sendMessage).not.toHaveBeenCalled();
-  });
-
-  it('sends the localized affirmative reply once connected', async () => {
-    const wrapper = mount(ChatView);
-    await mockChat.handlers.open?.();
-    await flushPromises();
-
-    await wrapper.findComponent(ChatInput).vm.$emit('resume');
-
-    expect(mockChat.instance.sendMessage).toHaveBeenCalledWith('Yes', 2);
-  });
-});
-
 describe('ChatView navigating from the Intention Graph sidebar', () => {
-  it('immediately appends a system bubble announcing the context switch', async () => {
+  it('sends the translated announcement for the backend to broadcast back, appending a system bubble once it echoes', async () => {
     const wrapper = mount(ChatView);
     await wrapper.findComponent(ChatInput).vm.$emit('navigate', { id: 'pr#0', label: 'Purchase Request' });
+
+    const [, announcedText] = mockChat.instance.switchActiveNode.mock.calls[0];
+    expect(announcedText).toContain('Purchase Request');
+    // No bubble yet — unlike before, it's no longer pushed locally; it only
+    // appears once the backend round-trips it back as a 'system' message,
+    // which is also what makes it persist in chat history for later review.
+    expect(wrapper.findAllComponents(ChatBubble)).toHaveLength(0);
+
+    mockChat.handlers.system?.({ text: announcedText, time: '2026-01-01T00:00:00Z' });
+    await flushPromises();
 
     const bubbles = wrapper.findAllComponents(ChatBubble);
     const last = bubbles[bubbles.length - 1];
@@ -434,13 +483,14 @@ describe('ChatView navigating from the Intention Graph sidebar', () => {
     expect(last.props('msg').text).toContain('Purchase Request');
   });
 
-  it('does not send anything to n8n on its own — it only arms a one-shot override', async () => {
+  it('switches the active node immediately, resolved directly with no n8n round-trip via sendMessage', async () => {
     const wrapper = mount(ChatView);
     await wrapper.findComponent(ChatInput).vm.$emit('navigate', { id: 'pr#0', label: 'Purchase Request' });
+    expect(mockChat.instance.switchActiveNode).toHaveBeenCalledWith('pr#0', expect.any(String));
     expect(mockChat.instance.sendMessage).not.toHaveBeenCalled();
   });
 
-  it('carries the override on the very next sendMessage call, then clears it', async () => {
+  it('does not affect subsequent sendMessage calls — no override carried on the next message', async () => {
     const wrapper = mount(ChatView);
     await mockChat.handlers.open?.();
     await flushPromises();
@@ -449,11 +499,7 @@ describe('ChatView navigating from the Intention Graph sidebar', () => {
 
     await wrapper.findComponent(ChatInput).vm.$emit('update:modelValue', 'hello');
     await wrapper.findComponent(ChatInput).vm.$emit('send');
-    expect(mockChat.instance.sendMessage).toHaveBeenCalledWith('hello', 2, 'pr#0', []);
-
-    await wrapper.findComponent(ChatInput).vm.$emit('update:modelValue', 'again');
-    await wrapper.findComponent(ChatInput).vm.$emit('send');
-    expect(mockChat.instance.sendMessage).toHaveBeenLastCalledWith('again', 2, null, []);
+    expect(mockChat.instance.sendMessage).toHaveBeenCalledWith('hello', 'en', 2, []);
   });
 });
 
@@ -516,11 +562,11 @@ describe('ChatView "use as context" from the bucket panel', () => {
 
     await wrapper.findComponent(ChatInput).vm.$emit('update:modelValue', 'hello');
     await wrapper.findComponent(ChatInput).vm.$emit('send');
-    expect(mockChat.instance.sendMessage).toHaveBeenCalledWith('hello', 2, null, [3]);
+    expect(mockChat.instance.sendMessage).toHaveBeenCalledWith('hello', 'en', 2, [3]);
 
     await wrapper.findComponent(ChatInput).vm.$emit('update:modelValue', 'again');
     await wrapper.findComponent(ChatInput).vm.$emit('send');
-    expect(mockChat.instance.sendMessage).toHaveBeenLastCalledWith('again', 2, null, []);
+    expect(mockChat.instance.sendMessage).toHaveBeenLastCalledWith('again', 'en', 2, []);
   });
 });
 
