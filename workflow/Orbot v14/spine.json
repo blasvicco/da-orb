@@ -204,6 +204,30 @@
               },
               "renameOutput": true,
               "outputKey": "batch_processing"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "rt-discover",
+                    "leftValue": "={{ $json.route_key }}",
+                    "rightValue": "sap_discovery",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "sap_discovery"
             }
           ]
         },
@@ -324,6 +348,24 @@
       ],
       "id": "e5f8a2c1-9b4d-4e7a-8c1f-3d6b9a0e2f88",
       "name": "Capture Root Execution"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "bDMyP4ISLUjViWpG",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        600
+      ],
+      "id": "a1c2d3e4-5f60-4718-9a2b-3c4d5e6f7081",
+      "name": "SAP: Discovery"
     }
   ],
   "connections": {
@@ -386,6 +428,13 @@
         [
           {
             "node": "Batch Processing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SAP: Discovery",
             "type": "main",
             "index": 0
           }

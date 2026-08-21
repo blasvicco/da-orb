@@ -150,12 +150,39 @@
       }
     },
     {
+      "description": "new_intent/discover -> route_key sap_discovery, processes stays null (no cataloged process fits, unlike match/batch)",
+      "input": {
+        "message": "que proveedores nos proveen articulos del grupo Cables?",
+        "language": "es"
+      },
+      "pins": {
+        "Agent: Find": {
+          "output": "{\"status\":\"new_intent\",\"new_intent_status\":\"discover\",\"message\":null,\"processes\":null}"
+        },
+        "Status: Finding": {
+          "status_text": "stub"
+        },
+        "Agent: Intention Focus": {
+          "output": "{\"focus\": null}"
+        }
+      },
+      "assert": {
+        "node": "Return Intent Finder Result",
+        "fields": {
+          "route_key": "sap_discovery",
+          "processes": null
+        }
+      }
+    },
+    {
       "description": "pending_reply (process_id set, form_state.ready not yet true -- pending_kind was removed 2026-08-13, Agent: Find now reasons from process_id/form_state.ready directly) -> route_key sap_form_filling",
       "input": {
         "message": "500",
         "language": "es",
         "process_id": "p1",
-        "form_state": { "ready": false }
+        "form_state": {
+          "ready": false
+        }
       },
       "pins": {
         "Agent: Find": {

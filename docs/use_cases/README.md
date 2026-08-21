@@ -32,12 +32,13 @@ Webhook
        -> SAP: Process Form Filling    (iUUtXFfbvCxYPZVU)   route_key === 'sap_form_filling'
        -> SAP: Inquiry Execution       (1yNcmr17XAakSJo0)   route_key === 'sap_inquiry_execution' -- DEAD BRANCH, see note below
        -> Batch Processing             (M2ZeV5WXqSY2rXeX)   route_key === 'batch_processing'
+       -> SAP: Discovery               (bDMyP4ISLUjViWpG)   route_key === 'sap_discovery' -- see UC-13
        -> Unmatched Route (debug)      fallback, route_key matched nothing above
 ```
 
 **Dead branch, worth knowing about:** the Router's `sap_inquiry_execution` output is wired to a real node (`SAP: Inquiry Execution`), but `Agent: Find`'s own code comment states it "*deliberately never produces 'sap_inquiry_execution'*" — nothing in the live system ever sets `route_key` to that value. The only place this route fires is a pinned Tier 2 test (`workflow/tests/cases/integration/path_backbone.json`). In real traffic, SAP execution always happens as an **internal** call from inside `sap-process-form-filling.json` (see UC-1), never via this top-level Router branch.
 
-### `route_key` — the only four live values
+### `route_key` — the only five live values
 
 Computed once, by `agent-intent-finder.json`'s `Compute Route Key` node, right after `Agent: Find` classifies the message:
 
@@ -46,6 +47,7 @@ Computed once, by `agent-intent-finder.json`'s `Compute Route Key` node, right a
 | `general_inquiry` | `Agent: Find` status = `general_inquiry` | not a SAP action, not a reply to a pending question |
 | `sap_form_filling` | `pending_reply`, or `new_intent` + `new_intent_status: "match"` | continuing an open form, or starting exactly one new process |
 | `batch_processing` | `new_intent` + `new_intent_status: "batch"` | 2+ distinct process instances requested in one message (same process type repeated, or different process types mixed) |
+| `sap_discovery` | `new_intent` + `new_intent_status: "discover"` | a legitimate SAP lookup question that no cataloged process (alone or combined) can answer — see UC-13 |
 | *(null, error path)* | `new_intent_status: "no_match"` / `"error"`, or unparseable | routed to the shared Error Parser instead of the Router |
 
 ### The error gate (`error-parser.json`)
@@ -168,6 +170,7 @@ Django's `_resolve_and_persist_state` (`app/backend/drf_api/resources/chat/main.
 | 10 | Ambiguous request needing clarification | [10_ambiguous_request_clarification.md](10_ambiguous_request_clarification.md) |
 | 11 | Error handling (SAP rejection + retry, hard agent failure, auth error) | [11_error_handling.md](11_error_handling.md) |
 | 12 | Attach a file as context for a question (not for record creation) | [12_file_as_context_for_question.md](12_file_as_context_for_question.md) |
+| 13 | Cross-entity discovery (no cataloged process fits) | [13_cross_entity_discovery.md](13_cross_entity_discovery.md) |
 
 ## Known gaps / discrepancies surfaced while researching this catalog
 

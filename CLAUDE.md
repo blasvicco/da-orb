@@ -49,6 +49,82 @@ For `frontend` you can use `yarn lint` and `yarn lint --fix`.
 Only call tests for the resources being changed.
 Never run the whole test suit.
 
+# n8n Workflows
+
+The chat agent's actual behavior is whatever is deployed in the running n8n instance
+(`da-sapot-n8n-main`) — the JSON files under `workflow/` are exported snapshots, not the
+source of truth. They can drift from what's live (e.g. someone edited a node directly in the
+n8n UI), so **the live workflow always wins over the local file.**
+
+## Standard procedure for any workflow change
+
+1. **Pull the live definition before editing.** Find the target workflow's id — the exported
+   file's top-level `name` field (e.g. `"Orbot v14 - SAP Process Form Filling"`) is the only
+   way to match it, since the exported shape has no `id` of its own — by matching that name
+   against `GET /api/v1/workflows`, or by checking the n8n UI. Then fetch it and overwrite the
+   local file with the live content, keeping only the `name`/`nodes`/`connections`/`settings`
+   keys (matches this repo's existing exported files):
+   ```bash
+   ssh -p 8532 blas@blas.local \
+     "docker exec da-sapot-backend python3 -c \"
+   import json, os, requests
+   r = requests.get('http://da-sapot-n8n-main:5678/api/v1/workflows/<ID>', headers={'X-N8N-API-KEY': os.environ['N8N_API_KEY']})
+   r.raise_for_status()
+   full = r.json()
+   json.dump({k: full[k] for k in ('name', 'nodes', 'connections', 'settings')}, open('/home/workflow/Orbot vNN/<name>.json', 'w'), indent=2)
+   \""
+   ```
+   (`/home/workflow` is this repo's `./workflow` directory, already mounted into `da-sapot-backend`.)
+2. **Edit the local file** with the actual change, keeping existing conventions (`jsCode`
+   stays a single escaped string, node ids/positions untouched).
+3. **Validate the JSON parses** before pushing anything:
+   ```bash
+   python3 -c "import json; json.load(open('workflow/Orbot vNN/<name>.json'))"
+   ```
+4. **Push the edited file back to the same id** — this is what actually updates the live
+   workflow; n8n re-publishes an active workflow automatically, no separate activation step:
+   ```bash
+   ssh -p 8532 blas@blas.local \
+     "docker exec da-sapot-backend python3 -c \"
+   import json, os, requests
+   body = json.load(open('/home/workflow/Orbot vNN/<name>.json'))
+   r = requests.put('http://da-sapot-n8n-main:5678/api/v1/workflows/<ID>', headers={'X-N8N-API-KEY': os.environ['N8N_API_KEY']}, json=body)
+   r.raise_for_status()
+   \""
+   ```
+5. **Validate the change** (see below) before considering it done.
+
+Both calls use `N8N_API_KEY`, already available as an env var inside `da-sapot-backend`; see
+`workflow/tests/integration/engine/n8n_client.py` for the same request shape (base URL
+`http://da-sapot-n8n-main:5678/api/v1`, header `X-N8N-API-KEY`).
+
+## Validating a workflow change
+
+Two dedicated test tiers live under `workflow/tests/` (full setup in
+`workflow/tests/README.md`) — run only the ones covering the file(s) actually changed, per
+this file's Testing rule above:
+
+- **Tier 1 (unit)** — sandboxes each `n8n-nodes-base.code` node's JS against
+  `workflow/tests/cases/unit/*.json`. No live n8n involved; always run this when a Code node's
+  logic changed.
+- **Tier 2 (integration)** — spins up a disposable copy of the workflow in the live n8n
+  instance via the API, runs it for real, and asserts against
+  `workflow/tests/cases/integration/*.json` (spine-level) or
+  `workflow/tests/cases/integration/subworkflows/*.json` (sub-workflow). Run this when the
+  change could affect end-to-end behavior.
+
+```bash
+./workflow/tests/run.sh "workflow/Orbot vNN/<name>.json"
+```
+
+`docs/use_cases/*.md` (UC-1 through UC-12, index in `docs/use_cases/README.md`) are the
+behavioral spec: each is a turn-by-turn trace of exactly which nodes fire, in which files, for
+one real user scenario. Treat them as spec test validators for anything the automated suites
+don't already cover — after a change, re-read whichever use case(s) it touches and confirm the
+new behavior still matches the trace. Where a suite under `workflow/tests/cases/` already
+encodes that use case, run it instead of eyeballing; where it doesn't, this is a manual
+read-through for now.
+
 # chrome-devtools MCP
 
 The `chrome-devtools` MCP server (`.mcp.json`) runs `chrome-mcp:latest` — a locally-built image (amd64-only, runs under emulation on Apple Silicon), not the stock `nullrunner/chrome-mcp-docker`. It speaks CDP to a separate headless Chrome container and does not launch Chrome itself.

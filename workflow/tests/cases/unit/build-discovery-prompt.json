@@ -1,0 +1,104 @@
+{
+  "node": "Build Discovery Prompt",
+  "cases": [
+    {
+      "description": "b1s auth driver -> connection built from session.user username/password + session.database",
+      "input": {},
+      "nodeResults": {
+        "Status Text: Discovering": {
+          "organization": {
+            "integration": {
+              "auth_driver": "b1s",
+              "base_url": "https://sap.example.com"
+            },
+            "target": "bvs"
+          },
+          "session": {
+            "user": {
+              "username": "u",
+              "password": "p"
+            },
+            "database": "TESTDB"
+          },
+          "github_owner": "blasvicco",
+          "github_repo": "da-sapot-processes",
+          "github_tag": "main",
+          "current_date": "2026-08-21",
+          "language": "es",
+          "message": "que proveedores nos proveen articulos del grupo Cables?"
+        }
+      },
+      "expected": {
+        "sap_connection": {
+          "authDriver": "b1s",
+          "baseUrl": "https://sap.example.com",
+          "username": "u",
+          "password": "p",
+          "companyDB": "TESTDB"
+        }
+      }
+    },
+    {
+      "description": "non-b1s auth driver -> token-based connection instead of username/password",
+      "input": {},
+      "nodeResults": {
+        "Status Text: Discovering": {
+          "organization": {
+            "integration": {
+              "auth_driver": "oauth",
+              "base_url": "https://sap.example.com"
+            },
+            "target": "bvs"
+          },
+          "session": {
+            "access_token": "tok123",
+            "database": "TESTDB"
+          },
+          "github_owner": "blasvicco",
+          "github_repo": "da-sapot-processes",
+          "github_tag": "main",
+          "current_date": "2026-08-21",
+          "language": "es",
+          "message": "que proveedores nos proveen articulos del grupo Cables?"
+        }
+      },
+      "expected": {
+        "sap_connection": {
+          "authDriver": "oauth",
+          "baseUrl": "https://sap.example.com",
+          "token": "tok123"
+        }
+      }
+    },
+    {
+      "description": "github_tag absent -> defaults to 'main' in the GROUNDING instructions, same convention as Prompt: Find",
+      "input": {},
+      "nodeResults": {
+        "Status Text: Discovering": {
+          "organization": {
+            "integration": {
+              "auth_driver": "b1s",
+              "base_url": "https://sap.example.com"
+            },
+            "target": "bvs"
+          },
+          "session": {
+            "user": {
+              "username": "u",
+              "password": "p"
+            },
+            "database": "TESTDB"
+          },
+          "github_owner": "blasvicco",
+          "github_repo": "da-sapot-processes",
+          "current_date": "2026-08-21",
+          "language": "es",
+          "message": "que proveedores nos proveen articulos del grupo Cables?"
+        }
+      },
+      "expected": {
+        "chatInput": "Today: 2026-08-21. Respond in: es.\n\nAgent: Find has already determined no cataloged process answers this request -- your job is to\nfind and construct the actual answer yourself, using whatever chain of read-only SAP lookups the\nquestion requires.\n\nCONNECTION (use exactly this for every sap_query_entity_set/sap_entity_get call):\n{\"authDriver\":\"b1s\",\"baseUrl\":\"https://sap.example.com\",\"username\":\"u\",\"password\":\"p\",\"companyDB\":\"TESTDB\"}\n\nGROUNDING:\n1. Call get_file_contents with owner=blasvicco, repo=da-sapot-processes, path={organization.target}/index.json, ref=main, to see what processes/schemas exist -- this gives you real entity names and field shapes to build from, even though none of these processes alone answers the request. Resolve {organization.target} from the INPUT JSON below. Always call this first.\n2. Optionally call get_file_contents once more for one specific schema file, at path={organization.target}/<the schema's own path from the index or from a relations entry>.json (same owner/repo/ref, same {organization.target} prefix as step 1 -- some schema slugs exist under more than one family/target with the same name, e.g. a b1s and an odata version of the same entity; always stay within the current {organization.target}, never guess a different family's version), whose entity is closest to the question, to read its `fields` and, when present, its `relations` array (a list of {entity, schema, direction, description} describing how it links to other entities) -- use `relations` as a hint for which other entity to query next, when it exists. At most 2 GitHub MCP calls total this turn.\n\nOData v2 FILTER SYNTAX RULES (SAP B1S):\n- String contains: substringof('value', FieldName) -- NEVER use FieldName contains 'value'\n- String equals: FieldName eq 'value'\n- Number equals: FieldName eq 123\n- Multiple OR: (substringof('a', F) or substringof('b', F))\n- AND: expr1 and expr2\n\nUSER'S QUESTION: que proveedores nos proveen articulos del grupo Cables?\n\nINPUT:\n```json\n{\n  \"organization\": {\n    \"integration\": {\n      \"auth_driver\": \"b1s\",\n      \"base_url\": \"https://sap.example.com\"\n    },\n    \"target\": \"bvs\"\n  },\n  \"session\": {\n    \"user\": {\n      \"username\": \"u\",\n      \"password\": \"p\"\n    },\n    \"database\": \"TESTDB\"\n  },\n  \"github_owner\": \"blasvicco\",\n  \"github_repo\": \"da-sapot-processes\",\n  \"current_date\": \"2026-08-21\",\n  \"language\": \"es\",\n  \"message\": \"que proveedores nos proveen articulos del grupo Cables?\"\n}\n```"
+      }
+    }
+  ]
+}

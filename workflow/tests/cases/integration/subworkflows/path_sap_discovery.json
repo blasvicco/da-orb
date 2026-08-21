@@ -1,0 +1,101 @@
+{
+  "path": "sap_discovery",
+  "target_workflow": "sap-discovery.json",
+  "cases": [
+    {
+      "description": "success -> delivers the agent's found answer; stateless -- active_node_id/intention_nodes come out byte-identical to input, even with a genuinely unrelated in-progress process sitting there, since SAP: Discovery never creates or touches an intention_nodes entry of its own",
+      "input": {
+        "language": "es",
+        "message": "que proveedores nos proveen articulos del grupo Cables?",
+        "group_name": "g1",
+        "session_id": "s1",
+        "active_node_id": "purchase_request#0",
+        "intention_nodes": {
+          "purchase_request#0": { "id": "purchase_request#0", "status": "active", "parent_id": null, "process_id": "purchase_request", "form_state": { "ready": false } }
+        },
+        "organization": { "integration": { "auth_driver": "b1s", "base_url": "https://sap.example.com" }, "target": "bvs" },
+        "session": { "user": { "username": "u", "password": "p" }, "database": "TESTDB" },
+        "github_owner": "blasvicco",
+        "github_repo": "da-sapot-processes",
+        "github_tag": "main",
+        "current_date": "2026-08-21"
+      },
+      "pins": {
+        "Agent: Discover": { "output": "{\"status\":\"success\",\"message\":\"Encontre 3 proveedores para el grupo Cables: Acme, Beta, Gamma.\"}" },
+        "Status: Discovering": { "status_text": "stub" },
+        "Execute Workflow: Response": { "delivered": true }
+      },
+      "assert": {
+        "node": "Compute Discovery Outcome",
+        "fields": {
+          "message": "Encontre 3 proveedores para el grupo Cables: Acme, Beta, Gamma.",
+          "active_node_id": "purchase_request#0",
+          "intention_nodes": {
+            "purchase_request#0": { "id": "purchase_request#0", "status": "active", "parent_id": null, "process_id": "purchase_request", "form_state": { "ready": false } }
+          }
+        }
+      }
+    },
+    {
+      "description": "graceful SAP_ERROR -> Agent: Discover ran fine but couldn't find/confirm an answer (e.g. a name->code lookup came back ambiguous mid-chain); routes through Execute Workflow: Error Parser (Outcome) as SAP_ERROR, same as SAP: Inquiry Execution's own graceful-error path",
+      "input": {
+        "language": "es",
+        "message": "que proveedores nos proveen articulos del grupo Sin definir?",
+        "group_name": "g1",
+        "session_id": "s1",
+        "active_node_id": null,
+        "intention_nodes": {},
+        "organization": { "integration": { "auth_driver": "b1s", "base_url": "https://sap.example.com" }, "target": "bvs" },
+        "session": { "user": { "username": "u", "password": "p" }, "database": "TESTDB" },
+        "github_owner": "blasvicco",
+        "github_repo": "da-sapot-processes",
+        "github_tag": "main",
+        "current_date": "2026-08-21"
+      },
+      "pins": {
+        "Agent: Discover": { "output": "{\"status\":\"error\",\"message\":\"Encontre 2 grupos que coinciden con \\\"Sin definir\\\": Sin definir (vendor), Sin definir. (customer). Decime a cual te referis.\"}" },
+        "Status: Discovering": { "status_text": "stub" },
+        "Execute Workflow: Response": { "delivered": true }
+      },
+      "assert": {
+        "node": "Execute Workflow: Error Parser (Outcome)",
+        "fields": {
+          "error": "SAP_ERROR",
+          "message": "Encontre 2 grupos que coinciden con \"Sin definir\": Sin definir (vendor), Sin definir. (customer). Decime a cual te referis.",
+          "active_node_id": null,
+          "intention_nodes": {}
+        }
+      }
+    },
+    {
+      "description": "agent/tool failure -> classified via the real shared Error Parser, same as every other agent-node hard failure in this system",
+      "input": {
+        "language": "es",
+        "message": "que proveedores nos proveen articulos del grupo Cables?",
+        "group_name": "g1",
+        "session_id": "s1",
+        "active_node_id": null,
+        "intention_nodes": {},
+        "organization": { "integration": { "auth_driver": "b1s", "base_url": "https://sap.example.com" }, "target": "bvs" },
+        "session": { "user": { "username": "u", "password": "p" }, "database": "TESTDB" },
+        "github_owner": "blasvicco",
+        "github_repo": "da-sapot-processes",
+        "github_tag": "main",
+        "current_date": "2026-08-21"
+      },
+      "pins": {
+        "Agent: Discover": { "__error__": { "error": { "message": "Rate limit exceeded, tokens per min" } } },
+        "Status: Discovering": { "status_text": "stub" },
+        "Execute Workflow: Response": { "delivered": true }
+      },
+      "assert": {
+        "node": "Execute Workflow: Error Parser (Agent Failure)",
+        "fields": {
+          "error": "RATE_LIMIT",
+          "active_node_id": null,
+          "intention_nodes": {}
+        }
+      }
+    }
+  ]
+}
