@@ -259,7 +259,12 @@ class VSChat(viewsets.ViewSet):
 
 	@action(detail=False, methods=["delete"])
 	def delete_session(self, request, *args, **kwargs):
-		"""Delete a session and all its messages (org + connection_key scoped; ownership checked via permission)."""
+		"""Delete a session (org + connection_key scoped; ownership checked via permission).
+
+		MChatSession.delete() (MBaseSoftDelete) marks deleted_on rather than removing the row,
+		so an in-flight process still holding this session_id (an n8n callback, a background
+		usage walk) can keep referencing and updating it -- only user-facing listing/resume
+		treats a soft-deleted session as gone."""
 		session_id = request.query_params.get("session_id")
 		org, _, connection_key = self._get_org_and_user(request)
 		session = get_object_or_404(
@@ -383,7 +388,10 @@ class VSChat(viewsets.ViewSet):
 		if org is None or not username:
 			return Response([])
 		qs = MChatSession.objects.filter(
-			connection_key=connection_key, org=org, username=username
+			connection_key=connection_key,
+			deleted_on__isnull=True,
+			org=org,
+			username=username,
 		).annotate(
 			tokens_used=Sum(
 				"usage_events__total_tokens",

@@ -1,0 +1,21 @@
+@reference "@/styles/main.css";
+
+.orb-document-chip {
+  @apply flex gap-2 items-center mt-3 px-4 py-2 rounded-lg;
+  background: var(--orb-process-bg);
+  border: 1px solid var(--orb-process-border);
+
+  .orb-document-chip-icon {
+    color: var(--orb-header-title, #1e293b);
+    opacity: 0.6;
+  }
+
+  .orb-document-chip-name {
+    @apply flex-1 font-medium overflow-hidden text-ellipsis text-sm whitespace-nowrap;
+    color: var(--orb-process-text);
+  }
+
+  .orb-document-chip-download-btn {
+    @apply shrink-0;
+  }
+}

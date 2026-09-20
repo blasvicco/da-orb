@@ -699,6 +699,28 @@
       "expected": {
         "chatInput": "Call sap_entity_create with these exact parameters. Do not modify anything:\n\nCALL:\n{\n  \"serviceName\": \"S\",\n  \"entitySet\": \"\",\n  \"data\": {\"A\":1},\n  \"connection\": {}\n}\n\n## SUCCESS MESSAGE TEMPLATE\nOperation completed successfully.\n(No output_parsing spec available -- fill any {placeholder} in the template with the matching value from the SAP response body.)\n\n## FIELD REFERENCE (use only to interpret an error below -- sap_field is the exact name SAP's error text will reference)\n[]\n\nReturn ONLY one of these JSON objects (no markdown, no extra text):\nSuccess: {\"status\": \"success\", \"message\": \"<formatted success message in es>\", \"form_state\": null, \"processes\": null}\nError:   {\"status\": \"error\", \"message\": \"<in es: explain what went wrong using the actual SAP error text -- if, and only if, that error text clearly names one of the fields in FIELD REFERENCE (by its sap_field name or an unambiguous match), name it using that field's label and invite the user to provide or correct it using that field's own 'ask' question; otherwise relay the SAP error's essential meaning in plain language without guessing which field caused it>\", \"form_state\": null, \"processes\": null}"
       }
+    },
+    {
+      "description": "CALL_FUNCTION -> builds the sap_call_function call spec straight from sap_call_config, ignoring intention_nodes/active_node_id (a one-off helper call, not tied to any registered process)",
+      "input": {
+        "language": "es",
+        "sap_operation": "CALL_FUNCTION",
+        "sap_connection": {},
+        "active_node_id": null,
+        "intention_nodes": {},
+        "sap_call_config": {
+          "service_name": "SQLQueries",
+          "function_name": "List",
+          "entity_key": "GetInvoiceQR",
+          "params": {
+            "DocEntry": 45501
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "chatInput": "Call sap_call_function with these exact parameters, unmodified:\n\nCALL:\n{\n  \"serviceName\": \"SQLQueries\",\n  \"functionName\": \"List\",\n  \"entityKey\": \"GetInvoiceQR\",\n  \"parameters\": {\"DocEntry\":45501},\n  \"connection\": {}\n}\n\nSuccess: {\"status\": \"success\", \"message\": \"Done.\", \"form_state\": null, \"processes\": null}\nError: {\"status\": \"error\", \"message\": \"<user-friendly Markdown in es>\", \"form_state\": null, \"processes\": null}"
+      }
     }
   ]
 }

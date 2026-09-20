@@ -278,6 +278,7 @@
         "message": "necesito la lista de tipos de socios",
         "language": "es",
         "last_bot_message": null,
+        "group_name": "test_agent_intent_finder_no_match_ambiguous",
         "process_id": "purchase_request",
         "active_node_id": "purchase_request#0",
         "form_state": {

@@ -14,6 +14,9 @@ class _MissingUpload(AStorage):
 	def delete(self, dest_path: str) -> None:
 		"""Unused by this test."""
 
+	def download(self, dest_path: str) -> str:
+		"""Unused by this test."""
+
 	def presigned_url(self, dest_path: str, expires_in: int) -> str:
 		"""Unused by this test."""
 
@@ -24,6 +27,9 @@ class _FullDriver(AStorage):
 	def delete(self, dest_path: str) -> None:
 		"""Unused by this test."""
 
+	def download(self, dest_path: str) -> str:
+		"""Unused by this test."""
+
 	def presigned_url(self, dest_path: str, expires_in: int) -> str:
 		"""Unused by this test."""
 
@@ -32,7 +38,7 @@ class _FullDriver(AStorage):
 
 
 def test_abstract_cannot_be_instantiated_directly():
-	"""Test AStorage itself cannot be instantiated — it declares no concrete delete()/presigned_url()/upload()"""
+	"""Test AStorage itself cannot be instantiated — it declares no concrete delete()/download()/presigned_url()/upload()"""
 
 	with step("Act & Assert: Instantiating AStorage raises TypeError."):
 		with pytest.raises(TypeError):

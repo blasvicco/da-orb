@@ -2,32 +2,41 @@
   "name": "Orbot v14 - SAP Discovery",
   "nodes": [
     {
-      "parameters": {
-        "inputSource": "passthrough"
-      },
+      "id": "00887945-d9c8-466c-9adf-a0ce4c9b1f5e",
+      "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
-        -3760,
+        -3696,
         9728
       ],
-      "id": "00887945-d9c8-466c-9adf-a0ce4c9b1f5e",
-      "name": "Execute Workflow Trigger"
+      "parameters": {
+        "inputSource": "passthrough"
+      }
     },
     {
-      "parameters": {
-        "jsCode": "const STATUS = { discovering: { es: 'Explorando información relacionada en SAP', en: 'Exploring related SAP data' } };\nconst lang = $json.language || 'es';\nreturn [{ json: { ...$json, status_text: STATUS.discovering[lang] } }];"
-      },
+      "id": "d501b7dc-f27c-4c2c-85ba-ac7598b20ed2",
+      "name": "Status Text: Discovering",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -3520,
+        -3456,
         9728
       ],
-      "id": "d501b7dc-f27c-4c2c-85ba-ac7598b20ed2",
-      "name": "Status Text: Discovering"
+      "parameters": {
+        "jsCode": "const STATUS = { discovering: { es: 'Explorando informaci\u00f3n relacionada en SAP', en: 'Exploring related SAP data' } };\nconst lang = $json.language || 'es';\nreturn [{ json: { ...$json, status_text: STATUS.discovering[lang] } }];"
+      }
     },
     {
+      "id": "fb10b238-3d9d-4ac0-bea7-d42342377bda",
+      "name": "Status: Discovering",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "continueOnFail": true,
+      "position": [
+        -3216,
+        9728
+      ],
       "parameters": {
         "method": "POST",
         "url": "http://blas.local/api/v1/chat/n8n_callback/",
@@ -44,52 +53,51 @@
           }
         }
       },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        -3280,
-        9728
-      ],
-      "id": "fb10b238-3d9d-4ac0-bea7-d42342377bda",
-      "name": "Status: Discovering",
       "credentials": {
         "httpHeaderAuth": {
-          "id": "3czPporgXpCWJNHz",
+          "id": "Zl1ukJrgzCeUg7zJ",
           "name": "Orb Auth"
         }
-      },
-      "continueOnFail": true
+      }
     },
     {
-      "parameters": {
-        "jsCode": "const data = $('Status Text: Discovering').first().json;\nconst { organization, session, github_owner, github_repo, github_tag, current_date, language, message } = data;\nconst integ = organization?.integration || {};\nconst authDriver = integ.auth_driver || 'b1s';\nconst connection = authDriver === 'b1s'\n  ? { authDriver, baseUrl: integ.base_url, username: session?.user?.username, password: session?.user?.password, companyDB: session?.database }\n  : { authDriver, baseUrl: integ.base_url, token: session?.access_token };\nconst ref = github_tag || 'main';\nconst chatInput = `Today: ${current_date}. Respond in: ${language}.\n\nAgent: Find has already determined no cataloged process answers this request -- your job is to\nfind and construct the actual answer yourself, using whatever chain of read-only SAP lookups the\nquestion requires.\n\nCONNECTION (use exactly this for every sap_query_entity_set/sap_entity_get call):\n${JSON.stringify(connection)}\n\nGROUNDING:\n1. Call get_file_contents with owner=${github_owner}, repo=${github_repo}, path={organization.target}/index.json, ref=${ref}, to see what processes/schemas exist -- this gives you real entity names and field shapes to build from, even though none of these processes alone answers the request. Resolve {organization.target} from the INPUT JSON below. Always call this first.\n2. Optionally call get_file_contents once more for one specific schema file, at path={organization.target}/<the schema's own path from the index or from a relations entry>.json (same owner/repo/ref, same {organization.target} prefix as step 1 -- some schema slugs exist under more than one family/target with the same name, e.g. a b1s and an odata version of the same entity; always stay within the current {organization.target}, never guess a different family's version), whose entity is closest to the question, to read its \\`fields\\` and, when present, its \\`relations\\` array (a list of {entity, schema, direction, description} describing how it links to other entities) -- use \\`relations\\` as a hint for which other entity to query next, when it exists. At most 2 GitHub MCP calls total this turn.\n\nOData v2 FILTER SYNTAX RULES (SAP B1S):\n- String contains: substringof('value', FieldName) -- NEVER use FieldName contains 'value'\n- String equals: FieldName eq 'value'\n- Number equals: FieldName eq 123\n- Multiple OR: (substringof('a', F) or substringof('b', F))\n- AND: expr1 and expr2\n\nUSER'S QUESTION: ${message}\n\nINPUT:\n\\`\\`\\`json\n${JSON.stringify(data, null, 2)}\n\\`\\`\\``;\nreturn [{ json: { ...data, sap_connection: connection, chatInput } }];"
-      },
+      "id": "f5629ccc-c450-44b3-90eb-33f2e7440eea",
+      "name": "Build Discovery Prompt",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -3040,
+        -2976,
         9728
       ],
-      "id": "f5629ccc-c450-44b3-90eb-33f2e7440eea",
-      "name": "Build Discovery Prompt"
+      "parameters": {
+        "jsCode": "const data = $('Status Text: Discovering').first().json;\nconst { organization, session, github_owner, github_repo, github_tag, current_date, language, message } = data;\nconst integ = organization?.integration || {};\nconst authDriver = integ.auth_driver || 'b1s';\nconst connection = authDriver === 'b1s'\n  ? { authDriver, baseUrl: integ.base_url, username: session?.user?.username, password: session?.user?.password, companyDB: session?.database }\n  : { authDriver, baseUrl: integ.base_url, token: session?.access_token };\nconst ref = github_tag || 'main';\nconst chatInput = `Today: ${current_date}. Respond in: ${language}.\n\nAgent: Find has already determined no cataloged process answers this request -- your job is to\nfind and construct the actual answer yourself, using whatever chain of read-only SAP lookups the\nquestion requires.\n\nCONNECTION (use exactly this for every sap_query_entity_set/sap_entity_get call):\n${JSON.stringify(connection)}\n\nGROUNDING:\n1. Call get_file_contents with owner=${github_owner}, repo=${github_repo}, path={organization.target}/index.json, ref=${ref}, to see what processes/schemas exist -- this gives you real entity names and field shapes to build from, even though none of these processes alone answers the request. Resolve {organization.target} from the INPUT JSON below. Always call this first.\n2. Optionally call get_file_contents once more for one specific schema file, at path={organization.target}/<the schema's own path from the index or from a relations entry>.json (same owner/repo/ref, same {organization.target} prefix as step 1 -- some schema slugs exist under more than one family/target with the same name, e.g. a b1s and an odata version of the same entity; always stay within the current {organization.target}, never guess a different family's version), whose entity is closest to the question, to read its \\`fields\\` and, when present, its \\`relations\\` array (a list of {entity, schema, direction, description} describing how it links to other entities) -- use \\`relations\\` as a hint for which other entity to query next, when it exists. At most 2 GitHub MCP calls total this turn.\n\nOData v2 FILTER SYNTAX RULES (SAP B1S):\n- String contains: substringof('value', FieldName) -- NEVER use FieldName contains 'value'\n- String equals: FieldName eq 'value'\n- Number equals: FieldName eq 123\n- Multiple OR: (substringof('a', F) or substringof('b', F))\n- AND: expr1 and expr2\n\nUSER'S QUESTION: ${message}\n\nINPUT:\n\\`\\`\\`json\n${JSON.stringify(data, null, 2)}\n\\`\\`\\``;\nreturn [{ json: { ...data, sap_connection: connection, chatInput } }];"
+      }
     },
     {
-      "parameters": {
-        "options": {
-          "systemMessage": "Open-ended SAP discovery agent. Runs only when Agent: Find has already determined the user's request is a legitimate, actionable SAP question that no cataloged process (or combination of processes) can answer -- typically because it spans a relationship between two or more SAP entities that no single process's fixed filter set expresses. Your job is to find and construct the actual answer yourself, using whatever chain of read-only SAP lookups the question requires -- there is no fixed call specification handed to you the way a normal execution step gets one; you decide the chain.\n\nTOOLS AND BUDGET:\n- GitHub MCP (get_file_contents only): consult the process catalog index and, optionally, one related schema definition (including its relations array, when present) purely for field-name and entity-relationship grounding -- never to find a process to run, since none fits. Some schema slugs exist under more than one family/target with the same name (e.g. a b1s and an odata version of the same entity) -- always stay within the same {organization.target} family the index fetch itself used, never guess a different family's version. At most 2 calls this turn.\n- SAP MCP (sap_query_entity_set / sap_entity_get only -- sap_entity_create is not available to you at all and must never be attempted, even indirectly): run the real read-only queries. At most 4 calls this turn -- e.g. one name->code resolution lookup plus up to 3 entity-query hops, or up to 4 straight hops with no resolution needed.\n- If answering fully would need more calls than either budget allows, STOP at the last completed hop and reply with whatever you were able to determine plus a plain explanation of what's still missing -- never guess the rest, never silently truncate without saying so.\n\nRESOLUTION DISCIPLINE: whenever a step of your chain needs to resolve a human-readable name to a SAP code/id, and that lookup returns zero matches or more than one, STOP -- do not continue the chain -- reply using the graceful format below, naming what you searched for and, on multiple matches, listing the candidates so the user can pick.\n\nREAD-ONLY, ALWAYS: you never create, update, or submit anything to SAP, under any circumstance -- sap_entity_create is not even among your available tools, so this should never come up, but if the user's message turns out to actually want an action performed, say so plainly and invite them to ask for it directly (it will be handled separately) rather than attempting it yourself.\n\nGround every SAP field/entity name you use in something you actually fetched (a schema definition, or the OData rules below) -- never invent a field or entity name from general SAP knowledge alone.\n\nOData v2 FILTER SYNTAX RULES (SAP B1S):\n- String contains: substringof('value', FieldName) -- NEVER use FieldName contains 'value'\n- String equals: FieldName eq 'value'\n- Number equals: FieldName eq 123\n- Multiple OR: (substringof('a', F) or substringof('b', F))\n- AND: expr1 and expr2\n\nNever fabricate a result. Interpret SAP errors into user-friendly language.\n\nOUTPUT (standardized JSON): {\"status\": \"success\"|\"error\", \"message\": \"<Markdown in the requested language>\"}\n\"success\" covers a full answer, a partial answer within budget, and a clean \"nothing found\" result -- \"error\" is reserved for a genuine SAP-side failure (auth, connectivity, malformed request), never for \"the data doesn't show what the user hoped\".\nReturn ONLY a raw JSON object -- no code fences, no markdown wrapping, no extra text."
-        }
-      },
+      "id": "c3230900-7e03-436c-b43f-cd76beb95f5d",
+      "name": "Agent: Discover",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
+      "onError": "continueErrorOutput",
       "position": [
         -2720,
         9728
       ],
-      "id": "c3230900-7e03-436c-b43f-cd76beb95f5d",
-      "name": "Agent: Discover",
-      "onError": "continueErrorOutput"
+      "parameters": {
+        "options": {
+          "systemMessage": "Open-ended SAP discovery agent. Runs only when Agent: Find has already determined the user's request is a legitimate, actionable SAP question that no cataloged process (or combination of processes) can answer -- typically because it spans a relationship between two or more SAP entities that no single process's fixed filter set expresses. Your job is to find and construct the actual answer yourself, using whatever chain of read-only SAP lookups the question requires -- there is no fixed call specification handed to you the way a normal execution step gets one; you decide the chain.\n\nTOOLS AND BUDGET:\n- GitHub MCP (get_file_contents only): consult the process catalog index and, optionally, one related schema definition (including its relations array, when present) purely for field-name and entity-relationship grounding -- never to find a process to run, since none fits. Some schema slugs exist under more than one family/target with the same name (e.g. a b1s and an odata version of the same entity) -- always stay within the same {organization.target} family the index fetch itself used, never guess a different family's version. At most 2 calls this turn.\n- SAP MCP (sap_query_entity_set / sap_entity_get only -- sap_entity_create is not available to you at all and must never be attempted, even indirectly): run the real read-only queries. At most 4 calls this turn -- e.g. one name->code resolution lookup plus up to 3 entity-query hops, or up to 4 straight hops with no resolution needed.\n- If answering fully would need more calls than either budget allows, STOP at the last completed hop and reply with whatever you were able to determine plus a plain explanation of what's still missing -- never guess the rest, never silently truncate without saying so.\n\nRESOLUTION DISCIPLINE: whenever a step of your chain needs to resolve a human-readable name to a SAP code/id, and that lookup returns zero matches or more than one, STOP -- do not continue the chain -- reply using the graceful format below, naming what you searched for and, on multiple matches, listing the candidates so the user can pick.\n\nREAD-ONLY, ALWAYS: you never create, update, or submit anything to SAP, under any circumstance -- sap_entity_create is not even among your available tools, so this should never come up, but if the user's message turns out to actually want an action performed, say so plainly and invite them to ask for it directly (it will be handled separately) rather than attempting it yourself.\n\nGround every SAP field/entity name you use in something you actually fetched (a schema definition, or the OData rules below) -- never invent a field or entity name from general SAP knowledge alone.\n\nOData v2 FILTER SYNTAX RULES (SAP B1S):\n- String contains: substringof('value', FieldName) -- NEVER use FieldName contains 'value'\n- String equals: FieldName eq 'value'\n- Number equals: FieldName eq 123\n- Multiple OR: (substringof('a', F) or substringof('b', F))\n- AND: expr1 and expr2\n\nNever fabricate a result. Interpret SAP errors into user-friendly language.\n\nOUTPUT (standardized JSON): {\"status\": \"success\"|\"error\", \"message\": \"<Markdown in the requested language>\"}\n\"success\" covers a full answer, a partial answer within budget, and a clean \"nothing found\" result -- \"error\" is reserved for a genuine SAP-side failure (auth, connectivity, malformed request), never for \"the data doesn't show what the user hoped\".\nReturn ONLY a raw JSON object -- no code fences, no markdown wrapping, no extra text."
+        }
+      }
     },
     {
+      "id": "9ee9e243-7a2f-4c31-9959-eb2f87179dd9",
+      "name": "OpenAI Chat Model Discover",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -2800,
+        9920
+      ],
       "parameters": {
         "model": {
           "__rl": true,
@@ -100,24 +108,24 @@
         "builtInTools": {},
         "options": {}
       },
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        -2800,
-        9920
-      ],
-      "id": "9ee9e243-7a2f-4c31-9959-eb2f87179dd9",
-      "name": "OpenAI Chat Model Discover",
       "credentials": {
         "openAiApi": {
-          "id": "rtPUI8zcUazjFFXV",
+          "id": "2CRyLxL8C6zZXIqF",
           "name": "OpenAI account"
         }
       }
     },
     {
+      "id": "591756a4-93fb-4fcb-8d9b-35d50d5efc22",
+      "name": "GitHub MCP",
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.3,
+      "position": [
+        -2624,
+        9936
+      ],
       "parameters": {
-        "endpointUrl": "http://da-sapot-github-mcp:3000/mcp",
+        "endpointUrl": "http://da-orb-github-mcp:3000/mcp",
         "authentication": "bearerAuth",
         "include": "selected",
         "includeTools": [
@@ -125,22 +133,22 @@
         ],
         "options": {}
       },
-      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
-      "typeVersion": 1.3,
-      "position": [
-        -2640,
-        9920
-      ],
-      "id": "591756a4-93fb-4fcb-8d9b-35d50d5efc22",
-      "name": "GitHub MCP",
       "credentials": {
         "httpBearerAuth": {
-          "id": "aMreKFdog181uSUL",
+          "id": "bKIJZ2uvj0O40uyi",
           "name": "GitHub MCP"
         }
       }
     },
     {
+      "id": "5ba15ac3-ee56-47a5-a7bd-d55d596a1fab",
+      "name": "SAP MCP",
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.3,
+      "position": [
+        -2432,
+        9936
+      ],
       "parameters": {
         "endpointUrl": "http://sapmcp.blas.local:3001/mcp",
         "include": "selected",
@@ -149,50 +157,50 @@
           "sap_entity_get"
         ],
         "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
-      "typeVersion": 1.3,
-      "position": [
-        -2480,
-        9920
-      ],
-      "id": "5ba15ac3-ee56-47a5-a7bd-d55d596a1fab",
-      "name": "SAP MCP"
+      }
     },
     {
+      "id": "d7053eca-ae2c-4af1-8735-197444eaf621",
+      "name": "Merge Context: Discover",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2352,
+        9728
+      ],
       "parameters": {
         "mode": "raw",
         "jsonOutput": "={{ Object.assign({}, $('Build Discovery Prompt').first().json, $json) }}",
         "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        -2400,
-        9728
-      ],
-      "id": "d7053eca-ae2c-4af1-8735-197444eaf621",
-      "name": "Merge Context: Discover"
+      }
     },
     {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "gc1sceDuMfns8CSn",
-          "mode": "id"
-        },
-        "options": {}
-      },
+      "id": "c005de88-1b01-4633-a360-36d3c69c3552",
+      "name": "Execute Workflow: Error Parser (Agent Failure)",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -2160,
+        -2128,
         9728
       ],
-      "id": "c005de88-1b01-4633-a360-36d3c69c3552",
-      "name": "Execute Workflow: Error Parser (Agent Failure)"
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "E4JerYpWJslysUQx",
+          "mode": "id"
+        },
+        "options": {}
+      }
     },
     {
+      "id": "20fb76bb-52d6-47b6-8980-2a08dfd44529",
+      "name": "Was Handled? (Agent)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1920,
+        9728
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -216,75 +224,67 @@
           "combinator": "and"
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        -1920,
-        9728
-      ],
-      "id": "20fb76bb-52d6-47b6-8980-2a08dfd44529",
-      "name": "Was Handled? (Agent)"
+      }
     },
     {
-      "parameters": {
-        "jsCode": "const base = $json;\nconst content = base._parsed || {};\n\n// Stateless -- unlike Compute Execution Outcome, there's no intention_nodes entry for this\n// turn to mark 'completed' or resume from (SAP: Discovery never creates one), so this node\n// only ever needs to classify the agent's own {status, message} into a deliverable outcome.\n// active_node_id/intention_nodes pass through completely untouched either way.\nif (content.status === 'success') {\n  return [{ json: { ...base, message: content.message ?? base.message } }];\n}\n\n// Anything else (a graceful 'error' status, or unparseable/unrecognized output) is a genuine\n// SAP-side issue Agent: Discover hit mid-chain -- same catch-all precedent as Compute\n// Execution Outcome's own else branch.\nreturn [{ json: {\n  ...base,\n  message: content.message ?? base.message,\n  _needs_error_parse: true,\n  error: 'SAP_ERROR',\n  error_message: content.message || null,\n} }];"
-      },
+      "id": "7a198c1b-8b7b-466b-b8b3-7d357e08f7c2",
+      "name": "Compute Discovery Outcome",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         -1680,
         9824
       ],
-      "id": "7a198c1b-8b7b-466b-b8b3-7d357e08f7c2",
-      "name": "Compute Discovery Outcome"
+      "parameters": {
+        "jsCode": "const base = $json;\nconst content = base._parsed || {};\n\n// Stateless -- unlike Compute Execution Outcome, there's no intention_nodes entry for this\n// turn to mark 'completed' or resume from (SAP: Discovery never creates one), so this node\n// only ever needs to classify the agent's own {status, message} into a deliverable outcome.\n// active_node_id/intention_nodes pass through completely untouched either way.\nif (content.status === 'success') {\n  return [{ json: { ...base, message: content.message ?? base.message } }];\n}\n\n// Anything else (a graceful 'error' status, or unparseable/unrecognized output) is a genuine\n// SAP-side issue Agent: Discover hit mid-chain -- same catch-all precedent as Compute\n// Execution Outcome's own else branch.\nreturn [{ json: {\n  ...base,\n  message: content.message ?? base.message,\n  _needs_error_parse: true,\n  error: 'SAP_ERROR',\n  error_message: content.message || null,\n} }];"
+      }
     },
     {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "gc1sceDuMfns8CSn",
-          "mode": "id"
-        },
-        "options": {}
-      },
+      "id": "50cf51c2-1b39-4cef-9b5b-685cc2d70059",
+      "name": "Execute Workflow: Error Parser (Outcome)",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
         -1440,
         9824
       ],
-      "id": "50cf51c2-1b39-4cef-9b5b-685cc2d70059",
-      "name": "Execute Workflow: Error Parser (Outcome)"
-    },
-    {
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "9XQm980VERwHTovA",
+          "value": "E4JerYpWJslysUQx",
           "mode": "id"
         },
         "options": {}
-      },
+      }
+    },
+    {
+      "id": "558c1001-5abc-4bbb-9b2a-803c04814496",
+      "name": "Execute Workflow: Response",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
         -1200,
-        9728
+        9712
       ],
-      "id": "558c1001-5abc-4bbb-9b2a-803c04814496",
-      "name": "Execute Workflow: Response"
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "vGK7I4eSKjbCGqvi",
+          "mode": "id"
+        },
+        "options": {}
+      }
     },
     {
-      "parameters": {},
+      "id": "c5054b22-1f71-4535-baba-9ec96016d4d7",
+      "name": "Return SAP Discovery Result",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
         -960,
-        9728
+        9712
       ],
-      "id": "c5054b22-1f71-4535-baba-9ec96016d4d7",
-      "name": "Return SAP Discovery Result"
+      "parameters": {}
     }
   ],
   "connections": {
@@ -458,7 +458,6 @@
     }
   },
   "settings": {
-    "executionOrder": "v1",
-    "binaryMode": "separate"
+    "executionOrder": "v1"
   }
 }

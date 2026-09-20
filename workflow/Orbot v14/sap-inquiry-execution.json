@@ -2,32 +2,41 @@
   "name": "Orbot v14 - SAP Inquiry Execution",
   "nodes": [
     {
-      "parameters": {
-        "inputSource": "passthrough"
-      },
+      "id": "87ba16c9-4c29-4255-8c84-d65ac810a248",
+      "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
         -3760,
         9728
       ],
-      "id": "87ba16c9-4c29-4255-8c84-d65ac810a248",
-      "name": "Execute Workflow Trigger"
+      "parameters": {
+        "inputSource": "passthrough"
+      }
     },
     {
-      "parameters": {
-        "jsCode": "const STATUS = { submitting: { es: 'Enviando a SAP', en: 'Submitting to SAP' } };\nconst lang = $json.language || 'es';\nconst { _record_index, _record_total } = $json;\n// Batch turns (see batch-processing.json's Fan Out Intents) stamp _record_index/_record_total\n// on every real record before calling this sub-workflow once per record -- when present, this\n// is a batch record's own execution, so report per-record progress instead of the generic\n// submitting text. A non-batch call (single form-fill confirm, or a live GET) never carries\n// these fields and keeps the original message.\nconst status_text = (_record_index && _record_total)\n  ? (lang === 'en' ? `Processing ${_record_index} of ${_record_total} requests...` : `Procesando ${_record_index} de ${_record_total} solicitudes...`)\n  : STATUS.submitting[lang];\nreturn [{ json: { ...$json, status_text } }];"
-      },
+      "id": "2efb7d7d-4453-4a74-b458-df5a5f2f30f4",
+      "name": "Status Text: Submitting",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         -3312,
         10048
       ],
-      "id": "2efb7d7d-4453-4a74-b458-df5a5f2f30f4",
-      "name": "Status Text: Submitting"
+      "parameters": {
+        "jsCode": "const STATUS = { submitting: { es: 'Enviando a SAP', en: 'Submitting to SAP' } };\nconst lang = $json.language || 'es';\nconst { _record_index, _record_total } = $json;\n// Batch turns (see batch-processing.json's Fan Out Intents) stamp _record_index/_record_total\n// on every real record before calling this sub-workflow once per record -- when present, this\n// is a batch record's own execution, so report per-record progress instead of the generic\n// submitting text. A non-batch call (single form-fill confirm, or a live GET) never carries\n// these fields and keeps the original message.\nconst status_text = (_record_index && _record_total)\n  ? (lang === 'en' ? `Processing ${_record_index} of ${_record_total} requests...` : `Procesando ${_record_index} de ${_record_total} solicitudes...`)\n  : STATUS.submitting[lang];\nreturn [{ json: { ...$json, status_text } }];"
+      }
     },
     {
+      "id": "754fee64-4515-4896-8f9b-e69841e49b39",
+      "name": "Status: Submitting",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "continueOnFail": true,
+      "position": [
+        -3072,
+        10048
+      ],
       "parameters": {
         "method": "POST",
         "url": "http://blas.local/api/v1/chat/n8n_callback/",
@@ -44,52 +53,52 @@
           }
         }
       },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        -3072,
-        10048
-      ],
-      "id": "754fee64-4515-4896-8f9b-e69841e49b39",
-      "name": "Status: Submitting",
       "credentials": {
         "httpHeaderAuth": {
-          "id": "3czPporgXpCWJNHz",
+          "id": "Zl1ukJrgzCeUg7zJ",
           "name": "Orb Auth"
         }
-      },
-      "continueOnFail": true
+      }
     },
     {
-      "parameters": {
-        "jsCode": "const { active_node_id, intention_nodes, organization, session } = $('Status Text: Submitting').first().json;\nconst activeNode = (intention_nodes || {})[active_node_id] || {};\nconst { process_definition, form_state } = activeNode;\nconst integ = organization?.integration || {};\nconst authDriver = integ.auth_driver || 'b1s';\nconst connection = authDriver === 'b1s'\n  ? { authDriver, baseUrl: integ.base_url, username: session?.user?.username, password: session?.user?.password, companyDB: session?.database }\n  : { authDriver, baseUrl: integ.base_url, token: session?.access_token };\nconst method = (process_definition?.api?.method || 'GET').toUpperCase();\nconst serviceName = process_definition?.api?.service || '';\nlet operationType;\nif (method === 'GET') {\n  const keyDef = process_definition?.query?.key;\n  const keyValue = keyDef ? form_state?.[keyDef.id] : null;\n  operationType = keyValue !== null && keyValue !== undefined ? 'GET_SINGLE' : 'GET_QUERY';\n} else {\n  operationType = 'POST_CREATE';\n}\nlet data = null;\nif (operationType === 'POST_CREATE' && Array.isArray(process_definition?.form?.sections)) {\n  const payload = {};\n  for (const section of process_definition.form.sections) {\n    if (section.multiple) {\n      const items = form_state[section.id];\n      if (Array.isArray(items) && items.length > 0) {\n        payload[section.sap_field] = items.map(item => {\n          const line = {};\n          for (const field of (section.fields || [])) {\n            const val = item[field.id];\n            if (val !== null && val !== undefined && val !== '') line[field.sap_field] = val;\n          }\n          return line;\n        });\n      }\n    } else {\n      for (const field of (section.fields || [])) {\n        const val = form_state[field.id];\n        if (val !== null && val !== undefined && val !== '') payload[field.sap_field] = val;\n      }\n    }\n  }\n  data = payload;\n}\n// Speculatively reset the active node's form_state.ready to false before the outcome is\n// known -- this used to be a separate Reset Form Not Ready node, run only on a hard\n// agent/tool failure. Folded in here and made unconditional: harmless on the success path\n// (Compute Execution Outcome's success branch marks the node 'completed' and never reads\n// form_state.ready), and covers the graceful-SAP-error path too, which needs the exact\n// same reset (Compute Execution Outcome already does its own for that path, so this is a\n// redundant no-op there, not a conflict).\nconst intentionNodes = active_node_id && intention_nodes?.[active_node_id]\n  ? { ...intention_nodes, [active_node_id]: { ...activeNode, form_state: { ...(activeNode.form_state || {}), ready: false } } }\n  : intention_nodes;\nconst pipelineData = $('Status Text: Submitting').first().json;\nreturn [{ json: { ...pipelineData, intention_nodes: intentionNodes, sap_operation: operationType, sap_service: serviceName, sap_connection: connection, sap_payload: data } }];"
-      },
+      "id": "bd4fd9e0-a2b5-4a15-b8f7-49b34246f7c9",
+      "name": "Build SAP Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         -2864,
         10048
       ],
-      "id": "bd4fd9e0-a2b5-4a15-b8f7-49b34246f7c9",
-      "name": "Build SAP Payload"
+      "parameters": {
+        "jsCode": "const pipelineDataIn = $('Status Text: Submitting').first().json;\nconst { active_node_id, intention_nodes, organization, session, sap_operation: callerOperation } = pipelineDataIn;\nconst activeNode = (intention_nodes || {})[active_node_id] || {};\nconst { process_definition, form_state } = activeNode;\nconst integ = organization?.integration || {};\nconst authDriver = integ.auth_driver || 'b1s';\nconst connection = authDriver === 'b1s'\n  ? { authDriver, baseUrl: integ.base_url, username: session?.user?.username, password: session?.user?.password, companyDB: session?.database }\n  : { authDriver, baseUrl: integ.base_url, token: session?.access_token };\n// CALL_FUNCTION is a one-off helper call the caller (e.g. generate-document.json) sets\n// directly, never derived from a registered process's own api.method -- there's no\n// process_definition to derive it FROM (active_node_id is null for this call), so it must be\n// preserved as given rather than falling into the GET/POST derivation below.\nlet operationType;\nlet serviceName;\nif (callerOperation === 'CALL_FUNCTION') {\n  operationType = 'CALL_FUNCTION';\n  serviceName = '';\n} else {\n  const method = (process_definition?.api?.method || 'GET').toUpperCase();\n  serviceName = process_definition?.api?.service || '';\n  if (method === 'GET') {\n    const keyDef = process_definition?.query?.key;\n    const keyValue = keyDef ? form_state?.[keyDef.id] : null;\n    operationType = keyValue !== null && keyValue !== undefined ? 'GET_SINGLE' : 'GET_QUERY';\n  } else {\n    operationType = 'POST_CREATE';\n  }\n}\nlet data = null;\nif (operationType === 'POST_CREATE' && Array.isArray(process_definition?.form?.sections)) {\n  const payload = {};\n  for (const section of process_definition.form.sections) {\n    if (section.multiple) {\n      const items = form_state[section.id];\n      if (Array.isArray(items) && items.length > 0) {\n        payload[section.sap_field] = items.map(item => {\n          const line = {};\n          for (const field of (section.fields || [])) {\n            const val = item[field.id];\n            if (val !== null && val !== undefined && val !== '') line[field.sap_field] = val;\n          }\n          return line;\n        });\n      }\n    } else {\n      for (const field of (section.fields || [])) {\n        const val = form_state[field.id];\n        if (val !== null && val !== undefined && val !== '') payload[field.sap_field] = val;\n      }\n    }\n  }\n  data = payload;\n}\n// Speculatively reset the active node's form_state.ready to false before the outcome is\n// known -- this used to be a separate Reset Form Not Ready node, run only on a hard\n// agent/tool failure. Folded in here and made unconditional: harmless on the success path\n// (Compute Execution Outcome's success branch marks the node 'completed' and never reads\n// form_state.ready), and covers the graceful-SAP-error path too, which needs the exact\n// same reset (Compute Execution Outcome already does its own for that path, so this is a\n// redundant no-op there, not a conflict).\nconst intentionNodes = active_node_id && intention_nodes?.[active_node_id]\n  ? { ...intention_nodes, [active_node_id]: { ...activeNode, form_state: { ...(activeNode.form_state || {}), ready: false } } }\n  : intention_nodes;\nreturn [{ json: { ...pipelineDataIn, intention_nodes: intentionNodes, sap_operation: operationType, sap_service: serviceName, sap_connection: connection, sap_payload: data } }];"
+      }
     },
     {
-      "parameters": {
-        "options": {
-          "systemMessage": "SAP execution robot. Normally: you will be given an exact call specification (tool/service name and parameters) -- call that exact tool ONCE with exactly those parameters, with no modification.\n\nIf the call specification includes a RESOLVABLE FIELDS section: for each field listed there, decide whether its given value already looks like a valid code/id for that field, or looks like a human-readable name that needs translating first. Already-valid values: build that field's filter clause yourself (per the OData syntax rules given) and AND it into the final filter alongside PRE-BUILT FILTERS -- no lookup needed. Name-like values: first call sap_query_entity_set against the lookup service/field given for that field to resolve it, extract the named return field, then build the filter clause using the resolved value. At most 2 tool calls total this turn, never more (one optional lookup, then the real query). If a lookup returns zero matches or more than one, do not guess: skip the real query and reply using the graceful error format given, naming what you searched for and, on multiple matches, listing the candidates so the user can pick.\n\nThis resolution allowance applies ONLY to a sap_query_entity_set or sap_entity_get call made for a search/list/read request. It NEVER applies to sap_entity_create: for a create call, use the exact parameters given, with no modification and no self-initiated lookup or judgment call of any kind -- even if a value looks wrong or unresolved. Let SAP reject it and report that error instead.\n\nNever fabricate a result. Interpret SAP errors into user-friendly language.\nReturn ONLY a raw JSON object -- no code fences, no markdown wrapping, no extra text."
-        }
-      },
+      "id": "99d7f3c0-8a2f-4e34-9816-d5f2310b0295",
+      "name": "Agent: Execute",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
+      "onError": "continueErrorOutput",
       "position": [
         -2432,
         10048
       ],
-      "id": "99d7f3c0-8a2f-4e34-9816-d5f2310b0295",
-      "name": "Agent: Execute",
-      "onError": "continueErrorOutput"
+      "parameters": {
+        "options": {
+          "systemMessage": "SAP execution robot. Normally: you will be given an exact call specification (tool/service name and parameters) -- call that exact tool ONCE with exactly those parameters, with no modification.\n\nIf the call specification includes a RESOLVABLE FIELDS section: for each field listed there, decide whether its given value already looks like a valid code/id for that field, or looks like a human-readable name that needs translating first. Already-valid values: build that field's filter clause yourself (per the OData syntax rules given) and AND it into the final filter alongside PRE-BUILT FILTERS -- no lookup needed. Name-like values: first call sap_query_entity_set against the lookup service/field given for that field to resolve it, extract the named return field, then build the filter clause using the resolved value. At most 2 tool calls total this turn, never more (one optional lookup, then the real query). If a lookup returns zero matches or more than one, do not guess: skip the real query and reply using the graceful error format given, naming what you searched for and, on multiple matches, listing the candidates so the user can pick.\n\nThis resolution allowance applies ONLY to a sap_query_entity_set or sap_entity_get call made for a search/list/read request. It NEVER applies to sap_entity_create: for a create call, use the exact parameters given, with no modification and no self-initiated lookup or judgment call of any kind -- even if a value looks wrong or unresolved. Let SAP reject it and report that error instead.\n\nNever fabricate a result. Interpret SAP errors into user-friendly language.\nReturn ONLY a raw JSON object -- no code fences, no markdown wrapping, no extra text.",
+          "returnIntermediateSteps": true
+        }
+      }
     },
     {
+      "id": "b9ce0cd3-d398-4956-97fa-5e0dfda2ed57",
+      "name": "OpenAI Chat Model Execute",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -2432,
+        10240
+      ],
       "parameters": {
         "model": {
           "__rl": true,
@@ -100,127 +109,127 @@
         "builtInTools": {},
         "options": {}
       },
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        -2432,
-        10240
-      ],
-      "id": "b9ce0cd3-d398-4956-97fa-5e0dfda2ed57",
-      "name": "OpenAI Chat Model Execute",
       "credentials": {
         "openAiApi": {
-          "id": "rtPUI8zcUazjFFXV",
+          "id": "2CRyLxL8C6zZXIqF",
           "name": "OpenAI account"
         }
       }
     },
     {
-      "parameters": {
-        "endpointUrl": "http://sapmcp.blas.local:3001/mcp",
-        "options": {}
-      },
+      "id": "599c1995-5716-414d-8487-56f4525e2f68",
+      "name": "SAP MCP",
       "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
       "typeVersion": 1.3,
       "position": [
         -2288,
         10272
       ],
-      "id": "599c1995-5716-414d-8487-56f4525e2f68",
-      "name": "SAP MCP"
+      "parameters": {
+        "endpointUrl": "http://sapmcp.blas.local:3001/mcp",
+        "options": {}
+      }
     },
     {
-      "parameters": {
-        "jsCode": "const data = $json;\nconst { language, sap_operation, sap_service, sap_connection, sap_payload, active_node_id, intention_nodes } = data;\nconst { process_definition, form_state } = (intention_nodes || {})[active_node_id] || {};\n\nlet chatInput;\n\nif (sap_operation === 'GET_SINGLE') {\n  const keyDef = process_definition.query.key;\n  const keyValue = form_state[keyDef.id];\n  const expand = process_definition.query.expand || [];\n  const expandLine = expand.length ? `  \"expand\": ${JSON.stringify(expand)},\\n` : '';\n  const wantsJson = form_state.response_format === 'json';\n  const successInstruction = wantsJson\n    ? `a fenced \\`\\`\\`json code block in the message field containing the full result (after removing null fields) as raw JSON -- NOT a bullet list or prose`\n    : `Markdown result in ${language}, remove null fields, use schema labels`;\n  chatInput = `Call sap_entity_get with these exact parameters:\n\nCALL:\n{\n  \"serviceName\": \"${sap_service}\",\n  \"entitySet\": \"\",\n  \"keyValues\": { \"${keyDef.sap_field}\": ${JSON.stringify(keyValue)} },\n${expandLine}  \"connection\": ${JSON.stringify(sap_connection)}\n}\n\nSuccess: {\"status\": \"success\", \"message\": \"<${successInstruction}>\", \"form_state\": null, \"processes\": null}\nNot found / Error: {\"status\": \"error\", \"message\": \"<user-friendly Markdown in ${language}>\", \"form_state\": null, \"processes\": null}`;\n} else if (sap_operation === 'GET_QUERY') {\n  const queryDef = process_definition.query;\n  const schemaDef = process_definition.schema_definition;\n  const defaultSelect = Array.isArray(queryDef.select) && queryDef.select.length\n    ? queryDef.select\n    : schemaDef?.list_select?.length ? schemaDef.list_select\n    : schemaDef?.get_select?.length ? schemaDef.get_select\n    : null;\n  // Case-insensitive matching is handled by the SAP MCP tool itself (a Service Layer\n  // request header), not by this template -- filters built here stay plain OData v2.\n  // LITERAL_BUILDERS below compares default_filters/enum-style eq/ne against exact\n  // system values (e.g. CardType eq 'cSupplier'), never user-typed text.\n  const STRING_FILTER_BUILDERS = {\n    contains: (field, v) => `substringof('${v}', ${field})`,\n    not_contains: (field, v) => `not substringof('${v}', ${field})`,\n    startswith: (field, v) => `startswith(${field}, '${v}')`,\n    not_startswith: (field, v) => `not startswith(${field}, '${v}')`,\n    endswith: (field, v) => `endswith(${field}, '${v}')`,\n    not_endswith: (field, v) => `not endswith(${field}, '${v}')`,\n    eq: (field, v) => `${field} eq '${v}'`,\n    ne: (field, v) => `${field} ne '${v}'`,\n  };\n  const LITERAL_BUILDERS = {\n    eq: (field, v) => `${field} eq ${typeof v === 'string' ? `'${v}'` : v}`,\n    ne: (field, v) => `${field} ne ${typeof v === 'string' ? `'${v}'` : v}`,\n  };\n  // default_filters express an intrinsic property of the process itself (e.g. \"vendor_list\n  // only ever means CardType eq 'cSupplier'\") -- mandatory, never something the user's own\n  // filter combination can override or omit, so they're always ANDed in regardless of match_all.\n  const defaultFilterExprs = (queryDef.default_filters || []).map(f => {\n    const builder = LITERAL_BUILDERS[f.operator] || LITERAL_BUILDERS.eq;\n    return builder(f.sap_field, f.value);\n  });\n  const parsesAsFiniteNumber = (val) => {\n    if (typeof val === 'number') return Number.isFinite(val);\n    if (typeof val === 'string') return val.trim() !== '' && Number.isFinite(Number(val));\n    return false;\n  };\n  // A resolve block hands per-field judgment to the agent (name vs. code can't be told apart\n  // deterministically for anything but an already-numeric value) -- see RESOLVABLE FIELDS below.\n  // The one exception code keeps for itself: a number-typed resolve field whose value already\n  // parses as a finite number is unambiguous, so it flows straight through as a direct filter,\n  // same as any non-resolve field, with zero agent judgment involved.\n  const presentFilters = (queryDef.filters || [])\n    .filter(f => form_state[f.id] !== null && form_state[f.id] !== undefined);\n  const takesFastPath = (f) => !!f.resolve && (f.type === 'number' || f.type === 'integer') && parsesAsFiniteNumber(form_state[f.id]);\n  const directFilters = presentFilters.filter(f => !f.resolve || takesFastPath(f));\n  const resolvableFields = presentFilters.filter(f => f.resolve && !takesFastPath(f));\n  const definitionHasResolve = (queryDef.filters || []).some(f => f.resolve);\n  const resolvedFilters = directFilters\n    .map(f => {\n      const val = form_state[f.id];\n      // operator is declared as an array of allowed operator names (even a single allowed\n      // operator is a 1-element array); form_state.<id>_operator is the agent's per-turn\n      // pick among them, falling back to the first declared one when the field only has\n      // one option or none was chosen. A bare string is normalized here too, for any\n      // process definition that hasn't been migrated to the array form yet.\n      const allowedOperators = Array.isArray(f.operator) ? f.operator : [f.operator];\n      const chosen = form_state[`${f.id}_operator`];\n      const operator = allowedOperators.includes(chosen) ? chosen : allowedOperators[0];\n\n      if (f.type === 'date') return `${f.sap_field} ${operator} datetime'${val}T00:00:00'`;\n\n      if (f.type === 'string') {\n        const builder = STRING_FILTER_BUILDERS[operator] || STRING_FILTER_BUILDERS.eq;\n        const parts = String(val).split(/,|\\bor\\b/i).map(p => p.trim()).filter(p => p);\n        if (parts.length <= 1) return builder(f.sap_field, parts[0] || val);\n        const conds = parts.map(p => builder(f.sap_field, p));\n        // Multiple values: a positive match reads naturally as OR (\"matches A or B\"); a\n        // negated match reads naturally as AND (\"excludes both A and B\" -- an OR of two\n        // negations is almost always true and wouldn't filter anything out).\n        return '(' + conds.join(operator.startsWith('not_') ? ' and ' : ' or ') + ')';\n      }\n\n      return `${f.sap_field} ${operator} ${val}`;\n    });\n  // Parenthesize the user's own filter group before ANDing it with default_filters -- otherwise\n  // \"or\"'s lower precedence than \"and\" would silently detach the last clause (e.g. \"A or B and\n  // CardType eq 'cSupplier'\" parses as \"A or (B and CardType eq 'cSupplier')\", not \"(A or B) and\n  // CardType eq 'cSupplier'\").\n  const userFilterExpr = resolvedFilters.length\n    ? resolvedFilters.length > 1\n      ? '(' + resolvedFilters.join(form_state.match_all ? ' and ' : ' or ') + ')'\n      : resolvedFilters[0]\n    : null;\n  const finalFilterExpr = [...defaultFilterExprs, ...(userFilterExpr ? [userFilterExpr] : [])].join(' and ') || null;\n  const effectiveTop = form_state.top || queryDef.top || 20;\n  const effectiveSkip = form_state.skip || 0;\n  const effectiveOrderBy = form_state.order_by || queryDef.order_by;\n  const requestedFields = form_state.requested_fields || form_state.select_fields;\n  const fieldMap = (schemaDef?.fields || []).map(f => ({ label: f.label, sap_field: f.sap_field }));\n  const resolvableSection = resolvableFields.length\n    ? `RESOLVABLE FIELDS (each value below may be a human-readable name instead of the actual SAP code -- for each field, first judge whether its given value already looks like a valid code/id for a field of that type. If so, build \"<sap_field> <operator> <value>\" yourself per the OData v2 FILTER SYNTAX RULES below and AND it into the final filter alongside PRE-BUILT FILTERS -- no lookup needed. If instead it looks like a human-readable name, first call sap_query_entity_set against the field's resolve.service, filtering resolve.match_field resolve.match_type <value> (ANDing in resolve.default_filters the same way default_filters are ANDed in elsewhere), extract resolve.return_field from the result, then build the clause using that resolved value the same way. On 0 or more than 1 match, stop -- do NOT call the main query -- reply using the graceful error format instead, naming what was searched for and, on multiple matches, listing the candidates so the user can pick.):\n${resolvableFields.map(f => {\n        const label = (schemaDef?.fields || []).find(sf => sf.sap_field === f.sap_field)?.label || f.id;\n        const allowedOperators = Array.isArray(f.operator) ? f.operator : [f.operator];\n        const val = form_state[f.id];\n        const r = f.resolve || {};\n        return `- ${label} (${f.sap_field}): operator(s) ${JSON.stringify(allowedOperators)}, type ${f.type}, value as given: ${JSON.stringify(val)}\n  resolve: service ${JSON.stringify(r.service)}, match_field ${JSON.stringify(r.match_field)}, match_type ${JSON.stringify(r.match_type || 'contains')}, return_field ${JSON.stringify(r.return_field)}, default_filters ${JSON.stringify(r.default_filters || [])}`;\n      }).join('\\n')}\n\n`\n    : '';\n  const wantsJson = form_state.response_format === 'json';\n  const successInstruction = wantsJson\n    ? `a fenced \\`\\`\\`json code block in the message field containing the results as a raw JSON array (using schema field ids as keys) -- NOT a Markdown table`\n    : `Markdown table in ${language}`;\n  const filterVerbatimLine = 'The pre-built filters above already follow this syntax. Pass them to the filter parameter verbatim.' +\n    (resolvableFields.length ? ' Combine whatever you build or resolve for RESOLVABLE FIELDS with PRE-BUILT FILTERS via AND before calling the tool.' : '');\n  const rawQueryDefPreamble = 'RAW QUERY DEFINITION (authoritative source the filters above were derived from -- cross-check it: if its default_filters or filters declare a constraint not already reflected in PRE-BUILT FILTERS above, you MUST still AND it in yourself before calling the tool):' +\n    (definitionHasResolve ? ' Only perform a lookup when explicitly told to via a RESOLVABLE FIELDS section above -- a resolve key appearing in this raw JSON dump alone is not an instruction to look anything up.' : '');\n  chatInput = `Call sap_query_entity_set with these parameters.\n\nSERVICE: ${sap_service}\nCONNECTION: ${JSON.stringify(sap_connection)}\nPRE-BUILT FILTERS (apply as-is, already valid OData v2 -- already includes this process's mandatory default_filters, ANDed in): ${finalFilterExpr || 'none'}\n${resolvableSection}DEFAULT SELECT: ${defaultSelect ? JSON.stringify(defaultSelect) : 'omit'}\nTOP: ${effectiveTop}\nSKIP: ${effectiveSkip || 'omit'}\nORDERBY: ${effectiveOrderBy ? effectiveOrderBy.map(o => o.field + ' ' + o.direction).join(',') : 'omit'}\n\nUSER REQUESTED FIELDS: ${requestedFields ? JSON.stringify(requestedFields) : '\"default\"'}\nIf the user specified fields, use this label->sap_field map to resolve them:\n${JSON.stringify(fieldMap)}\nIf default or none specified, use DEFAULT SELECT above.\n\nOData v2 FILTER SYNTAX RULES (SAP B1S):\n- String contains: substringof('value', FieldName) -- NEVER use FieldName contains 'value'\n- String equals: FieldName eq 'value'\n- Number equals: FieldName eq 123\n- Multiple OR: (substringof('a', F) or substringof('b', F))\n- AND: expr1 and expr2\n${filterVerbatimLine}\n\n${rawQueryDefPreamble}\n${JSON.stringify(queryDef)}\n\nRULES:\n- Omit any parameter that is null, empty, or undefined.\n- Never pass null values to any parameter.\n- Use default select unless user explicitly requested specific fields.\n- Render results as a Markdown table using schema labels as column headers, UNLESS the user explicitly asked for JSON/raw format (see OUTPUT below) -- in that case render a fenced \\`\\`\\`json code block instead.\n\nSuccess: {\"status\": \"success\", \"message\": \"<${successInstruction}>\", \"form_state\": null, \"processes\": null}\nNo records: {\"status\": \"success\", \"message\": \"<no records message in ${language}>\", \"form_state\": null, \"processes\": null}\nError: {\"status\": \"error\", \"message\": \"<user-friendly Markdown in ${language}>\", \"form_state\": null, \"processes\": null}`;\n} else {\n  // POST_CREATE\n  const outputParsing = process_definition?.output_parsing;\n  const successMsg = process_definition?.output?.success_message || 'Operation completed successfully.';\n  const fieldReference = (process_definition?.form?.sections || []).flatMap(\n    (section) => (section.fields || []).map(({ sap_field, label, ask }) => ({ sap_field, label, ask })),\n  );\n  const outputParsingSection = outputParsing\n    ? `## OUTPUT PARSING SPEC\\n${JSON.stringify(outputParsing, null, 2)}\\n\\n## HOW TO BUILD THE SUCCESS MESSAGE\\n- Extract every field listed in output_parsing.fields from the SAP response body.\\n- Follow output_parsing.instruction exactly to decide what to display and how to format it.\\n- Use this as the base success message template: \"${successMsg}\"\\n- When the instruction says to display lines/items as a table, ALWAYS use proper Markdown table syntax -- include the header row, the separator row (|---|---|...|), and one data row per item.`\n    : `## SUCCESS MESSAGE TEMPLATE\\n${successMsg}\\n(No output_parsing spec available -- fill any {placeholder} in the template with the matching value from the SAP response body.)`;\n  chatInput = `Call sap_entity_create with these exact parameters. Do not modify anything:\n\nCALL:\n{\n  \"serviceName\": \"${sap_service}\",\n  \"entitySet\": \"\",\n  \"data\": ${JSON.stringify(sap_payload)},\n  \"connection\": ${JSON.stringify(sap_connection)}\n}\n\n${outputParsingSection}\n\n## FIELD REFERENCE (use only to interpret an error below -- sap_field is the exact name SAP's error text will reference)\n${JSON.stringify(fieldReference)}\n\nReturn ONLY one of these JSON objects (no markdown, no extra text):\nSuccess: {\"status\": \"success\", \"message\": \"<formatted success message in ${language}>\", \"form_state\": null, \"processes\": null}\nError:   {\"status\": \"error\", \"message\": \"<in ${language}: explain what went wrong using the actual SAP error text -- if, and only if, that error text clearly names one of the fields in FIELD REFERENCE (by its sap_field name or an unambiguous match), name it using that field's label and invite the user to provide or correct it using that field's own 'ask' question; otherwise relay the SAP error's essential meaning in plain language without guessing which field caused it>\", \"form_state\": null, \"processes\": null}`;\n}\n\nreturn [{ json: { ...data, chatInput } }];"
-      },
+      "id": "249036cc-9f94-49a1-bd1f-884354bae5a1",
+      "name": "Build Execution Prompt",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         -2656,
         10048
       ],
-      "id": "249036cc-9f94-49a1-bd1f-884354bae5a1",
-      "name": "Build Execution Prompt"
+      "parameters": {
+        "jsCode": "const data = $json;\nconst { language, sap_operation, sap_service, sap_connection, sap_payload, active_node_id, intention_nodes } = data;\nconst { process_definition, form_state } = (intention_nodes || {})[active_node_id] || {};\n\nlet chatInput;\n\nif (sap_operation === 'CALL_FUNCTION') {\n  // A fixed, mechanical, entity-bound OData function call -- e.g. executing an\n  // already-registered SQLQueries lookup (SAP's own workaround for reading a table that\n  // isn't exposed as a first-class Service Layer entity). No RESOLVABLE FIELDS/filter-building\n  // judgment needed, unlike GET_SINGLE/GET_QUERY -- data.sap_call_config carries everything\n  // literally, set directly by the caller (not derived from a registered process_definition,\n  // since this call isn't tied to one).\n  const { service_name: callService, function_name: callFunction, entity_key: entityKey, params: callParams } = data.sap_call_config || {};\n  chatInput = `Call sap_call_function with these exact parameters, unmodified:\n\nCALL:\n{\n  \"serviceName\": \"${callService}\",\n  \"functionName\": \"${callFunction}\",\n  \"entityKey\": ${JSON.stringify(entityKey)},\n  \"parameters\": ${JSON.stringify(callParams || {})},\n  \"connection\": ${JSON.stringify(sap_connection)}\n}\n\nSuccess: {\"status\": \"success\", \"message\": \"Done.\", \"form_state\": null, \"processes\": null}\nError: {\"status\": \"error\", \"message\": \"<user-friendly Markdown in ${language}>\", \"form_state\": null, \"processes\": null}`;\n} else if (sap_operation === 'GET_SINGLE') {\n  const keySapField = process_definition.query.key.sap_field;\n  const keyValue = form_state[process_definition.query.key.id];\n  const expand = process_definition.query.expand || [];\n  const expandLine = expand.length ? `  \"expand\": ${JSON.stringify(expand)},\\n` : '';\n  const wantsJson = form_state.response_format === 'json';\n  const successInstruction = wantsJson\n    ? `a fenced \\`\\`\\`json code block in the message field containing the full result (after removing null fields) as raw JSON -- NOT a bullet list or prose`\n    : `Markdown result in ${language}, remove null fields, use schema labels`;\n  chatInput = `Call sap_entity_get with these exact parameters:\n\nCALL:\n{\n  \"serviceName\": \"${sap_service}\",\n  \"entitySet\": \"\",\n  \"keyValues\": { \"${keySapField}\": ${JSON.stringify(keyValue)} },\n${expandLine}  \"connection\": ${JSON.stringify(sap_connection)}\n}\n\nSuccess: {\"status\": \"success\", \"message\": \"<${successInstruction}>\", \"form_state\": null, \"processes\": null}\nNot found / Error: {\"status\": \"error\", \"message\": \"<user-friendly Markdown in ${language}>\", \"form_state\": null, \"processes\": null}`;\n} else if (sap_operation === 'GET_QUERY') {\n  const queryDef = process_definition.query;\n  const schemaDef = process_definition.schema_definition;\n  const defaultSelect = Array.isArray(queryDef.select) && queryDef.select.length\n    ? queryDef.select\n    : schemaDef?.list_select?.length ? schemaDef.list_select\n    : schemaDef?.get_select?.length ? schemaDef.get_select\n    : null;\n  // Case-insensitive matching is handled by the SAP MCP tool itself (a Service Layer\n  // request header), not by this template -- filters built here stay plain OData v2.\n  // LITERAL_BUILDERS below compares default_filters/enum-style eq/ne against exact\n  // system values (e.g. CardType eq 'cSupplier'), never user-typed text.\n  const STRING_FILTER_BUILDERS = {\n    contains: (field, v) => `substringof('${v}', ${field})`,\n    not_contains: (field, v) => `not substringof('${v}', ${field})`,\n    startswith: (field, v) => `startswith(${field}, '${v}')`,\n    not_startswith: (field, v) => `not startswith(${field}, '${v}')`,\n    endswith: (field, v) => `endswith(${field}, '${v}')`,\n    not_endswith: (field, v) => `not endswith(${field}, '${v}')`,\n    eq: (field, v) => `${field} eq '${v}'`,\n    ne: (field, v) => `${field} ne '${v}'`,\n  };\n  const LITERAL_BUILDERS = {\n    eq: (field, v) => `${field} eq ${typeof v === 'string' ? `'${v}'` : v}`,\n    ne: (field, v) => `${field} ne ${typeof v === 'string' ? `'${v}'` : v}`,\n  };\n  // default_filters express an intrinsic property of the process itself (e.g. \"vendor_list\n  // only ever means CardType eq 'cSupplier'\") -- mandatory, never something the user's own\n  // filter combination can override or omit, so they're always ANDed in regardless of match_all.\n  const defaultFilterExprs = (queryDef.default_filters || []).map(f => {\n    const builder = LITERAL_BUILDERS[f.operator] || LITERAL_BUILDERS.eq;\n    return builder(f.sap_field, f.value);\n  });\n  const parsesAsFiniteNumber = (val) => {\n    if (typeof val === 'number') return Number.isFinite(val);\n    if (typeof val === 'string') return val.trim() !== '' && Number.isFinite(Number(val));\n    return false;\n  };\n  // A resolve block hands per-field judgment to the agent (name vs. code can't be told apart\n  // deterministically for anything but an already-numeric value) -- see RESOLVABLE FIELDS below.\n  // The one exception code keeps for itself: a number-typed resolve field whose value already\n  // parses as a finite number is unambiguous, so it flows straight through as a direct filter,\n  // same as any non-resolve field, with zero agent judgment involved.\n  const presentFilters = (queryDef.filters || [])\n    .filter(f => form_state[f.id] !== null && form_state[f.id] !== undefined);\n  const takesFastPath = (f) => !!f.resolve && (f.type === 'number' || f.type === 'integer') && parsesAsFiniteNumber(form_state[f.id]);\n  const directFilters = presentFilters.filter(f => !f.resolve || takesFastPath(f));\n  const resolvableFields = presentFilters.filter(f => f.resolve && !takesFastPath(f));\n  const definitionHasResolve = (queryDef.filters || []).some(f => f.resolve);\n  const resolvedFilters = directFilters\n    .map(f => {\n      const val = form_state[f.id];\n      // operator is declared as an array of allowed operator names (even a single allowed\n      // operator is a 1-element array); form_state.<id>_operator is the agent's per-turn\n      // pick among them, falling back to the first declared one when the field only has\n      // one option or none was chosen. A bare string is normalized here too, for any\n      // process definition that hasn't been migrated to the array form yet.\n      const allowedOperators = Array.isArray(f.operator) ? f.operator : [f.operator];\n      const chosen = form_state[`${f.id}_operator`];\n      const operator = allowedOperators.includes(chosen) ? chosen : allowedOperators[0];\n\n      if (f.type === 'date') return `${f.sap_field} ${operator} datetime'${val}T00:00:00'`;\n\n      if (f.type === 'string') {\n        const builder = STRING_FILTER_BUILDERS[operator] || STRING_FILTER_BUILDERS.eq;\n        const parts = String(val).split(/,|\\bor\\b/i).map(p => p.trim()).filter(p => p);\n        if (parts.length <= 1) return builder(f.sap_field, parts[0] || val);\n        const conds = parts.map(p => builder(f.sap_field, p));\n        // Multiple values: a positive match reads naturally as OR (\"matches A or B\"); a\n        // negated match reads naturally as AND (\"excludes both A and B\" -- an OR of two\n        // negations is almost always true and wouldn't filter anything out).\n        return '(' + conds.join(operator.startsWith('not_') ? ' and ' : ' or ') + ')';\n      }\n\n      return `${f.sap_field} ${operator} ${val}`;\n    });\n  // Parenthesize the user's own filter group before ANDing it with default_filters -- otherwise\n  // \"or\"'s lower precedence than \"and\" would silently detach the last clause (e.g. \"A or B and\n  // CardType eq 'cSupplier'\" parses as \"A or (B and CardType eq 'cSupplier')\", not \"(A or B) and\n  // CardType eq 'cSupplier'\").\n  const userFilterExpr = resolvedFilters.length\n    ? resolvedFilters.length > 1\n      ? '(' + resolvedFilters.join(form_state.match_all ? ' and ' : ' or ') + ')'\n      : resolvedFilters[0]\n    : null;\n  const finalFilterExpr = [...defaultFilterExprs, ...(userFilterExpr ? [userFilterExpr] : [])].join(' and ') || null;\n  // A resolved alternate-key lookup expects exactly one match -- force top to 1 regardless\n  // of any other default, rather than trusting the filter above to be the only constraint.\n  const effectiveTop = form_state.top || queryDef.top || 20;\n  const effectiveSkip = form_state.skip || 0;\n  const effectiveOrderBy = form_state.order_by || queryDef.order_by;\n  const requestedFields = form_state.requested_fields || form_state.select_fields;\n  const fieldMap = (schemaDef?.fields || []).map(f => ({ label: f.label, sap_field: f.sap_field }));\n  const resolvableSection = resolvableFields.length\n    ? `RESOLVABLE FIELDS (each value below may be a human-readable name instead of the actual SAP code -- for each field, first judge whether its given value already looks like a valid code/id for a field of that type. If so, build \"<sap_field> <operator> <value>\" yourself per the OData v2 FILTER SYNTAX RULES below and AND it into the final filter alongside PRE-BUILT FILTERS -- no lookup needed. If instead it looks like a human-readable name, first call sap_query_entity_set against the field's resolve.service, filtering resolve.match_field resolve.match_type <value> (ANDing in resolve.default_filters the same way default_filters are ANDed in elsewhere), extract resolve.return_field from the result, then build the clause using that resolved value the same way. On 0 or more than 1 match, stop -- do NOT call the main query -- reply using the graceful error format instead, naming what was searched for and, on multiple matches, listing the candidates so the user can pick.):\n${resolvableFields.map(f => {\n        const label = (schemaDef?.fields || []).find(sf => sf.sap_field === f.sap_field)?.label || f.id;\n        const allowedOperators = Array.isArray(f.operator) ? f.operator : [f.operator];\n        const val = form_state[f.id];\n        const r = f.resolve || {};\n        return `- ${label} (${f.sap_field}): operator(s) ${JSON.stringify(allowedOperators)}, type ${f.type}, value as given: ${JSON.stringify(val)}\n  resolve: service ${JSON.stringify(r.service)}, match_field ${JSON.stringify(r.match_field)}, match_type ${JSON.stringify(r.match_type || 'contains')}, return_field ${JSON.stringify(r.return_field)}, default_filters ${JSON.stringify(r.default_filters || [])}`;\n      }).join('\\n')}\n\n`\n    : '';\n  const wantsJson = form_state.response_format === 'json';\n  const successInstruction = wantsJson\n    ? `a fenced \\`\\`\\`json code block in the message field containing the results as a raw JSON array (using schema field ids as keys) -- NOT a Markdown table`\n    : `Markdown table in ${language}`;\n  const filterVerbatimLine = 'The pre-built filters above already follow this syntax. Pass them to the filter parameter verbatim.' +\n    (resolvableFields.length ? ' Combine whatever you build or resolve for RESOLVABLE FIELDS with PRE-BUILT FILTERS via AND before calling the tool.' : '');\n  const rawQueryDefPreamble = 'RAW QUERY DEFINITION (authoritative source the filters above were derived from -- cross-check it: if its default_filters or filters declare a constraint not already reflected in PRE-BUILT FILTERS above, you MUST still AND it in yourself before calling the tool):' +\n    (definitionHasResolve ? ' Only perform a lookup when explicitly told to via a RESOLVABLE FIELDS section above -- a resolve key appearing in this raw JSON dump alone is not an instruction to look anything up.' : '');\n  chatInput = `Call sap_query_entity_set with these parameters.\n\nSERVICE: ${sap_service}\nCONNECTION: ${JSON.stringify(sap_connection)}\nPRE-BUILT FILTERS (apply as-is, already valid OData v2 -- already includes this process's mandatory default_filters, ANDed in): ${finalFilterExpr || 'none'}\n${resolvableSection}DEFAULT SELECT: ${defaultSelect ? JSON.stringify(defaultSelect) : 'omit'}\nTOP: ${effectiveTop}\nSKIP: ${effectiveSkip || 'omit'}\nORDERBY: ${effectiveOrderBy ? effectiveOrderBy.map(o => o.field + ' ' + o.direction).join(',') : 'omit'}\n\nUSER REQUESTED FIELDS: ${requestedFields ? JSON.stringify(requestedFields) : '\"default\"'}\nIf the user specified fields, use this label->sap_field map to resolve them:\n${JSON.stringify(fieldMap)}\nIf default or none specified, use DEFAULT SELECT above.\n\nOData v2 FILTER SYNTAX RULES (SAP B1S):\n- String contains: substringof('value', FieldName) -- NEVER use FieldName contains 'value'\n- String equals: FieldName eq 'value'\n- Number equals: FieldName eq 123\n- Multiple OR: (substringof('a', F) or substringof('b', F))\n- AND: expr1 and expr2\n${filterVerbatimLine}\n\n${rawQueryDefPreamble}\n${JSON.stringify(queryDef)}\n\nRULES:\n- Omit any parameter that is null, empty, or undefined.\n- Never pass null values to any parameter.\n- Use default select unless user explicitly requested specific fields.\n- Render results as a Markdown table using schema labels as column headers, UNLESS the user explicitly asked for JSON/raw format (see OUTPUT below) -- in that case render a fenced \\`\\`\\`json code block instead.\n\nSuccess: {\"status\": \"success\", \"message\": \"<${successInstruction}>\", \"form_state\": null, \"processes\": null}\nNo records: {\"status\": \"success\", \"message\": \"<no records message in ${language}>\", \"form_state\": null, \"processes\": null}\nError: {\"status\": \"error\", \"message\": \"<user-friendly Markdown in ${language}>\", \"form_state\": null, \"processes\": null}`;\n} else {\n  // POST_CREATE\n  const outputParsing = process_definition?.output_parsing;\n  const successMsg = process_definition?.output?.success_message || 'Operation completed successfully.';\n  const fieldReference = (process_definition?.form?.sections || []).flatMap(\n    (section) => (section.fields || []).map(({ sap_field, label, ask }) => ({ sap_field, label, ask })),\n  );\n  const outputParsingSection = outputParsing\n    ? `## OUTPUT PARSING SPEC\\n${JSON.stringify(outputParsing, null, 2)}\\n\\n## HOW TO BUILD THE SUCCESS MESSAGE\\n- Extract every field listed in output_parsing.fields from the SAP response body.\\n- Follow output_parsing.instruction exactly to decide what to display and how to format it.\\n- Use this as the base success message template: \"${successMsg}\"\\n- When the instruction says to display lines/items as a table, ALWAYS use proper Markdown table syntax -- include the header row, the separator row (|---|---|...|), and one data row per item.`\n    : `## SUCCESS MESSAGE TEMPLATE\\n${successMsg}\\n(No output_parsing spec available -- fill any {placeholder} in the template with the matching value from the SAP response body.)`;\n  chatInput = `Call sap_entity_create with these exact parameters. Do not modify anything:\n\nCALL:\n{\n  \"serviceName\": \"${sap_service}\",\n  \"entitySet\": \"\",\n  \"data\": ${JSON.stringify(sap_payload)},\n  \"connection\": ${JSON.stringify(sap_connection)}\n}\n\n${outputParsingSection}\n\n## FIELD REFERENCE (use only to interpret an error below -- sap_field is the exact name SAP's error text will reference)\n${JSON.stringify(fieldReference)}\n\nReturn ONLY one of these JSON objects (no markdown, no extra text):\nSuccess: {\"status\": \"success\", \"message\": \"<formatted success message in ${language}>\", \"form_state\": null, \"processes\": null}\nError:   {\"status\": \"error\", \"message\": \"<in ${language}: explain what went wrong using the actual SAP error text -- if, and only if, that error text clearly names one of the fields in FIELD REFERENCE (by its sap_field name or an unambiguous match), name it using that field's label and invite the user to provide or correct it using that field's own 'ask' question; otherwise relay the SAP error's essential meaning in plain language without guessing which field caused it>\", \"form_state\": null, \"processes\": null}`;\n}\n\nreturn [{ json: { ...data, chatInput } }];"
+      }
     },
     {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "gc1sceDuMfns8CSn",
-          "mode": "id"
-        },
-        "options": {}
-      },
+      "id": "9d8700b0-373d-4c84-8dd0-54db6800bc7f",
+      "name": "Execute Workflow: Error Parser (Agent Failure)",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
         -1728,
         10048
       ],
-      "id": "9d8700b0-373d-4c84-8dd0-54db6800bc7f",
-      "name": "Execute Workflow: Error Parser (Agent Failure)"
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "E4JerYpWJslysUQx",
+          "mode": "id"
+        },
+        "options": {}
+      }
     },
     {
-      "parameters": {
-        "jsCode": "const base = $json;\nconst content = base._parsed || {};\n\nlet needsErrorParse = false;\nlet errorCode = null;\nlet errorMessage = null;\n\nconst intentionNodesIn = base.intention_nodes || {};\nconst activeNode = intentionNodesIn[base.active_node_id] || {};\nlet formState = activeNode.form_state;\nlet intentionNodes = intentionNodesIn;\nlet activeNodeId = base.active_node_id;\n\n// Only set on the success branch -- reset_process still matters for Django's\n// active_node_id/last_bot_message resettable merge (main.py's _merge_field); the\n// process_id/process_definition/form_state root-level copies this flag used to force\n// through are gone entirely now, intention_nodes[id] was always the only real copy.\nlet resetProcess = false;\n\nif (content.status === 'success') {\n  // Done -- nothing left pending for this intent. The node itself is marked 'completed'\n  // (an empty result set is still a completed inquiry, not still-active). active_node_id\n  // itself moves on below (auto-resume to whatever this interrupted) -- Park Current\n  // Intent no longer needs active_node_id left on a completed node to find its parent,\n  // since a completed node's own parent_id (set at creation time) is enough on its own.\n  // The node's own form_state already holds what was actually submitted -- a completed\n  // node should keep a record of what it submitted, not go blank the instant it finishes.\n  // error_detail (if this same node failed on a prior attempt) is explicitly cleared here\n  // so a later general-inquiry lookup of this now-completed node never cites a stale error\n  // for a request that has since succeeded.\n  // A node reaching 'completed' here never re-enters form-filling or SAP execution\n  // again (only ever read for display -- Intention Graph, general-inquiry context), so\n  // its full process_definition (the whole form schema plus schema_definition) is no\n  // longer needed -- prune to just .name, same stub shape register-intention-node.json's\n  // Register Node already uses when a batch record registers straight into 'completed'.\n  intentionNodes = base.active_node_id && intentionNodesIn[base.active_node_id]\n    ? { ...intentionNodesIn, [base.active_node_id]: {\n        ...activeNode,\n        status: 'completed',\n        error_detail: null,\n        process_definition: { name: activeNode.process_definition?.name ?? null },\n      } }\n    : intentionNodesIn;\n  // Auto-resume: this intent interrupted whatever was active before it (Park Current\n  // Intent set this node's own parent_id to that node's id at creation time) -- now that\n  // it's done, hand control back rather than leaving active_node_id stranded on a node\n  // that will never execute again. Walks past any ancestor that's ALSO already terminal\n  // (shouldn't normally happen -- a paused node can't independently finish while this one\n  // was running -- but stays defensive). Same TERMINAL_STATUSES/walk shape duplicated in\n  // Park Current Intent (intent-manager.json), Compute Form Outcome\n  // (sap-process-form-filling.json), Classify & Store Error (error-parser.json), and\n  // Resolve Final State (batch-processing.json) -- keep all five in sync if this changes.\n  const TERMINAL_STATUSES = new Set(['completed', 'abandoned']);\n  const findResumeTarget = (nodeId, nodes) => {\n    let current = nodeId;\n    while (current) {\n      const node = nodes[current];\n      if (!node) return null;\n      if (!TERMINAL_STATUSES.has(node.status)) return current;\n      current = node.parent_id;\n    }\n    return null;\n  };\n  const resumeTargetId = findResumeTarget(activeNode.parent_id, intentionNodes);\n  if (resumeTargetId) {\n    intentionNodes = { ...intentionNodes, [resumeTargetId]: { ...intentionNodes[resumeTargetId], status: 'active' } };\n  }\n  activeNodeId = resumeTargetId;\n  resetProcess = true;\n} else {\n  // A graceful 'error' status, or anything unparseable/unrecognized -- SAP didn't accept\n  // the submission. form_state.ready flips back to false so the NEXT turn's Agent: Find\n  // still sees an active, mid-form process to resolve against -- Agent: Intent Finder is\n  // what decides, from the user's next message, whether that's a correction to retry or\n  // an abandon-and-switch-intent.\n  // No same-turn bounce-back to the caller: SAP MCP failures surface as an agent-node\n  // failure (Has Agent Error?), not a graceful status, often enough that trying to\n  // distinguish \"correctable\" from \"hard failure\" here would be unreliable anyway --\n  // simpler and more robust to always deliver and let the next turn decide.\n  needsErrorParse = true;\n  errorCode = 'SAP_ERROR';\n  errorMessage = content.message || null;\n  formState = { ...(formState || {}), ready: false };\n  // Node stays 'active' (needs correcting, not abandoned), but its saved copy must track\n  // the ready:false flip too, or the next turn's Prompt: Intention Focus still sees a\n  // stale ready:true snapshot for a node that's actually back in an editable state.\n  // error_detail is also mirrored onto the node itself (not just this turn's ephemeral\n  // error/error_message) so a later turn -- e.g. Prompt: Context & Conversation's\n  // lastFailedNode/activeNode lookup, or Agent: Form resuming this same node -- can still\n  // answer \"what went wrong\" even after the turn that produced the error has passed.\n  intentionNodes = base.active_node_id && intentionNodesIn[base.active_node_id]\n    ? { ...intentionNodesIn, [base.active_node_id]: { ...activeNode, form_state: formState, error_detail: errorMessage } }\n    : intentionNodesIn;\n}\n\nreturn [{ json: {\n  ...base,\n  message: content.message ?? base.message,\n  active_node_id: activeNodeId,\n  intention_nodes: intentionNodes,\n  reset_process: resetProcess,\n  _needs_error_parse: needsErrorParse,\n  ...(needsErrorParse ? { error: errorCode, error_message: errorMessage } : {}),\n} }];"
-      },
+      "id": "e9ecf3ed-a3ec-44f2-9a8b-643da327963e",
+      "name": "Compute Execution Outcome",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         -1168,
         10176
       ],
-      "id": "e9ecf3ed-a3ec-44f2-9a8b-643da327963e",
-      "name": "Compute Execution Outcome"
+      "parameters": {
+        "jsCode": "const base = $json;\nconst content = base._parsed || {};\n\n// Structural capture of the record a document-eligible GET_SINGLE fetch actually returned --\n// generate-document.json's field-mapping schema reads real SAP field names out of form_state,\n// so this needs the complete raw record, not the agent's own formatted message. Two earlier\n// approaches both failed live: asking the model to transcribe the COMPLETE record blew its\n// output-token budget and truncated mid-response; asking for a null-stripped copy still had\n// the model silently drop an entire nested sub-object (BusinessPartner) while \"transcribing\".\n// Reading Agent: Execute's own intermediateSteps (enabled via options.returnIntermediateSteps)\n// sidesteps the model's output path entirely -- this is the tool's actual response, structural\n// and complete, immune to both failure modes and to any future growth in entity size.\nconst extractToolResult = (marker) => {\n  try {\n    const steps = base.intermediateSteps || [];\n    const step = steps[steps.length - 1];\n    if (!step) return null;\n    const outer = JSON.parse(step.observation);\n    const text = outer[0]?.response?.[0]?.text || '';\n    const idx = text.indexOf(marker);\n    if (idx === -1) return null;\n    return JSON.parse(text.slice(idx + marker.length).trim());\n  } catch (e) {\n    return null;\n  }\n};\n// Finds and parses the first complete, balanced JSON value at the start of `text`, ignoring\n// any trailing non-JSON content -- unlike extractToolResult's own JSON.parse(whole\n// remainder), which only works when nothing follows the value (true for sap_entity_get's\n// \"Entity data:\", but never for queryEntitySet's \"Data:\" marker, which always appends a\n// \"Query parameters used:\" footer whenever any parameter -- e.g. the $filter this whole path\n// exists for -- was actually used).\nconst parseJsonPrefix = (text) => {\n  const trimmed = text.trimStart();\n  const opener = trimmed[0];\n  const closer = opener === '[' ? ']' : opener === '{' ? '}' : null;\n  if (!closer) return null;\n  let depth = 0;\n  let inString = false;\n  let escaped = false;\n  for (let i = 0; i < trimmed.length; i++) {\n    const char = trimmed[i];\n    if (inString) {\n      if (escaped) escaped = false;\n      else if (char === '\\\\') escaped = true;\n      else if (char === '\"') inString = false;\n      continue;\n    }\n    if (char === '\"') { inString = true; continue; }\n    if (char === opener) depth++;\n    else if (char === closer) {\n      depth--;\n      if (depth === 0) {\n        try { return JSON.parse(trimmed.slice(0, i + 1)); } catch (e) { return null; }\n      }\n    }\n  }\n  return null;\n};\n// queryEntitySet's own \"Data:\\n\" marker (da-sap-mcp query/handler.ts) -- reached whenever a\n// document-eligible lookup resolves via a $filter rather than a direct key GET (e.g. the user\n// gave a DocNum against a schema whose real key is DocEntry, per that schema's own \"note\").\n// Its record(s) come back wrapped in an array (JSON.stringify(shown, ...), shown = an array\n// even for a single match) and, critically, with every nested-array field already stripped\n// by the tool itself (HQuery.__stripNestedArrays) before this text was ever produced -- there\n// is no way to recover those from this text at all. Taking records[0] still fixes every\n// header-level field a document needs; line items stay unpopulated for this path specifically\n// until a real follow-up GET_SINGLE-by-resolved-key call is added -- not implemented yet.\nconst extractQueryFirstRecord = () => {\n  try {\n    const steps = base.intermediateSteps || [];\n    const step = steps[steps.length - 1];\n    if (!step) return null;\n    const outer = JSON.parse(step.observation);\n    const text = outer[0]?.response?.[0]?.text || '';\n    const idx = text.indexOf('Data:\\n');\n    if (idx === -1) return null;\n    const records = parseJsonPrefix(text.slice(idx + 'Data:\\n'.length));\n    return Array.isArray(records) && records.length > 0 ? records[0] : null;\n  } catch (e) {\n    return null;\n  }\n};\nconst extractFetchedEntity = () => extractToolResult('Entity data:') ?? extractQueryFirstRecord();\n// sap_call_function's own response formatting (da-sap-mcp query/handler.ts) uses \"Result:\\n\"\n// instead of sap_entity_get's \"Entity data:\\n\" -- same mechanism, different marker.\nconst extractCallFunctionResult = () => extractToolResult('Result:');\n\n\nlet needsErrorParse = false;\nlet errorCode = null;\nlet errorMessage = null;\n\nconst intentionNodesIn = base.intention_nodes || {};\nconst activeNode = intentionNodesIn[base.active_node_id] || {};\nlet formState = activeNode.form_state;\nlet intentionNodes = intentionNodesIn;\nlet activeNodeId = base.active_node_id;\n\n// Only set on the success branch -- reset_process still matters for Django's\n// active_node_id/last_bot_message resettable merge (main.py's _merge_field); the\n// process_id/process_definition/form_state root-level copies this flag used to force\n// through are gone entirely now, intention_nodes[id] was always the only real copy.\nlet resetProcess = false;\n\nif (content.status === 'success') {\n  // Done -- nothing left pending for this intent. The node itself is marked 'completed'\n  // (an empty result set is still a completed inquiry, not still-active). active_node_id\n  // itself moves on below (auto-resume to whatever this interrupted) -- Park Current\n  // Intent no longer needs active_node_id left on a completed node to find its parent,\n  // since a completed node's own parent_id (set at creation time) is enough on its own.\n  // The node's own form_state already holds what was actually submitted -- a completed\n  // node should keep a record of what it submitted, not go blank the instant it finishes.\n  // error_detail (if this same node failed on a prior attempt) is explicitly cleared here\n  // so a later general-inquiry lookup of this now-completed node never cites a stale error\n  // for a request that has since succeeded.\n  // A node reaching 'completed' here never re-enters form-filling or SAP execution\n  // again (only ever read for display -- Intention Graph, general-inquiry context), so\n  // its full process_definition (the whole form schema plus schema_definition) is no\n  // longer needed -- prune to just .name, same stub shape register-intention-node.json's\n  // Register Node already uses when a batch record registers straight into 'completed'.\n  // document_type/document_mapping are schema-level facts (see generate-document.json's\n  // Resolve Target Node) a query like ar_invoice_get needs to keep even after completing here\n  // -- this is a second, independent completed-node pruning site parallel to\n  // register-intention-node.json's Register Node (same stub-shape convention), found live\n  // when a real ar_invoice_get -> generate_document chase came up empty-handed because this\n  // copy wasn't included in that earlier fix.\n  const schemaDefinition = activeNode.process_definition?.schema_definition || {};\n  const documentType = schemaDefinition.document_type ?? activeNode.process_definition?.document_type ?? null;\n  const documentMapping = schemaDefinition.document_mapping ?? activeNode.process_definition?.document_mapping ?? null;\n  // content.form_state is null for every non-document-eligible fetch (Build Execution\n  // Prompt only asks the agent to fill it in for a GET_SINGLE whose schema declares\n  // document_type) -- falling back to the pre-call activeNode.form_state preserves today's\n  // behavior (e.g. a query's own input params) for everything else.\n  const fetchedEntity = (\n    (base.sap_operation === 'GET_SINGLE' || base.sap_operation === 'GET_QUERY')\n    && (activeNode.process_definition?.schema_definition?.document_type ?? activeNode.process_definition?.document_type)\n  ) ? extractFetchedEntity() : null;\n  intentionNodes = base.active_node_id && intentionNodesIn[base.active_node_id]\n    ? { ...intentionNodesIn, [base.active_node_id]: {\n        ...activeNode,\n        status: 'completed',\n        error_detail: null,\n        form_state: fetchedEntity || activeNode.form_state,\n        process_definition: {\n          name: activeNode.process_definition?.name ?? null,\n          ...(documentType ? { document_type: documentType } : {}),\n          ...(documentMapping ? { document_mapping: documentMapping } : {}),\n        },\n      } }\n    : intentionNodesIn;\n  // Auto-resume: this intent interrupted whatever was active before it (Park Current\n  // Intent set this node's own parent_id to that node's id at creation time) -- now that\n  // it's done, hand control back rather than leaving active_node_id stranded on a node\n  // that will never execute again. Walks past any ancestor that's ALSO already terminal\n  // (shouldn't normally happen -- a paused node can't independently finish while this one\n  // was running -- but stays defensive). Same TERMINAL_STATUSES/walk shape duplicated in\n  // Park Current Intent (intent-manager.json), Compute Form Outcome\n  // (sap-process-form-filling.json), Classify & Store Error (error-parser.json), and\n  // Resolve Final State (batch-processing.json) -- keep all five in sync if this changes.\n  const TERMINAL_STATUSES = new Set(['completed', 'abandoned']);\n  const findResumeTarget = (nodeId, nodes) => {\n    let current = nodeId;\n    while (current) {\n      const node = nodes[current];\n      if (!node) return null;\n      if (!TERMINAL_STATUSES.has(node.status)) return current;\n      current = node.parent_id;\n    }\n    return null;\n  };\n  const resumeTargetId = findResumeTarget(activeNode.parent_id, intentionNodes);\n  if (resumeTargetId) {\n    intentionNodes = { ...intentionNodes, [resumeTargetId]: { ...intentionNodes[resumeTargetId], status: 'active' } };\n  }\n  activeNodeId = resumeTargetId;\n  resetProcess = true;\n} else {\n  // A graceful 'error' status, or anything unparseable/unrecognized -- SAP didn't accept\n  // the submission. form_state.ready flips back to false so the NEXT turn's Agent: Find\n  // still sees an active, mid-form process to resolve against -- Agent: Intent Finder is\n  // what decides, from the user's next message, whether that's a correction to retry or\n  // an abandon-and-switch-intent.\n  // No same-turn bounce-back to the caller: SAP MCP failures surface as an agent-node\n  // failure (Has Agent Error?), not a graceful status, often enough that trying to\n  // distinguish \"correctable\" from \"hard failure\" here would be unreliable anyway --\n  // simpler and more robust to always deliver and let the next turn decide.\n  needsErrorParse = true;\n  errorCode = 'SAP_ERROR';\n  errorMessage = content.message || null;\n  formState = { ...(formState || {}), ready: false };\n  // Node stays 'active' (needs correcting, not abandoned), but its saved copy must track\n  // the ready:false flip too, or the next turn's Prompt: Intention Focus still sees a\n  // stale ready:true snapshot for a node that's actually back in an editable state.\n  // error_detail is also mirrored onto the node itself (not just this turn's ephemeral\n  // error/error_message) so a later turn -- e.g. Prompt: Context & Conversation's\n  // lastFailedNode/activeNode lookup, or Agent: Form resuming this same node -- can still\n  // answer \"what went wrong\" even after the turn that produced the error has passed.\n  intentionNodes = base.active_node_id && intentionNodesIn[base.active_node_id]\n    ? { ...intentionNodesIn, [base.active_node_id]: { ...activeNode, form_state: formState, error_detail: errorMessage } }\n    : intentionNodesIn;\n}\n\nreturn [{ json: {\n  ...base,\n  message: content.message ?? base.message,\n  active_node_id: activeNodeId,\n  intention_nodes: intentionNodes,\n  reset_process: resetProcess,\n  _needs_error_parse: needsErrorParse,\n  // CALL_FUNCTION is a one-off helper call, never tied to a registered intention_node (the\n  // caller passes active_node_id: null for it, so the completion/auto-resume logic above is\n  // already a no-op) -- its result surfaces here instead, structurally captured the same way\n  // GET_SINGLE's document-eligible fetch already is, immune to the same transcription\n  // failure modes (token-budget truncation, silently dropped nested data).\n  ...(base.sap_operation === 'CALL_FUNCTION' && content.status === 'success'\n    ? { _sap_call_result: extractCallFunctionResult() }\n    : {}),\n  ...(needsErrorParse ? { error: errorCode, error_message: errorMessage } : {}),\n} }];"
+      }
     },
     {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "gc1sceDuMfns8CSn",
-          "mode": "id"
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        -944,
-        10176
-      ],
       "id": "63a8a2d3-ffbc-4840-8f27-09f6ebf4fdf8",
-      "name": "Execute Workflow: Error Parser (Outcome)"
-    },
-    {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "9XQm980VERwHTovA",
-          "mode": "id"
-        },
-        "options": {}
-      },
+      "name": "Execute Workflow: Error Parser (Outcome)",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -384,
+        80,
+        10192
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "E4JerYpWJslysUQx",
+          "mode": "id"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "428cf9e9-59c8-4589-8f9f-dd15861969d9",
+      "name": "Execute Workflow: Response",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        640,
         9920
       ],
-      "id": "428cf9e9-59c8-4589-8f9f-dd15861969d9",
-      "name": "Execute Workflow: Response"
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "vGK7I4eSKjbCGqvi",
+          "mode": "id"
+        },
+        "options": {}
+      }
     },
     {
-      "parameters": {},
+      "id": "8a016060-d99e-4d17-8222-c2de88ee8bc6",
+      "name": "Return SAP Inquiry Execution Result",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        -112,
-        9728
+        912,
+        9712
       ],
-      "id": "8a016060-d99e-4d17-8222-c2de88ee8bc6",
-      "name": "Return SAP Inquiry Execution Result"
+      "parameters": {}
     },
     {
+      "id": "ff05a162-0921-49d6-89e5-dd93dbd6dbc2",
+      "name": "Suppress Delivery?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        288,
+        9904
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -244,17 +253,17 @@
           "combinator": "and"
         },
         "options": {}
-      },
+      }
+    },
+    {
+      "id": "d312fe96-0b73-47d5-9274-3f8489f8b60a",
+      "name": "Needs Real Execution?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -736,
-        9904
+        -3568,
+        9728
       ],
-      "id": "ff05a162-0921-49d6-89e5-dd93dbd6dbc2",
-      "name": "Suppress Delivery?"
-    },
-    {
       "parameters": {
         "conditions": {
           "options": {
@@ -278,32 +287,32 @@
           "combinator": "and"
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        -3568,
-        9728
-      ],
-      "id": "d312fe96-0b73-47d5-9274-3f8489f8b60a",
-      "name": "Needs Real Execution?"
+      }
     },
     {
-      "parameters": {
-        "mode": "raw",
-        "jsonOutput": "={{ Object.assign({}, $('Build SAP Payload').first().json, $json) }}",
-        "options": {}
-      },
+      "id": "e1a2b3c4-0004-4a1a-8a1a-000000000104",
+      "name": "Merge Context: Execute",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
         -1968,
         10048
       ],
-      "id": "e1a2b3c4-0004-4a1a-8a1a-000000000104",
-      "name": "Merge Context: Execute"
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ Object.assign({}, $('Build SAP Payload').first().json, $json) }}",
+        "options": {}
+      }
     },
     {
+      "id": "e1a2b3c4-0005-4a1a-8a1a-000000000105",
+      "name": "Was Handled? (Agent)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1392,
+        9920
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -327,15 +336,7 @@
           "combinator": "and"
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        -1392,
-        9920
-      ],
-      "id": "e1a2b3c4-0005-4a1a-8a1a-000000000105",
-      "name": "Was Handled? (Agent)"
+      }
     }
   ],
   "connections": {

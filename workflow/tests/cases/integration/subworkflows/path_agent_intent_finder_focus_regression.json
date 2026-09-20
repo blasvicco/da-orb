@@ -9,7 +9,7 @@
         "language": "es",
         "current_date": "2026-08-18",
         "github_owner": "blasvicco",
-        "github_repo": "da-sapot-processes",
+        "github_repo": "da-orb-processes",
         "github_tag": null,
         "active_node_id": "1#0",
         "organization": { "integration": { "target": "b1s" }, "slug": "bvs" },
@@ -52,7 +52,7 @@
         "language": "es",
         "current_date": "2026-08-18",
         "github_owner": "blasvicco",
-        "github_repo": "da-sapot-processes",
+        "github_repo": "da-orb-processes",
         "github_tag": null,
         "active_node_id": "1#0",
         "last_bot_message": "Perfecto -- procedere a buscar articulos cuyo nombre contenga \"reclutamiento\" y te mostrare los codigos disponibles para que elijas uno.\n\nSiguiente campo pendiente -- Codigo de articulo (obligatorio)\n\nResponde `buscar` para que haga la busqueda ahora y te muestre las opciones, o escribe directamente el codigo del articulo.",
@@ -86,6 +86,59 @@
         "node": "Compute Route Key",
         "fields": {
           "status": "new_intent"
+        }
+      }
+    },
+    {
+      "description": "LIVE regression for the 2026-08-21 generate_document misroute: a paused purchase-request node plus a FOCUS block that frames a PDF request as being 'in service of' that paused item -> Agent: Find (real LLM call, not pinned) must still classify as generate_document, not new_intent (STEP 0's old wording forced new_intent unconditionally here, hijacking every generate_document request that happened to share a session with any paused item). Input mirrors the real production turn (n8n execution 12641) verbatim.",
+      "input": {
+        "message": "generate a PDF of the last purchase request I completed",
+        "language": "en",
+        "current_date": "2026-08-21",
+        "github_owner": "blasvicco",
+        "github_repo": "da-orb-processes",
+        "github_tag": null,
+        "active_node_id": "1#0",
+        "organization": { "integration": { "target": "b1s" }, "slug": "bvs" },
+        "intention_nodes": {
+          "1#0": {
+            "id": "1#0",
+            "status": "paused",
+            "parent_id": null,
+            "process_id": 1,
+            "error_detail": null,
+            "form_state": {
+              "items": [{ "ItemCode": "NP-0131" }],
+              "Comments": "gastos de psicotecnico",
+              "RequriedDate": "2026-08-18"
+            },
+            "process_definition": { "id": 1, "name": "Create Purchase Request" }
+          },
+          "2#0": {
+            "id": "2#0",
+            "status": "completed",
+            "parent_id": null,
+            "process_id": 1,
+            "error_detail": null,
+            "form_state": {
+              "DocEntry": 30840,
+              "DocNum": 6756,
+              "CardCode": "C30715652664"
+            },
+            "process_definition": { "id": 1, "name": "Create Purchase Request" }
+          }
+        }
+      },
+      "pins": {
+        "Status: Finding": { "status_text": "stub" },
+        "Agent: Intention Focus": {
+          "output": "{\"focus\": \"The user is in the middle of creating a purchase request, which is currently paused because required fields (Item Code, Quantity, Preferred Supplier on a line, Sector, and Business Unit) are missing. They are now asking to generate a PDF of the last purchase request they completed, likely to review or reuse its details for the paused creation.\"}"
+        }
+      },
+      "assert": {
+        "node": "Compute Route Key",
+        "fields": {
+          "status": "generate_document"
         }
       }
     }

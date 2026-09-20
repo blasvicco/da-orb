@@ -1,28 +1,28 @@
-"""This module contains tests for the minio storage driver"""
+"""This module contains tests for the seaweedfs storage driver"""
 
 # Lib imports
 from allure import step
 
 # App imports
 from core.modules.storage.driver.aws_s3 import Instance as AwsS3Instance
-from core.modules.storage.driver.minio import Instance
+from core.modules.storage.driver.seaweedfs import Instance
 
 
 def _configure(settings):
 	"""Apply a consistent set of storage settings for a test."""
 	settings.STORAGE_ACCESS_KEY = "test-access-key"
 	settings.STORAGE_BUCKET_NAME = "test-bucket"
-	settings.STORAGE_ENDPOINT_URL = "http://minio.blas.local:9000"
+	settings.STORAGE_ENDPOINT_URL = "http://seaweedfs.blas.local:8333"
 	settings.STORAGE_REGION = "us-east-1"
 	settings.STORAGE_SECRET_KEY = "test-secret-key"
 
 
 def test_extends_aws_s3_instance(mocker, settings):
-	"""Test the minio driver reuses aws_s3's Instance rather than reimplementing it"""
+	"""Test the seaweedfs driver reuses aws_s3's Instance rather than reimplementing it"""
 
 	with step("Arrange: Storage settings, boto3.client mocked."):
 		_configure(settings)
-		mocker.patch("core.modules.storage.driver.minio.boto3.client")
+		mocker.patch("core.modules.storage.driver.seaweedfs.boto3.client")
 
 	with step("Act: Instantiate Instance."):
 		instance = Instance()
@@ -38,7 +38,7 @@ def test_init_builds_client_with_the_configured_endpoint(mocker, settings):
 
 	with step("Arrange: Storage settings, boto3.client mocked."):
 		_configure(settings)
-		mock_client = mocker.patch("core.modules.storage.driver.minio.boto3.client")
+		mock_client = mocker.patch("core.modules.storage.driver.seaweedfs.boto3.client")
 
 	with step("Act: Instantiate Instance."):
 		Instance()
@@ -51,7 +51,7 @@ def test_init_builds_client_with_the_configured_endpoint(mocker, settings):
 		assert kwargs["aws_access_key_id"] == "test-access-key"
 		assert kwargs["aws_secret_access_key"] == "test-secret-key"
 		assert kwargs["region_name"] == "us-east-1"
-		assert kwargs["endpoint_url"] == "http://minio.blas.local:9000"
+		assert kwargs["endpoint_url"] == "http://seaweedfs.blas.local:8333"
 
 
 def test_delete_presigned_url_and_upload_are_inherited_unchanged(mocker, settings):
@@ -59,10 +59,10 @@ def test_delete_presigned_url_and_upload_are_inherited_unchanged(mocker, setting
 
 	with step("Arrange: An Instance with a mocked boto3 client."):
 		_configure(settings)
-		mocker.patch("core.modules.storage.driver.minio.boto3.client")
+		mocker.patch("core.modules.storage.driver.seaweedfs.boto3.client")
 		instance = Instance()
 		instance._client.generate_presigned_url.return_value = (  # pylint: disable=protected-access
-			"https://minio.example/key"
+			"https://seaweedfs.example/key"
 		)
 
 	with step("Act: Call delete, presigned_url, and upload."):
@@ -76,7 +76,7 @@ def test_delete_presigned_url_and_upload_are_inherited_unchanged(mocker, setting
 		instance._client.delete_object.assert_called_once_with(  # pylint: disable=protected-access
 			Bucket="test-bucket", Key="org/db/session/1/2_file.csv"
 		)
-		assert url == "https://minio.example/key"
+		assert url == "https://seaweedfs.example/key"
 		instance._client.upload_file.assert_called_once_with(  # pylint: disable=protected-access
 			Filename="/tmp/file.csv",
 			Bucket="test-bucket",

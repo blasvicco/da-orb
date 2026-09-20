@@ -8,7 +8,7 @@ import requests
 # The public REST API only lives on the main process — n8n-main and n8n-webhook share the
 # "n8n.blas.local" DNS alias on the docker network and round-robin between them, so hitting
 # /api/v1 through that alias 404s roughly half the time. The container name is unambiguous.
-API_BASE = 'http://da-sapot-n8n-main:5678/api/v1'
+API_BASE = 'http://da-orb-n8n-main:5678/api/v1'
 # Webhook triggers are fine through the shared alias — this matches the URL the workflow's own
 # "Self-Call Webhook" node already uses, and any instance behind it can accept the trigger.
 WEBHOOK_BASE = 'http://n8n.blas.local:5678'

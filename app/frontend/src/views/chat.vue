@@ -149,6 +149,7 @@
     const result = await AppAPI.Chat.messages(id);
     if (!result?.errors) {
       messages.value = result.map((m) => ({
+        attachment: m.extra?.attachment || null,
         extra: m.extra || null,
         processes: m.extra?.processes || null,
         text: te(m.text) ? t(m.text) : m.text,
@@ -276,6 +277,7 @@
     chat.onAgentMessage((data) => {
       isTyping.value = false;
       messages.value.push({
+        attachment: data.attachment || null,
         processes: data.processes || null,
         state: data.state || null,
         text: data.text,

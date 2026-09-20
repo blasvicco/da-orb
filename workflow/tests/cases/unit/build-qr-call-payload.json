@@ -1,0 +1,36 @@
+{
+  "node": "Build QR Call Payload",
+  "cases": [
+    {
+      "description": "builds a CALL_FUNCTION request from qr_source, keyed off the invoice's own DocEntry in form_state, clears active_node_id (not tied to any registered process), and sets suppress_delivery so a failed lookup never reaches the user or aborts document generation",
+      "input": {
+        "active_node_id": "ar_invoice_get#0",
+        "_target_document_mapping": {
+          "qr_source": {
+            "sql_name": "GetInvoiceQR",
+            "sql_text": "SELECT \"FileContnt\" FROM OQRC WHERE \"SrcObjAbs\" = :DocEntry AND \"SrcObjType\" = '13'",
+            "key_param": "DocEntry",
+            "target_field": "FileContnt"
+          }
+        },
+        "_target_form_state": {
+          "DocEntry": 45501
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "active_node_id": null,
+        "suppress_delivery": true,
+        "sap_operation": "CALL_FUNCTION",
+        "sap_call_config": {
+          "service_name": "SQLQueries",
+          "function_name": "List",
+          "entity_key": "GetInvoiceQR",
+          "params": {
+            "DocEntry": 45501
+          }
+        }
+      }
+    }
+  ]
+}

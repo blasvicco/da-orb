@@ -2,19 +2,27 @@
   "name": "Orbot v14 - Context Update",
   "nodes": [
     {
-      "parameters": {
-        "inputSource": "passthrough"
-      },
+      "id": "9e6b300d-48aa-40a9-ba08-2c899221a43d",
+      "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
         0,
         0
       ],
-      "id": "9e6b300d-48aa-40a9-ba08-2c899221a43d",
-      "name": "Execute Workflow Trigger"
+      "parameters": {
+        "inputSource": "passthrough"
+      }
     },
     {
+      "id": "76078fe5-0555-4a8a-bfe0-b4be26d94c64",
+      "name": "Needs Resolution?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        240,
+        0
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -38,87 +46,87 @@
           "combinator": "and"
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        240,
-        0
-      ],
-      "id": "76078fe5-0555-4a8a-bfe0-b4be26d94c64",
-      "name": "Needs Resolution?"
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// Intent Finder already returns one entry per DISTINCT process needed (deduplicated\n// there, not once per record) -- this just turns that array field into one n8n item per\n// entry so the shared resolution loop below can process each via a real Execute Workflow\n// call, which only ever forwards the first item it's handed when given several.\nconst { processes, ...base } = $json;\nreturn (processes || []).map((p) => ({ json: {\n  ...base,\n  path: p.path,\n  process_name: p.process_name,\n  items: [],\n} }));"
-      },
+      "id": "18e1320d-d1cb-416b-85c1-6e2c8d9ff6b6",
+      "name": "Fan Out Processes",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         496,
         -448
       ],
-      "id": "18e1320d-d1cb-416b-85c1-6e2c8d9ff6b6",
-      "name": "Fan Out Processes"
+      "parameters": {
+        "jsCode": "// Intent Finder already returns one entry per DISTINCT process needed (deduplicated\n// there, not once per record) -- this just turns that array field into one n8n item per\n// entry so the shared resolution loop below can process each via a real Execute Workflow\n// call, which only ever forwards the first item it's handed when given several.\nconst { processes, ...base } = $json;\nreturn (processes || []).map((p) => ({ json: {\n  ...base,\n  path: p.path,\n  process_name: p.process_name,\n  items: [],\n} }));"
+      }
     },
     {
-      "parameters": {
-        "options": {}
-      },
+      "id": "2da827c4-388f-456a-8d01-356a2eeb5e42",
+      "name": "Loop Over Processes",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
         736,
         -448
       ],
-      "id": "2da827c4-388f-456a-8d01-356a2eeb5e42",
-      "name": "Loop Over Processes"
+      "parameters": {
+        "options": {}
+      }
     },
     {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "yt4dV6HQ57WgI0Mn",
-          "mode": "id"
-        },
-        "options": {}
-      },
+      "id": "efc0bbaf-b833-4e44-8d83-45d9c0c30050",
+      "name": "Execute Workflow: Schema Resolution",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
         1024,
         -432
       ],
-      "id": "efc0bbaf-b833-4e44-8d83-45d9c0c30050",
-      "name": "Execute Workflow: Schema Resolution"
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "821wwIpR8zoXRQaR",
+          "mode": "id"
+        },
+        "options": {}
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// Execute Workflow replaces the item's json entirely with schema-resolution.json's own\n// return value -- path/process_name/items (set by Fan Out Processes) don't survive that,\n// so they're read back from Loop Over Processes' own loop output for this iteration.\nconst base = $json;\nconst source = $('Loop Over Processes').item.json;\nreturn [{ json: { ...base, path: source.path, process_name: source.process_name, items: source.items } }];"
-      },
+      "id": "f1c3de2c-f60c-45f8-900a-f02c541f91d2",
+      "name": "Record Result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         1296,
         -432
       ],
-      "id": "f1c3de2c-f60c-45f8-900a-f02c541f91d2",
-      "name": "Record Result"
+      "parameters": {
+        "jsCode": "// Execute Workflow replaces the item's json entirely with schema-resolution.json's own\n// return value -- path/process_name/items (set by Fan Out Processes) don't survive that,\n// so they're read back from Loop Over Processes' own loop output for this iteration.\nconst base = $json;\nconst source = $('Loop Over Processes').item.json;\nreturn [{ json: { ...base, path: source.path, process_name: source.process_name, items: source.items } }];"
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// Execute Workflow silently drops every item but the first when given several -- bundles\n// the N resolved (or failed) entries into a single `intents` array on ONE item so it\n// survives the Context Update -> Router boundary intact. error/error_message are also\n// mirrored at root from the first intent, purely so the shared Error Parser (which reads\n// error/error_message off the root, same as everywhere else in this project) can classify\n// a form-filling resolution failure without a separate lifting step.\nconst items = $input.all().map((it) => it.json);\nconst raw = items[0] || {};\nconst { path, process_name, process_definition, error, error_message, items: entryItems, ...sharedContext } = raw;\nconst intents = items.map((it) => ({\n  path: it.path,\n  process_name: it.process_name,\n  process_definition: it.process_definition || null,\n  error: it.error || null,\n  error_message: it.error_message || null,\n  items: it.items || [],\n}));\nreturn [{ json: { ...sharedContext, intents, error: intents[0]?.error ?? null, error_message: intents[0]?.error_message ?? null } }];"
-      },
+      "id": "672f6f11-eb7b-4868-8ee5-ddcd6fb1e2df",
+      "name": "Build Intents",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         1024,
         -768
       ],
-      "id": "672f6f11-eb7b-4868-8ee5-ddcd6fb1e2df",
-      "name": "Build Intents"
+      "parameters": {
+        "jsCode": "// Execute Workflow silently drops every item but the first when given several -- bundles\n// the N resolved (or failed) entries into a single `intents` array on ONE item so it\n// survives the Context Update -> Router boundary intact. error/error_message are also\n// mirrored at root from the first intent, purely so the shared Error Parser (which reads\n// error/error_message off the root, same as everywhere else in this project) can classify\n// a form-filling resolution failure without a separate lifting step.\nconst items = $input.all().map((it) => it.json);\nconst raw = items[0] || {};\nconst { path, process_name, process_definition, error, error_message, items: entryItems, ...sharedContext } = raw;\nconst intents = items.map((it) => ({\n  path: it.path,\n  process_name: it.process_name,\n  process_definition: it.process_definition || null,\n  error: it.error || null,\n  error_message: it.error_message || null,\n  items: it.items || [],\n}));\nreturn [{ json: { ...sharedContext, intents, error: intents[0]?.error ?? null, error_message: intents[0]?.error_message ?? null } }];"
+      }
     },
     {
+      "id": "08ccb85f-6082-40c2-a5cc-274520db8c25",
+      "name": "Which Flow?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1296,
+        -768
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -141,95 +149,95 @@
           "combinator": "and"
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        1296,
-        -768
-      ],
-      "id": "08ccb85f-6082-40c2-a5cc-274520db8c25",
-      "name": "Which Flow?"
+      }
     },
     {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "gc1sceDuMfns8CSn",
-          "mode": "id"
-        },
-        "options": {}
-      },
+      "id": "de1db763-cfcc-4724-811d-26e2b238c110",
+      "name": "Execute Workflow: Error Parser (Schema)",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
         1616,
         -880
       ],
-      "id": "de1db763-cfcc-4724-811d-26e2b238c110",
-      "name": "Execute Workflow: Error Parser (Schema)"
-    },
-    {
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "9XQm980VERwHTovA",
+          "value": "E4JerYpWJslysUQx",
           "mode": "id"
         },
         "options": {}
-      },
+      }
+    },
+    {
+      "id": "c72825c4-e382-4e82-9ce0-7b5f89384aef",
+      "name": "Execute Workflow: Response",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
         2848,
         -896
       ],
-      "id": "c72825c4-e382-4e82-9ce0-7b5f89384aef",
-      "name": "Execute Workflow: Response"
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "vGK7I4eSKjbCGqvi",
+          "mode": "id"
+        },
+        "options": {}
+      }
     },
     {
-      "parameters": {},
+      "id": "b551ebff-424d-46e6-9c08-d3e5cef30fac",
+      "name": "Return Context Update Result",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
         3584,
         -304
       ],
-      "id": "b551ebff-424d-46e6-9c08-d3e5cef30fac",
-      "name": "Return Context Update Result"
+      "parameters": {}
     },
     {
-      "parameters": {
-        "jsCode": "// Adapts this file's intents[0] shape into the generic Register Node contract --\n// intents/error/error_message are consumed here (not spread through), same one-shot-signal\n// convention this node always followed; new_process_parent_id is also consumed here rather\n// than by Register Node itself, since only this caller knows what it means.\nconst { intents, error, error_message, new_process_parent_id, ...base } = $json;\nconst intent = intents[0] || {};\nreturn [{ json: {\n  ...base,\n  process_definition: intent.process_definition,\n  parent_id: new_process_parent_id ?? null,\n  form_state: {},\n  status: 'active',\n  set_active: true,\n} }];"
-      },
+      "id": "cb46af1e-c8ce-4838-bc27-e818c49e56a9",
+      "name": "Prepare Node Registration",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         2656,
         -688
       ],
-      "id": "cb46af1e-c8ce-4838-bc27-e818c49e56a9",
-      "name": "Prepare Node Registration"
+      "parameters": {
+        "jsCode": "// Adapts this file's intents[0] shape into the generic Register Node contract --\n// intents/error/error_message are consumed here (not spread through), same one-shot-signal\n// convention this node always followed; new_process_parent_id is also consumed here rather\n// than by Register Node itself, since only this caller knows what it means.\nconst { intents, error, error_message, new_process_parent_id, ...base } = $json;\nconst intent = intents[0] || {};\nreturn [{ json: {\n  ...base,\n  process_definition: intent.process_definition,\n  parent_id: new_process_parent_id ?? null,\n  form_state: {},\n  status: 'active',\n  set_active: true,\n} }];"
+      }
     },
     {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "uTUqqPyC2O2EqF7i",
-          "mode": "id"
-        },
-        "options": {}
-      },
+      "id": "4928d666-c598-4e98-a1d0-3166bd56166d",
+      "name": "Execute Workflow: Register Intention Node",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
         2864,
         -688
       ],
-      "id": "4928d666-c598-4e98-a1d0-3166bd56166d",
-      "name": "Execute Workflow: Register Intention Node"
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "ZwhLWhfQHZYnG4P4",
+          "mode": "id"
+        },
+        "options": {}
+      }
     },
     {
+      "id": "c254cfaf-be16-49bc-942d-3ca0ea3fa02d",
+      "name": "Needs Batch Extraction?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1552,
+        -432
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -253,46 +261,46 @@
           "combinator": "and"
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        1552,
-        -432
-      ],
-      "id": "c254cfaf-be16-49bc-942d-3ca0ea3fa02d",
-      "name": "Needs Batch Extraction?"
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// One-shot, multi-record variant of Agent: Form's own field-mapping/GET-filter extraction\n// rules (see sap-process-form-filling.json) -- batch never gets a follow-up turn, and may\n// need N records identified from one message/file set instead of Agent: Form's always-one.\n// Runs once per process inside Loop Over Processes' own per-process loop, gated by\n// Needs Batch Extraction? so single-match/general_inquiry turns never pay for it.\nconst data = $json;\nconst method = (data.process_definition?.api?.method || 'POST').toUpperCase();\nconst isGet = method === 'GET';\nconst files = (data.extracted_files || []).map((f) => `File ${f.bucket_file_id}:\\n${f.extracted_content || '(no content)'}`).join('\\n\\n');\n\nlet schemaSection;\nif (isGet) {\n  const queryDef = data.process_definition?.query || {};\n  const keyDef = queryDef.key || null;\n  const filters = queryDef.filters || [];\n  const filterLines = filters.map((f) => {\n    const allowedOps = Array.isArray(f.operator) ? f.operator : [f.operator];\n    return `  - ${f.id} (${f.label}, ${f.type})${allowedOps.length > 1 ? ` -- allowed operators: ${allowedOps.join(', ')}` : ''}`;\n  });\n  const keySection = keyDef\n    ? `\\nKEY (set key_value ONLY if the message names one specific record by this field; otherwise leave it null and use FILTERS below instead):\\n  - ${keyDef.id} (${keyDef.sap_field})`\n    : '';\n  schemaSection = `This is a SEARCH/QUERY process -- always produce exactly ONE record.\\n\\nFILTERS AVAILABLE FOR THIS SEARCH:\\n${filterLines.length ? filterLines.join('\\n') : '  (none declared)'}${keySection}`;\n} else {\n  schemaSection = `This is a CREATE process -- identify every separate record the message/files describe.\\n\\nSCHEMA:\\n\\`\\`\\`json\\n${JSON.stringify(data.process_definition?.form || {}, null, 2)}\\n\\`\\`\\``;\n}\n\nconst chatInput = `Today: ${data.current_date}. Respond in: ${data.language}.\n\nPROCESS: ${data.process_name}\n\n${schemaSection}\n\nUSER MESSAGE:\n${data.message}\n\nATTACHED FILE CONTENT:\n${files || '(none)'}`;\nreturn [{ json: { ...data, chatInput } }];"
-      },
+      "id": "346face8-0959-4e28-a11a-b4cf8fe215cc",
+      "name": "Prompt: Extract Batch Records",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         1776,
         -560
       ],
-      "id": "346face8-0959-4e28-a11a-b4cf8fe215cc",
-      "name": "Prompt: Extract Batch Records"
+      "parameters": {
+        "jsCode": "// One-shot, multi-record variant of Agent: Form's own field-mapping/GET-filter extraction\n// rules (see sap-process-form-filling.json) -- batch never gets a follow-up turn, and may\n// need N records identified from one message/file set instead of Agent: Form's always-one.\n// Runs once per process inside Loop Over Processes' own per-process loop, gated by\n// Needs Batch Extraction? so single-match/general_inquiry turns never pay for it.\nconst data = $json;\nconst method = (data.process_definition?.api?.method || 'POST').toUpperCase();\nconst isGet = method === 'GET';\nconst files = (data.extracted_files || []).map((f) => `File ${f.bucket_file_id}:\\n${f.extracted_content || '(no content)'}`).join('\\n\\n');\n\nlet schemaSection;\nif (isGet) {\n  const queryDef = data.process_definition?.query || {};\n  const keyDef = queryDef.key || null;\n  const filters = queryDef.filters || [];\n  const filterLines = filters.map((f) => {\n    const allowedOps = Array.isArray(f.operator) ? f.operator : [f.operator];\n    return `  - ${f.id} (${f.label}, ${f.type})${allowedOps.length > 1 ? ` -- allowed operators: ${allowedOps.join(', ')}` : ''}`;\n  });\n  const keySection = keyDef\n    ? `\\nKEY (set key_value ONLY if the message names one specific record by this field; otherwise leave it null and use FILTERS below instead):\\n  - ${keyDef.id} (${keyDef.sap_field})`\n    : '';\n  schemaSection = `This is a SEARCH/QUERY process -- always produce exactly ONE record.\\n\\nFILTERS AVAILABLE FOR THIS SEARCH:\\n${filterLines.length ? filterLines.join('\\n') : '  (none declared)'}${keySection}`;\n} else {\n  schemaSection = `This is a CREATE process -- identify every separate record the message/files describe.\\n\\nSCHEMA:\\n\\`\\`\\`json\\n${JSON.stringify(data.process_definition?.form || {}, null, 2)}\\n\\`\\`\\``;\n}\n\nconst chatInput = `Today: ${data.current_date}. Respond in: ${data.language}.\n\nPROCESS: ${data.process_name}\n\n${schemaSection}\n\nUSER MESSAGE:\n${data.message}\n\nATTACHED FILE CONTENT:\n${files || '(none)'}`;\nreturn [{ json: { ...data, chatInput } }];"
+      }
     },
     {
-      "parameters": {
-        "options": {
-          "systemMessage": "Batch data-extraction agent for ONE specific SAP process, running inside a batch turn (no follow-up questions possible -- extract everything the message/files give you in one pass, even if partial; never invent a value). You do NOT call any tool and you do NOT submit anything to SAP -- your only job is to produce the data that will be submitted, for a later step to execute.\n\n## IF THIS IS A CREATE PROCESS (you were given a SCHEMA block)\nIdentify every separate record the user wants to create for this process -- a CSV row, a line in prose, a repeated pattern in the message, however many the message/attached files actually describe. If you find none, return an empty records array -- don't guess or fabricate one. If the attached content includes a CSV (a JSON array of flat row-objects), each row is ALWAYS its own separate record -- never merge multiple CSV rows together into one record's line-items array, even when several rows share identical header-level values (e.g. the same Supplier or RequriedDate repeated down the column). Shared header values across rows mean those requests happen to share that value, not that they're the same request -- a row's line-item fields (e.g. ItemCode, Quantity) map into that row's own single-element items array, never into another row's record.\nFor each record, build its own form_state using the schema's form.sections: each field has an `id` (the key to use in form_state) and a `sap_field` (not used here -- that mapping happens downstream, never key form_state by sap_field). Header fields are plain top-level keys (id: value). A section with `multiple: true` becomes a single top-level array under that section's own id, where each array element is a FLAT object mapping each line field's own id directly to its value -- e.g. \"items\": [{\"ItemCode\": \"A001\", \"Quantity\": 10}, {\"ItemCode\": \"A002\", \"Quantity\": 5}]. Omit any field you can't determine a value for -- never guess or fabricate data. Exception: a field whose own `id`/`ask`/description text says it defaults to another field's value when left blank (e.g. a line-item date field noting \"leave blank to use the header required date\") is NOT one you may omit -- resolve it yourself by copying that other field's value directly into it (per record, and per item for a line-level field), since SAP does not apply that fallback at submission time and an omitted field there causes a hard rejection instead of silently defaulting.\n\n## IF THIS IS A SEARCH/QUERY PROCESS (you were given FILTERS AVAILABLE)\nAlways produce exactly one record.\n- If KEY is present above and the message names one specific record by that field, set that field's own id directly to the value (e.g. {\"DocEntry\": 1050}) and nothing else.\n- Otherwise, for each filter mentioned under FILTERS AVAILABLE, set that filter's own id to the value the message gives it. Only include a filter if the message actually provides a value for it -- never guess or fabricate one.\n- If a filter's allowed operators include more than one option, also set \"<field_id>_operator\" to the one matching the user's phrasing: \"que contenga X\"/\"con X\"/\"incluya X\" -> contains; \"que NO contenga X\"/\"sin X\"/\"excluir X\" -> not_contains; \"que empiece/inicie con X\" -> startswith; \"que NO empiece/inicie con X\" -> not_startswith; \"que termine en X\" -> endswith; \"que NO termine en X\" -> not_endswith; \"sea exactamente X\"/\"igual a X\" -> eq; \"distinto/diferente de X\" -> ne. If there's no clear signal, omit the operator field -- the first declared operator is used automatically.\n- If the user's search term doesn't specify which field it belongs to and one of the available filters clearly represents the entity's name or description, use that filter -- do not duplicate the term into other filters. If no such field exists and the field is genuinely ambiguous, omit it rather than guessing.\n- When the message gives values for more than one filter, the default is OR (cast a wide net) -- set \"match_all\": true ONLY when the user explicitly asks for items meeting every condition together (e.g. \"que esté en el grupo 150 Y que contenga flete\", \"ambos\"); otherwise omit it.\n- If the user specifies how many results to return, set \"top\" (integer).\n- If the user asks to limit which fields/columns are shown, set \"requested_fields\" (array of the field labels or ids they mentioned).\n- If the user explicitly asks for the raw/technical/JSON format (e.g. \"en formato JSON\", \"el JSON\", \"en crudo\"), set \"response_format\": \"json\".\n- Never invent a field id that isn't listed under FILTERS AVAILABLE or KEY.\n- Omit any field entirely rather than including it as null or empty -- absence means \"not applicable\", matching how a completed form would look.\n\n## OUTPUT\nReturn ONLY a raw JSON object -- no code fences, no markdown wrapping, no extra text:\n{\"records\": [{...form_state for record 1}, {...form_state for record 2}, ...]}"
-        }
-      },
+      "id": "8d3aaad8-71b0-49e2-8504-f08d5147b1e1",
+      "name": "Agent: Extract Batch Records",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
+      "onError": "continueErrorOutput",
       "position": [
         1952,
         -560
       ],
-      "id": "8d3aaad8-71b0-49e2-8504-f08d5147b1e1",
-      "name": "Agent: Extract Batch Records",
-      "onError": "continueErrorOutput"
+      "parameters": {
+        "options": {
+          "systemMessage": "Batch data-extraction agent for ONE specific SAP process, running inside a batch turn (no follow-up questions possible -- extract everything the message/files give you in one pass, even if partial; never invent a value). You do NOT call any tool and you do NOT submit anything to SAP -- your only job is to produce the data that will be submitted, for a later step to execute.\n\n## IF THIS IS A CREATE PROCESS (you were given a SCHEMA block)\nIdentify every separate record the user wants to create for this process -- a CSV row, a line in prose, a repeated pattern in the message, however many the message/attached files actually describe. If you find none, return an empty records array -- don't guess or fabricate one. If the attached content includes a CSV (a JSON array of flat row-objects), each row is ALWAYS its own separate record -- never merge multiple CSV rows together into one record's line-items array, even when several rows share identical header-level values (e.g. the same Supplier or RequriedDate repeated down the column). Shared header values across rows mean those requests happen to share that value, not that they're the same request -- a row's line-item fields (e.g. ItemCode, Quantity) map into that row's own single-element items array, never into another row's record.\nFor each record, build its own form_state using the schema's form.sections: each field has an `id` (the key to use in form_state) and a `sap_field` (not used here -- that mapping happens downstream, never key form_state by sap_field). Header fields are plain top-level keys (id: value). A section with `multiple: true` becomes a single top-level array under that section's own id, where each array element is a FLAT object mapping each line field's own id directly to its value -- e.g. \"items\": [{\"ItemCode\": \"A001\", \"Quantity\": 10}, {\"ItemCode\": \"A002\", \"Quantity\": 5}]. Omit any field you can't determine a value for -- never guess or fabricate data. Exception: a field whose own `id`/`ask`/description text says it defaults to another field's value when left blank (e.g. a line-item date field noting \"leave blank to use the header required date\") is NOT one you may omit -- resolve it yourself by copying that other field's value directly into it (per record, and per item for a line-level field), since SAP does not apply that fallback at submission time and an omitted field there causes a hard rejection instead of silently defaulting.\n\n## IF THIS IS A SEARCH/QUERY PROCESS (you were given FILTERS AVAILABLE)\nAlways produce exactly one record.\n- If KEY is present above and the message names one specific record by that field, set that field's own id directly to the value (e.g. {\"DocEntry\": 1050}) and nothing else.\n- Otherwise, for each filter mentioned under FILTERS AVAILABLE, set that filter's own id to the value the message gives it. Only include a filter if the message actually provides a value for it -- never guess or fabricate one.\n- If a filter's allowed operators include more than one option, also set \"<field_id>_operator\" to the one matching the user's phrasing: \"que contenga X\"/\"con X\"/\"incluya X\" -> contains; \"que NO contenga X\"/\"sin X\"/\"excluir X\" -> not_contains; \"que empiece/inicie con X\" -> startswith; \"que NO empiece/inicie con X\" -> not_startswith; \"que termine en X\" -> endswith; \"que NO termine en X\" -> not_endswith; \"sea exactamente X\"/\"igual a X\" -> eq; \"distinto/diferente de X\" -> ne. If there's no clear signal, omit the operator field -- the first declared operator is used automatically.\n- If the user's search term doesn't specify which field it belongs to and one of the available filters clearly represents the entity's name or description, use that filter -- do not duplicate the term into other filters. If no such field exists and the field is genuinely ambiguous, omit it rather than guessing.\n- When the message gives values for more than one filter, the default is OR (cast a wide net) -- set \"match_all\": true ONLY when the user explicitly asks for items meeting every condition together (e.g. \"que est\u00e9 en el grupo 150 Y que contenga flete\", \"ambos\"); otherwise omit it.\n- If the user specifies how many results to return, set \"top\" (integer).\n- If the user asks to limit which fields/columns are shown, set \"requested_fields\" (array of the field labels or ids they mentioned).\n- If the user explicitly asks for the raw/technical/JSON format (e.g. \"en formato JSON\", \"el JSON\", \"en crudo\"), set \"response_format\": \"json\".\n- Never invent a field id that isn't listed under FILTERS AVAILABLE or KEY.\n- Omit any field entirely rather than including it as null or empty -- absence means \"not applicable\", matching how a completed form would look.\n\n## OUTPUT\nReturn ONLY a raw JSON object -- no code fences, no markdown wrapping, no extra text:\n{\"records\": [{...form_state for record 1}, {...form_state for record 2}, ...]}"
+        }
+      }
     },
     {
+      "id": "323e03c0-c3e3-420f-8526-eaabf68fef2d",
+      "name": "OpenAI Chat Model (Extract Batch Records)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1952,
+        -384
+      ],
       "parameters": {
         "model": {
           "__rl": true,
@@ -303,35 +311,35 @@
         "builtInTools": {},
         "options": {}
       },
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        1952,
-        -384
-      ],
-      "id": "323e03c0-c3e3-420f-8526-eaabf68fef2d",
-      "name": "OpenAI Chat Model (Extract Batch Records)",
       "credentials": {
         "openAiApi": {
-          "id": "rtPUI8zcUazjFFXV",
+          "id": "2CRyLxL8C6zZXIqF",
           "name": "OpenAI account"
         }
       }
     },
     {
-      "parameters": {
-        "jsCode": "// Agent: Extract Batch Records returns raw text (same convention as Agent: Form/Agent: Find),\n// not a structured-parser object -- parse it here, same fenced-code-block fallback used\n// throughout this codebase. A one-shot extraction with nothing meaningful to retry against\n// treats unparseable output the same as a genuine agent/tool crash -- surfaced via this\n// intent's own error/error_message, the exact same channel a schema-resolution failure\n// already uses (see Has Resolution Error? downstream in Batch Processing -- no new\n// error-handling mechanism needed).\nconst base = $('Prompt: Extract Batch Records').first().json;\nconst current = $json;\nif (current.error) {\n  return [{ json: { ...base, error: 'AGENT_ERROR', error_message: current.error?.message || current.error } }];\n}\nconst raw = current.output || '';\nlet parsed = null;\ntry {\n  parsed = JSON.parse(raw.trim());\n} catch {\n  try {\n    const stripped = raw.replace(/^```json\\n?/, '').replace(/\\n?```$/, '').trim();\n    parsed = JSON.parse(stripped);\n  } catch {\n    parsed = null;\n  }\n}\nif (parsed === null || !Array.isArray(parsed.records)) {\n  return [{ json: { ...base, error: 'AGENT_ERROR', error_message: 'Model output is not valid JSON' } }];\n}\nreturn [{ json: { ...base, items: parsed.records } }];"
-      },
+      "id": "fe45029f-934d-4a99-bbec-19058d4ab9ff",
+      "name": "Recover State: Extract Batch Records",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2256,
-        -400
+        2288,
+        -368
       ],
-      "id": "fe45029f-934d-4a99-bbec-19058d4ab9ff",
-      "name": "Recover State: Extract Batch Records"
+      "parameters": {
+        "jsCode": "// Agent: Extract Batch Records returns raw text (same convention as Agent: Form/Agent: Find),\n// not a structured-parser object -- parse it here, same fenced-code-block fallback used\n// throughout this codebase. A one-shot extraction with nothing meaningful to retry against\n// treats unparseable output the same as a genuine agent/tool crash -- surfaced via this\n// intent's own error/error_message, the exact same channel a schema-resolution failure\n// already uses (see Has Resolution Error? downstream in Batch Processing -- no new\n// error-handling mechanism needed).\nconst base = $('Prompt: Extract Batch Records').first().json;\nconst current = $json;\nif (current.error) {\n  return [{ json: { ...base, error: 'AGENT_ERROR', error_message: current.error?.message || current.error } }];\n}\nconst raw = current.output || '';\nlet parsed = null;\ntry {\n  parsed = JSON.parse(raw.trim());\n} catch {\n  try {\n    const stripped = raw.replace(/^```json\\n?/, '').replace(/\\n?```$/, '').trim();\n    parsed = JSON.parse(stripped);\n  } catch {\n    parsed = null;\n  }\n}\nif (parsed === null || !Array.isArray(parsed.records)) {\n  return [{ json: { ...base, error: 'AGENT_ERROR', error_message: 'Model output is not valid JSON' } }];\n}\nreturn [{ json: { ...base, items: parsed.records } }];"
+      }
     },
     {
+      "id": "e1a2b3c4-000c-4a1a-8a1a-00000000010c",
+      "name": "Was Handled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1904,
+        -880
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -355,15 +363,7 @@
           "combinator": "and"
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        1904,
-        -880
-      ],
-      "id": "e1a2b3c4-000c-4a1a-8a1a-00000000010c",
-      "name": "Was Handled?"
+      }
     }
   ],
   "connections": {
@@ -609,7 +609,6 @@
     }
   },
   "settings": {
-    "executionOrder": "v1",
-    "binaryMode": "separate"
+    "executionOrder": "v1"
   }
 }

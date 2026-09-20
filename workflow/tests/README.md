@@ -62,7 +62,7 @@ exits non-zero if any case fails.
 
 ```bash
 ssh -p 8532 blas@blas.local \
-  "docker exec da-sapot-backend python3 /home/workflow/tests/integration/runner.py '/home/workflow/Orbot v12/spine.json'"
+  "docker exec da-orb-backend python3 /home/workflow/tests/integration/runner.py '/home/workflow/Orbot v12/spine.json'"
 ```
 
 For each file in `cases/integration/*.json`, creates a **disposable, isolated copy** of the
@@ -79,7 +79,7 @@ works, including the `__error__` pin variant used to simulate a node's native er
 (e.g. an Agent node failing) rather than its normal success output.
 
 Requires `N8N_API_KEY` in the `backend` container's environment and network access to
-`da-sapot-n8n-main` — both already true in this repo's `docker-compose.yml`.
+`da-orb-n8n-main` — both already true in this repo's `docker-compose.yml`.
 
 ## Writing new test cases
 
@@ -166,7 +166,7 @@ a neutral stub, or the cascade will make a real OpenAI/SAP call.
   with a short backoff for this.
 - **A Tier 2 run leaves an orphaned `__test__ ...` workflow in n8n**: this shouldn't happen
   (cleanup runs in a `finally` block), but if a run was killed mid-flight, list and remove it:
-  `GET/DELETE /api/v1/workflows` on `da-sapot-n8n-main`, filtering by name prefix `__test__`.
+  `GET/DELETE /api/v1/workflows` on `da-orb-n8n-main`, filtering by name prefix `__test__`.
 
 ## Verifying the framework itself still detects regressions
 

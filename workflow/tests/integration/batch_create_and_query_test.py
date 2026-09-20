@@ -55,7 +55,7 @@ USERNAME = 'Evicco'
 PASSWORD = 'Az21'
 SPINE_WORKFLOW_ID = 'gl7Ax8b77WhVUTmw'
 CHAT_WEBHOOK_PATH = 'chat'
-API_BASE = 'http://da-sapot-n8n-main:5678/api/v1'
+API_BASE = 'http://da-orb-n8n-main:5678/api/v1'
 # Reuses the same known-good test fixtures other v14 live tests already rely on: NP-9999 /
 # C30715652664 appear in vendor_lookup_during_form_fill_test.py, "Flete" is the exact filter
 # term vendor_list_filter_test.py and UC-9's own doc example both use.

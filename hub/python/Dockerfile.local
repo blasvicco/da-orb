@@ -1,3 +1,10 @@
+FROM rust:alpine AS renderer-builder
+
+RUN apk --no-cache add musl-dev
+
+COPY app/renderer /build/renderer
+RUN cd /build/renderer && cargo build --release
+
 FROM python:3.13-rc-alpine
 
 ENV ESSENTIAL_PACKAGES="curl-dev gcc musl-dev" \
@@ -5,6 +12,8 @@ ENV ESSENTIAL_PACKAGES="curl-dev gcc musl-dev" \
 
 RUN apk update && \
     apk --no-cache --progress add $ESSENTIAL_PACKAGES $UTILITY_PACKAGES
+
+COPY --from=renderer-builder /build/renderer/target/release/orb-report-render /usr/local/bin/orb-report-render
 
 COPY app/backend/requirements.txt /tmp/requirements.txt
 RUN cd /tmp && \

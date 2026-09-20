@@ -4,13 +4,13 @@
     {
       "description": "falls back to NOT_FOUND when the fetch returned an error status",
       "input": { "statusCode": 404 },
-      "nodeResults": { "Compute Schema Paths": { "github_api_base": "https://api.github.com/repos/blasvicco/da-sapot-processes/contents" } },
+      "nodeResults": { "Compute Schema Paths": { "github_api_base": "https://api.github.com/repos/blasvicco/da-orb-processes/contents" } },
       "expected": { "error": "NOT_FOUND", "process_definition": null, "schema_fetch_url": null }
     },
     {
       "description": "falls back to NOT_FOUND when the base64 content does not parse as JSON",
       "input": { "body": { "content": "bm90LWpzb24=" } },
-      "nodeResults": { "Compute Schema Paths": { "github_api_base": "https://api.github.com/repos/blasvicco/da-sapot-processes/contents" } },
+      "nodeResults": { "Compute Schema Paths": { "github_api_base": "https://api.github.com/repos/blasvicco/da-orb-processes/contents" } },
       "expected": { "error": "NOT_FOUND", "error_message": "Error al parsear la definición del proceso." }
     },
     {
@@ -21,10 +21,10 @@
           "path": "purchase/purch_request/purch_request.json"
         }
       },
-      "nodeResults": { "Compute Schema Paths": { "github_api_base": "https://api.github.com/repos/blasvicco/da-sapot-processes/contents" } },
+      "nodeResults": { "Compute Schema Paths": { "github_api_base": "https://api.github.com/repos/blasvicco/da-orb-processes/contents" } },
       "expected": {
         "process_definition": { "id": "purchase_request", "schema": "purchase_request_schema" },
-        "schema_fetch_url": "https://api.github.com/repos/blasvicco/da-sapot-processes/contents/purchase/purch_request/purchase_request_schema.json?ref=main",
+        "schema_fetch_url": "https://api.github.com/repos/blasvicco/da-orb-processes/contents/purchase/purch_request/purchase_request_schema.json?ref=main",
         "error": null
       }
     },
@@ -36,7 +36,7 @@
           "path": "purchase/purch_request/purch_request.json"
         }
       },
-      "nodeResults": { "Compute Schema Paths": { "github_api_base": "https://api.github.com/repos/blasvicco/da-sapot-processes/contents" } },
+      "nodeResults": { "Compute Schema Paths": { "github_api_base": "https://api.github.com/repos/blasvicco/da-orb-processes/contents" } },
       "expected": { "process_definition": { "id": "purchase_request" }, "schema_fetch_url": null }
     },
     {
@@ -47,8 +47,8 @@
           "path": "purchase/purch_request/purch_request.json"
         }
       },
-      "nodeResults": { "Compute Schema Paths": { "github_api_base": "https://api.github.com/repos/blasvicco/da-sapot-processes/contents", "github_ref": "dev" } },
-      "expected": { "schema_fetch_url": "https://api.github.com/repos/blasvicco/da-sapot-processes/contents/purchase/purch_request/purchase_request_schema.json?ref=dev" }
+      "nodeResults": { "Compute Schema Paths": { "github_api_base": "https://api.github.com/repos/blasvicco/da-orb-processes/contents", "github_ref": "dev" } },
+      "expected": { "schema_fetch_url": "https://api.github.com/repos/blasvicco/da-orb-processes/contents/purchase/purch_request/purchase_request_schema.json?ref=dev" }
     }
   ]
 }

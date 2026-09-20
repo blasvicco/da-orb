@@ -72,6 +72,7 @@ export default {
   },
   admin: {
     tabs: {
+      documentTemplates: 'Plantillas de Documentos',
       seats: 'Licencias',
       usage: 'Uso',
     },
@@ -90,6 +91,26 @@ export default {
       statusRevoked: 'Revocado',
       title: 'Gestión de Licencias',
       username: 'Usuario',
+    },
+    documentTemplates: {
+      businessPartnerRef: 'Código de Socio de Negocio (opcional)',
+      createdOn: 'Subido el',
+      default: 'Predeterminada',
+      documentType: 'Tipo de Documento',
+      editTitle: 'Editar Plantilla',
+      file: 'Archivo de Plantilla (.rpt)',
+      invalidSampleData: 'Los datos de muestra deben ser JSON válido (un array de objetos por fila).',
+      language: 'Idioma (opcional)',
+      languageAny: 'Cualquiera',
+      name: 'Nombre',
+      preview: 'Vista Previa',
+      previewHint: 'Datos de muestra (array JSON de objetos por fila) para renderizar esta plantilla:',
+      previewTitle: 'Vista Previa de Plantilla',
+      renderPreview: 'Generar Vista Previa',
+      setDefault: 'Establecer como predeterminada',
+      title: 'Plantillas de Documentos',
+      upload: 'Subir Plantilla',
+      uploadTitle: 'Subir Plantilla',
     },
     usage: {
       mostActiveUsers: 'Usuarios Más Activos (Mensajes)',
@@ -410,6 +431,9 @@ export default {
       title: 'Canasta de Archivos',
       upload: 'Subir',
       useAsContext: 'Usar como contexto',
+    },
+    documentChip: {
+      download: 'Descargar',
     },
     welcome: {
       greeting: '¡Bienvenido de nuevo, {name}!',

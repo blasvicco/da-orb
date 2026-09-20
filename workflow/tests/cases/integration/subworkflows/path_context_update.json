@@ -23,7 +23,7 @@
         "session_id": "s1",
         "processes": [{ "path": "purchase/purch_request/purch_request.json", "process_name": "Purchase Request" }],
         "github_owner": "blasvicco",
-        "github_repo": "da-sapot-processes"
+        "github_repo": "da-orb-processes"
       },
       "pins": {
         "Execute Workflow: Schema Resolution": { "process_definition": { "id": "purchase_request", "form": { "sections": [] } }, "error": null, "route_key": "sap_form_filling" }
@@ -49,7 +49,7 @@
         "session_id": "s1",
         "processes": [{ "path": "purchase/purch_request/purch_request.json", "process_name": "Purchase Request" }],
         "github_owner": "blasvicco",
-        "github_repo": "da-sapot-processes"
+        "github_repo": "da-orb-processes"
       },
       "pins": {
         "Execute Workflow: Schema Resolution": { "error": "NOT_FOUND", "error_message": "No se encontró la definición del proceso.", "route_key": "sap_form_filling" },
@@ -72,7 +72,7 @@
         "intention_nodes": { "purchase_request#0": { "id": "purchase_request#0", "parent_id": null, "process_id": "purchase_request", "process_definition": {}, "form_state": { "supplier": "V1" }, "status": "paused" } },
         "processes": [{ "path": "business_partners/vendor_list/vendor_list.json", "process_name": "List Vendors" }],
         "github_owner": "blasvicco",
-        "github_repo": "da-sapot-processes"
+        "github_repo": "da-orb-processes"
       },
       "pins": {
         "Execute Workflow: Schema Resolution": {
@@ -106,7 +106,7 @@
           { "path": "warehouse/goods_receipt/goods_receipt.json", "process_name": "Goods Receipt" }
         ],
         "github_owner": "blasvicco",
-        "github_repo": "da-sapot-processes"
+        "github_repo": "da-orb-processes"
       },
       "pins": {
         "Execute Workflow: Schema Resolution": { "process_definition": { "id": "stub_definition" }, "error": null, "error_message": null, "route_key": "batch_processing" },
@@ -132,7 +132,7 @@
           { "path": "business_partners/vendor_list/vendor_list.json", "process_name": "List Vendors" }
         ],
         "github_owner": "blasvicco",
-        "github_repo": "da-sapot-processes"
+        "github_repo": "da-orb-processes"
       },
       "pins": {
         "Execute Workflow: Schema Resolution": { "process_definition": { "id": "vendor_list", "api": { "method": "GET" } }, "error": null, "error_message": null, "route_key": "batch_processing" },
@@ -158,7 +158,7 @@
           { "path": "bogus/path.json", "process_name": "Unknown" }
         ],
         "github_owner": "blasvicco",
-        "github_repo": "da-sapot-processes"
+        "github_repo": "da-orb-processes"
       },
       "pins": {
         "Execute Workflow: Schema Resolution": { "error": "NOT_FOUND", "error_message": "No se encontró la definición del proceso.", "route_key": "batch_processing" }

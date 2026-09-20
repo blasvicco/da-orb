@@ -2,12 +2,12 @@
   "node": "Prompt: Find",
   "cases": [
     {
-      "description": "no focus, no active process (fresh session) -> chatInput shows ACTIVE PROCESS: None and an empty INTENTION NODE HISTORY, omits the FOCUS section entirely",
+      "description": "no focus -> chatInput omits the FOCUS block; current shape dumps the raw INPUT JSON (intention_nodes, active_node_id, etc.) instead of hand-built ACTIVE PROCESS/INTENTION NODE HISTORY sections, delegating that interpretation to the agent itself",
       "input": {
         "language": "es",
         "current_date": "2026-08-13",
         "github_owner": "blasvicco",
-        "github_repo": "da-sapot-processes",
+        "github_repo": "da-orb-processes",
         "github_tag": null,
         "message": "quiero crear una solicitud de compra",
         "focus": null,
@@ -26,7 +26,7 @@
           "language": "es",
           "current_date": "2026-08-13",
           "github_owner": "blasvicco",
-          "github_repo": "da-sapot-processes",
+          "github_repo": "da-orb-processes",
           "github_tag": null,
           "message": "quiero crear una solicitud de compra",
           "focus": null,
@@ -42,16 +42,16 @@
         }
       },
       "expected": {
-        "chatInput": "Today: 2026-08-13. Respond in: es.\n\n## ACTIVE PROCESS\nNone -- no process is currently open.\n\n## INTENTION NODE HISTORY (every node so far, active or not)\n[]\n\n## ATTACHED FILES\n(none)\n\n## STEPS\n1. Call get_file_contents with owner=blasvicco, repo=da-sapot-processes, path=b1s/index.json, ref=main. Always call this first.\n2. Match the user message to one index entry using: keywords → when_to_use → name/slug.\n\n## USER MESSAGE\n\"quiero crear una solicitud de compra\""
+        "chatInput": "Today: 2026-08-13. Respond in: es.\n\nSTEPS:\n1. Call get_file_contents with owner=blasvicco, repo=da-orb-processes, path={organization.target}/index.json, ref=main. Resolve {organization.target} from the INPUT JSON below. Always call this first.\n2. Match the user message to one index entry using: keywords \u2192 when_to_use \u2192 name/slug.\n\nINPUT:\n```json\n{\n  \"language\": \"es\",\n  \"current_date\": \"2026-08-13\",\n  \"github_owner\": \"blasvicco\",\n  \"github_repo\": \"da-orb-processes\",\n  \"github_tag\": null,\n  \"message\": \"quiero crear una solicitud de compra\",\n  \"focus\": null,\n  \"active_node_id\": null,\n  \"intention_nodes\": {},\n  \"organization\": {\n    \"integration\": {\n      \"target\": \"b1s\"\n    },\n    \"slug\": \"bvs\"\n  },\n  \"extracted_files\": null\n}\n```"
       }
     },
     {
-      "description": "focus present + a real active process -> chatInput surfaces FOCUS as authoritative, an ACTIVE PROCESS block, and a trimmed INTENTION NODE HISTORY (no full process_definition dump)",
+      "description": "focus present -> chatInput includes the FOCUS block (grounding context, not authoritative) ahead of STEPS/INPUT; the active process itself is read by the agent from the raw INPUT JSON dump below, not hand-summarized here",
       "input": {
         "language": "es",
         "current_date": "2026-08-18",
         "github_owner": "blasvicco",
-        "github_repo": "da-sapot-processes",
+        "github_repo": "da-orb-processes",
         "github_tag": null,
         "message": "no se el codigo, me listas los articulos cuyo nombre contengan la palabra reclutamiento",
         "focus": "El usuario esta creando una solicitud de compra y necesita el codigo del unico articulo; por eso solicita que se le liste los articulos cuyo nombre contenga 'reclutamiento' para elegir el codigo.",
@@ -82,7 +82,7 @@
           "language": "es",
           "current_date": "2026-08-18",
           "github_owner": "blasvicco",
-          "github_repo": "da-sapot-processes",
+          "github_repo": "da-orb-processes",
           "github_tag": null,
           "message": "no se el codigo, me listas los articulos cuyo nombre contengan la palabra reclutamiento",
           "focus": "El usuario esta creando una solicitud de compra y necesita el codigo del unico articulo; por eso solicita que se le liste los articulos cuyo nombre contenga 'reclutamiento' para elegir el codigo.",
@@ -110,16 +110,16 @@
         }
       },
       "expected": {
-        "chatInput": "Today: 2026-08-18. Respond in: es.\n\n## USER'S CURRENT FOCUS (from Agent: Intention Focus -- it already read the real conversation history to work out WHY this message was sent, specifically whether it continues the process below or is a side-step/detour/lookup done in service of it. Its read on continuation-vs-detour is AUTHORITATIVE -- apply it via STEP 0 before anything else in this prompt. It is not authoritative about WHICH process to match in STEP 2 -- that judgment is still yours.)\nEl usuario esta creando una solicitud de compra y necesita el codigo del unico articulo; por eso solicita que se le liste los articulos cuyo nombre contenga 'reclutamiento' para elegir el codigo.\n\n## ACTIVE PROCESS (a process is genuinely open right now)\n- process: Create Purchase Request\n- status: active\n\n## INTENTION NODE HISTORY (every node so far, active or not)\n[\n  {\n    \"id\": \"1#0\",\n    \"process\": \"Create Purchase Request\",\n    \"status\": \"active\",\n    \"error_detail\": null,\n    \"parent_id\": null\n  }\n]\n\n## ATTACHED FILES\n(none)\n\n## STEPS\n1. Call get_file_contents with owner=blasvicco, repo=da-sapot-processes, path=b1s/index.json, ref=main. Always call this first.\n2. Match the user message to one index entry using: keywords → when_to_use → name/slug.\n\n## USER MESSAGE\n\"no se el codigo, me listas los articulos cuyo nombre contengan la palabra reclutamiento\""
+        "chatInput": "Today: 2026-08-18. Respond in: es.\nUSER'S CURRENT FOCUS (from Agent: Intention Focus -- grounding context, not a directive; use it to inform your own judgment, don't just defer to it):\nEl usuario esta creando una solicitud de compra y necesita el codigo del unico articulo; por eso solicita que se le liste los articulos cuyo nombre contenga 'reclutamiento' para elegir el codigo.\n\n\nSTEPS:\n1. Call get_file_contents with owner=blasvicco, repo=da-orb-processes, path={organization.target}/index.json, ref=main. Resolve {organization.target} from the INPUT JSON below. Always call this first.\n2. Match the user message to one index entry using: keywords \u2192 when_to_use \u2192 name/slug.\n\nINPUT:\n```json\n{\n  \"language\": \"es\",\n  \"current_date\": \"2026-08-18\",\n  \"github_owner\": \"blasvicco\",\n  \"github_repo\": \"da-orb-processes\",\n  \"github_tag\": null,\n  \"message\": \"no se el codigo, me listas los articulos cuyo nombre contengan la palabra reclutamiento\",\n  \"focus\": \"El usuario esta creando una solicitud de compra y necesita el codigo del unico articulo; por eso solicita que se le liste los articulos cuyo nombre contenga 'reclutamiento' para elegir el codigo.\",\n  \"active_node_id\": \"1#0\",\n  \"intention_nodes\": {\n    \"1#0\": {\n      \"id\": \"1#0\",\n      \"status\": \"active\",\n      \"parent_id\": null,\n      \"process_id\": 1,\n      \"error_detail\": null,\n      \"process_definition\": {\n        \"id\": 1,\n        \"name\": \"Create Purchase Request\"\n      }\n    }\n  },\n  \"organization\": {\n    \"integration\": {\n      \"target\": \"b1s\"\n    },\n    \"slug\": \"bvs\"\n  },\n  \"extracted_files\": null\n}\n```"
       }
     },
     {
-      "description": "intention_nodes has a completed sibling alongside the active node -> INTENTION NODE HISTORY lists both, not just the active one (needed for the 'asking about a past node's outcome' exception)",
+      "description": "intention_nodes has a completed sibling alongside the active node -> both appear verbatim in the raw INPUT JSON dump (this node no longer hand-builds a history summary; the whole intention_nodes object -- including each node's own error_detail -- is passed through as-is)",
       "input": {
         "language": "es",
         "current_date": "2026-08-18",
         "github_owner": "blasvicco",
-        "github_repo": "da-sapot-processes",
+        "github_repo": "da-orb-processes",
         "github_tag": null,
         "message": "por que fallo la solicitud anterior?",
         "focus": null,
@@ -161,7 +161,7 @@
           "language": "es",
           "current_date": "2026-08-18",
           "github_owner": "blasvicco",
-          "github_repo": "da-sapot-processes",
+          "github_repo": "da-orb-processes",
           "github_tag": null,
           "message": "por que fallo la solicitud anterior?",
           "focus": null,
@@ -200,7 +200,7 @@
         }
       },
       "expected": {
-        "chatInput": "Today: 2026-08-18. Respond in: es.\n\n## ACTIVE PROCESS (a process is genuinely open right now)\n- process: Create Purchase Request\n- status: active\n\n## INTENTION NODE HISTORY (every node so far, active or not)\n[\n  {\n    \"id\": \"1#0\",\n    \"process\": \"Create Purchase Request\",\n    \"status\": \"active\",\n    \"error_detail\": null,\n    \"parent_id\": null\n  },\n  {\n    \"id\": \"1#1\",\n    \"process\": \"Create Purchase Request\",\n    \"status\": \"completed\",\n    \"error_detail\": \"SAP error 1002: debe completar el indicador de impuesto en todas las lineas\",\n    \"parent_id\": null\n  }\n]\n\n## ATTACHED FILES\n(none)\n\n## STEPS\n1. Call get_file_contents with owner=blasvicco, repo=da-sapot-processes, path=b1s/index.json, ref=main. Always call this first.\n2. Match the user message to one index entry using: keywords → when_to_use → name/slug.\n\n## USER MESSAGE\n\"por que fallo la solicitud anterior?\""
+        "chatInput": "Today: 2026-08-18. Respond in: es.\n\nSTEPS:\n1. Call get_file_contents with owner=blasvicco, repo=da-orb-processes, path={organization.target}/index.json, ref=main. Resolve {organization.target} from the INPUT JSON below. Always call this first.\n2. Match the user message to one index entry using: keywords \u2192 when_to_use \u2192 name/slug.\n\nINPUT:\n```json\n{\n  \"language\": \"es\",\n  \"current_date\": \"2026-08-18\",\n  \"github_owner\": \"blasvicco\",\n  \"github_repo\": \"da-orb-processes\",\n  \"github_tag\": null,\n  \"message\": \"por que fallo la solicitud anterior?\",\n  \"focus\": null,\n  \"active_node_id\": \"1#0\",\n  \"intention_nodes\": {\n    \"1#0\": {\n      \"id\": \"1#0\",\n      \"status\": \"active\",\n      \"parent_id\": null,\n      \"process_id\": 1,\n      \"error_detail\": null,\n      \"process_definition\": {\n        \"id\": 1,\n        \"name\": \"Create Purchase Request\"\n      }\n    },\n    \"1#1\": {\n      \"id\": \"1#1\",\n      \"status\": \"completed\",\n      \"parent_id\": null,\n      \"process_id\": 1,\n      \"error_detail\": \"SAP error 1002: debe completar el indicador de impuesto en todas las lineas\",\n      \"process_definition\": {\n        \"id\": 1,\n        \"name\": \"Create Purchase Request\"\n      }\n    }\n  },\n  \"organization\": {\n    \"integration\": {\n      \"target\": \"b1s\"\n    },\n    \"slug\": \"bvs\"\n  },\n  \"extracted_files\": null\n}\n```"
       }
     },
     {
@@ -209,7 +209,7 @@
         "language": "es",
         "current_date": "2026-08-18",
         "github_owner": "blasvicco",
-        "github_repo": "da-sapot-processes",
+        "github_repo": "da-orb-processes",
         "github_tag": null,
         "message": "tiene un solo articulo, pero no se el codigo, me listas los articulos cuyo nombre contengan la palabra \"reclutamiento\"",
         "focus": null,
@@ -224,14 +224,14 @@
         "extracted_files": null
       },
       "expected": {
-        "chatInput": "Today: 2026-08-18. Respond in: es.\n\n## ACTIVE PROCESS\nNone -- no process is currently open.\n\n## INTENTION NODE HISTORY (every node so far, active or not)\n[]\n\n## ATTACHED FILES\n(none)\n\n## STEPS\n1. Call get_file_contents with owner=blasvicco, repo=da-sapot-processes, path=b1s/index.json, ref=main. Always call this first.\n2. Match the user message to one index entry using: keywords → when_to_use → name/slug.\n\n## USER MESSAGE\n\"tiene un solo articulo, pero no se el codigo, me listas los articulos cuyo nombre contengan la palabra \\\"reclutamiento\\\"\""
+        "chatInput": "Today: 2026-08-18. Respond in: es.\n\nSTEPS:\n1. Call get_file_contents with owner=blasvicco, repo=da-orb-processes, path={organization.target}/index.json, ref=main. Resolve {organization.target} from the INPUT JSON below. Always call this first.\n2. Match the user message to one index entry using: keywords \u2192 when_to_use \u2192 name/slug.\n\nINPUT:\n```json\n{\n  \"language\": \"es\",\n  \"current_date\": \"2026-08-18\",\n  \"github_owner\": \"blasvicco\",\n  \"github_repo\": \"da-orb-processes\",\n  \"github_tag\": null,\n  \"message\": \"tiene un solo articulo, pero no se el codigo, me listas los articulos cuyo nombre contengan la palabra \\\"reclutamiento\\\"\",\n  \"focus\": null,\n  \"active_node_id\": null,\n  \"intention_nodes\": {},\n  \"organization\": {\n    \"integration\": {\n      \"target\": \"b1s\"\n    },\n    \"slug\": \"bvs\"\n  },\n  \"extracted_files\": null\n}\n```"
       },
       "nodeResults": {
         "Status Text: Finding": {
           "language": "es",
           "current_date": "2026-08-18",
           "github_owner": "blasvicco",
-          "github_repo": "da-sapot-processes",
+          "github_repo": "da-orb-processes",
           "github_tag": null,
           "message": "tiene un solo articulo, pero no se el codigo, me listas los articulos cuyo nombre contengan la palabra \"reclutamiento\"",
           "focus": null,

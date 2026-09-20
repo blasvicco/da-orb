@@ -33,12 +33,13 @@ Webhook
        -> SAP: Inquiry Execution       (1yNcmr17XAakSJo0)   route_key === 'sap_inquiry_execution' -- DEAD BRANCH, see note below
        -> Batch Processing             (M2ZeV5WXqSY2rXeX)   route_key === 'batch_processing'
        -> SAP: Discovery               (bDMyP4ISLUjViWpG)   route_key === 'sap_discovery' -- see UC-13
+       -> Generate Document            (atVchF9qHwQRIZuM)   route_key === 'generate_document' -- see UC-14
        -> Unmatched Route (debug)      fallback, route_key matched nothing above
 ```
 
 **Dead branch, worth knowing about:** the Router's `sap_inquiry_execution` output is wired to a real node (`SAP: Inquiry Execution`), but `Agent: Find`'s own code comment states it "*deliberately never produces 'sap_inquiry_execution'*" — nothing in the live system ever sets `route_key` to that value. The only place this route fires is a pinned Tier 2 test (`workflow/tests/cases/integration/path_backbone.json`). In real traffic, SAP execution always happens as an **internal** call from inside `sap-process-form-filling.json` (see UC-1), never via this top-level Router branch.
 
-### `route_key` — the only five live values
+### `route_key` — the only six live values
 
 Computed once, by `agent-intent-finder.json`'s `Compute Route Key` node, right after `Agent: Find` classifies the message:
 
@@ -48,6 +49,7 @@ Computed once, by `agent-intent-finder.json`'s `Compute Route Key` node, right a
 | `sap_form_filling` | `pending_reply`, or `new_intent` + `new_intent_status: "match"` | continuing an open form, or starting exactly one new process |
 | `batch_processing` | `new_intent` + `new_intent_status: "batch"` | 2+ distinct process instances requested in one message (same process type repeated, or different process types mixed) |
 | `sap_discovery` | `new_intent` + `new_intent_status: "discover"` | a legitimate SAP lookup question that no cataloged process (alone or combined) can answer — see UC-13 |
+| `generate_document` | `Agent: Find` status = `generate_document` | a document/PDF export request for something already completed — see UC-14 |
 | *(null, error path)* | `new_intent_status: "no_match"` / `"error"`, or unparseable | routed to the shared Error Parser instead of the Router |
 
 ### The error gate (`error-parser.json`)
@@ -123,9 +125,15 @@ Every flow ends by calling `response.json`'s `Build Callback Payload`, which POS
   "type": "agent | alert",
   "root_execution_id": "... (for token-usage accounting)",
   "state": { "last_bot_message": "...", "intention_nodes": {"...": "..."}, "active_node_id": "..." },
-  "processes": null
+  "processes": null,
+  "extra": { "attachment": { "id": 1, "name": "factura_1#0.pdf" } }
 }
 ```
+
+`extra` is a free-form dict Django spreads directly onto the broadcast payload — `processes`
+has its own dedicated top-level field for historical reasons, but any new caller (like
+`generate-document.json`'s `attachment`) should use `extra` rather than adding another
+dedicated serializer field. Omitted entirely when there's nothing to attach.
 
 Django's `_resolve_and_persist_state` (`app/backend/drf_api/resources/chat/main.py`) merges only `active_node_id` / `intention_nodes` / `last_bot_message` from `state` into Redis — nothing else in that object round-trips to a later turn.
 
@@ -147,6 +155,7 @@ Django's `_resolve_and_persist_state` (`app/backend/drf_api/resources/chat/main.
 | `batch-processing.json` | thin loop only, no agent of any kind: flattens every already-extracted record into one list, calls `sap-inquiry-execution.json` once per record via `mode: "each"` and `suppress_delivery` (GET or CREATE alike — it never branches on process type) — composes one summary, then registers a real `intention_nodes` entry per record/query from the whole turn via `register-intention-node.json` |
 | `error-parser.json` | shared classify-or-extract gate used by every flow above — see "The error gate" below |
 | `response.json` | shared terminal delivery step — the only place that calls Django's callback |
+| `generate-document.json` | renders a completed `intention_nodes` entry as a PDF via `/api/v1/document/generate/` and attaches it to the reply — see UC-14 |
 
 ### Existing test harness (what "spec test" means in this repo)
 
@@ -171,6 +180,7 @@ Django's `_resolve_and_persist_state` (`app/backend/drf_api/resources/chat/main.
 | 11 | Error handling (SAP rejection + retry, hard agent failure, auth error) | [11_error_handling.md](11_error_handling.md) |
 | 12 | Attach a file as context for a question (not for record creation) | [12_file_as_context_for_question.md](12_file_as_context_for_question.md) |
 | 13 | Cross-entity discovery (no cataloged process fits) | [13_cross_entity_discovery.md](13_cross_entity_discovery.md) |
+| 14 | Generate a document (PDF) of a completed process | [14_generate_document.md](14_generate_document.md) |
 
 ## Known gaps / discrepancies surfaced while researching this catalog
 

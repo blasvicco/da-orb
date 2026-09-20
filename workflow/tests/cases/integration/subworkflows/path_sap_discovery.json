@@ -16,7 +16,7 @@
         "organization": { "integration": { "auth_driver": "b1s", "base_url": "https://sap.example.com" }, "target": "bvs" },
         "session": { "user": { "username": "u", "password": "p" }, "database": "TESTDB" },
         "github_owner": "blasvicco",
-        "github_repo": "da-sapot-processes",
+        "github_repo": "da-orb-processes",
         "github_tag": "main",
         "current_date": "2026-08-21"
       },
@@ -48,7 +48,7 @@
         "organization": { "integration": { "auth_driver": "b1s", "base_url": "https://sap.example.com" }, "target": "bvs" },
         "session": { "user": { "username": "u", "password": "p" }, "database": "TESTDB" },
         "github_owner": "blasvicco",
-        "github_repo": "da-sapot-processes",
+        "github_repo": "da-orb-processes",
         "github_tag": "main",
         "current_date": "2026-08-21"
       },
@@ -79,7 +79,7 @@
         "organization": { "integration": { "auth_driver": "b1s", "base_url": "https://sap.example.com" }, "target": "bvs" },
         "session": { "user": { "username": "u", "password": "p" }, "database": "TESTDB" },
         "github_owner": "blasvicco",
-        "github_repo": "da-sapot-processes",
+        "github_repo": "da-orb-processes",
         "github_tag": "main",
         "current_date": "2026-08-21"
       },

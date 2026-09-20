@@ -2,19 +2,27 @@
   "name": "Orbot v14 - File Extraction Core",
   "nodes": [
     {
-      "parameters": {
-        "inputSource": "passthrough"
-      },
+      "id": "cacb9eb1-d435-4d91-b1a4-aeb029fbf31c",
+      "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
         -400,
         128
       ],
-      "id": "cacb9eb1-d435-4d91-b1a4-aeb029fbf31c",
-      "name": "Execute Workflow Trigger"
+      "parameters": {
+        "inputSource": "passthrough"
+      }
     },
     {
+      "id": "e488edad-8374-4b3e-ae75-79b6ff117db7",
+      "name": "Has Files?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -160,
+        128
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -38,83 +46,75 @@
           "combinator": "and"
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        -160,
-        128
-      ],
-      "id": "e488edad-8374-4b3e-ae75-79b6ff117db7",
-      "name": "Has Files?"
+      }
     },
     {
-      "parameters": {
-        "jsCode": "const base = $json;\nconst ids = base.bucket_file_ids || [];\nreturn ids.map((id) => ({ json: {\n  bucket_file_id: id,\n  org_slug: base.organization?.slug || '',\n  access_token: base.session?.access_token || '',\n} }));"
-      },
+      "id": "e726b0e1-cdfe-45f4-9fbc-8b22d49e7eef",
+      "name": "Split Files",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         80,
         0
       ],
-      "id": "e726b0e1-cdfe-45f4-9fbc-8b22d49e7eef",
-      "name": "Split Files"
+      "parameters": {
+        "jsCode": "const base = $json;\nconst ids = base.bucket_file_ids || [];\nreturn ids.map((id) => ({ json: {\n  bucket_file_id: id,\n  org_slug: base.organization?.slug || '',\n  access_token: base.session?.access_token || '',\n} }));"
+      }
     },
     {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "7t1OpBjzln6ASq3k",
-          "mode": "id"
-        },
-        "options": {}
-      },
+      "id": "4acefdea-1966-42bf-9e5f-840d9dc6bfd3",
+      "name": "Execute Workflow: File Content Extractor",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
         320,
         0
       ],
-      "id": "4acefdea-1966-42bf-9e5f-840d9dc6bfd3",
-      "name": "Execute Workflow: File Content Extractor"
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "ozxoh47jtEnWm98N",
+          "mode": "id"
+        },
+        "options": {}
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// Match results back to bucket_file_ids by the explicit bucket_file_id field each\n// result now carries (see file-extraction-item.json's Attach Bucket File ID), not by\n// array position -- position broke whenever a batch mixed mime types/outcomes and one\n// branch's items arrived out of the original order (or were lost outright pre-fix).\n// Every downstream caller assumes exactly one item per turn, so this re-merge into a\n// single item carrying the full original turn payload plus extracted_files is required\n// before returning.\nconst originalPayload = $('Execute Workflow Trigger').first().json;\nconst ids = originalPayload.bucket_file_ids || [];\nconst results = $input.all().map((item) => item.json);\nconst byId = new Map(results.map((r) => [r.bucket_file_id, r]));\nconst extractedFiles = ids.map((id) => {\n  const result = byId.get(id);\n  return {\n    bucket_file_id: id,\n    extracted_content: result?.extracted_content ?? null,\n    error: result?.error ?? (result ? null : 'MISSING_EXTRACTION_RESULT'),\n  };\n});\nreturn [{ json: { ...originalPayload, extracted_files: extractedFiles } }];"
-      },
+      "id": "0ac41906-1fb2-4bef-ac7d-81f96621c86a",
+      "name": "Merge File Extractions",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         560,
         0
       ],
-      "id": "0ac41906-1fb2-4bef-ac7d-81f96621c86a",
-      "name": "Merge File Extractions"
+      "parameters": {
+        "jsCode": "// Match results back to bucket_file_ids by the explicit bucket_file_id field each\n// result now carries (see file-extraction-item.json's Attach Bucket File ID), not by\n// array position -- position broke whenever a batch mixed mime types/outcomes and one\n// branch's items arrived out of the original order (or were lost outright pre-fix).\n// Every downstream caller assumes exactly one item per turn, so this re-merge into a\n// single item carrying the full original turn payload plus extracted_files is required\n// before returning.\nconst originalPayload = $('Execute Workflow Trigger').first().json;\nconst ids = originalPayload.bucket_file_ids || [];\nconst results = $input.all().map((item) => item.json);\nconst byId = new Map(results.map((r) => [r.bucket_file_id, r]));\nconst extractedFiles = ids.map((id) => {\n  const result = byId.get(id);\n  return {\n    bucket_file_id: id,\n    extracted_content: result?.extracted_content ?? null,\n    error: result?.error ?? (result ? null : 'MISSING_EXTRACTION_RESULT'),\n  };\n});\nreturn [{ json: { ...originalPayload, extracted_files: extractedFiles } }];"
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// No files on this turn -- normalizes the contract so callers always see an\n// extracted_files field (null here vs. an array on the has-files path) instead of it\n// being absent on one branch, per \"caller always calls, callee decides whether to no-op\".\nreturn [{ json: { ...$json, extracted_files: null } }];"
-      },
+      "id": "58043cb6-853c-4ef3-bde8-391b28497d61",
+      "name": "No Files: Passthrough",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         320,
         272
       ],
-      "id": "58043cb6-853c-4ef3-bde8-391b28497d61",
-      "name": "No Files: Passthrough"
+      "parameters": {
+        "jsCode": "// No files on this turn -- normalizes the contract so callers always see an\n// extracted_files field (null here vs. an array on the has-files path) instead of it\n// being absent on one branch, per \"caller always calls, callee decides whether to no-op\".\nreturn [{ json: { ...$json, extracted_files: null } }];"
+      }
     },
     {
-      "parameters": {},
+      "id": "a50fcbba-9376-499b-a656-42891e2e57a4",
+      "name": "Return Extraction Result",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
         800,
         128
       ],
-      "id": "a50fcbba-9376-499b-a656-42891e2e57a4",
-      "name": "Return Extraction Result"
+      "parameters": {}
     }
   ],
   "connections": {
@@ -193,7 +193,6 @@
     }
   },
   "settings": {
-    "executionOrder": "v1",
-    "binaryMode": "separate"
+    "executionOrder": "v1"
   }
 }

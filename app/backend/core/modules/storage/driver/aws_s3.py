@@ -1,5 +1,9 @@
 """AWS S3 storage driver"""
 
+# General imports
+import os
+import tempfile
+
 # Lib imports
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
@@ -27,6 +31,19 @@ class Instance(AStorage):
 			raise StorageError(
 				f"Delete failed for key '{dest_path}': {error}"
 			) from error
+
+	def download(self, dest_path):
+		"""Download the object at key dest_path and return the local path it was written to."""
+		local_path = tempfile.mktemp(suffix=os.path.splitext(dest_path)[1])
+		try:
+			self._client.download_file(
+				Bucket=settings.STORAGE_BUCKET_NAME, Key=dest_path, Filename=local_path
+			)
+		except (BotoCoreError, ClientError) as error:
+			raise StorageError(
+				f"Download failed for key '{dest_path}': {error}"
+			) from error
+		return local_path
 
 	def presigned_url(self, dest_path, expires_in=300):
 		"""Return a presigned GET URL for dest_path, valid for expires_in seconds."""

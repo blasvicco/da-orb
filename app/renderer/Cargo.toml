@@ -1,0 +1,28 @@
+[package]
+name = "orb-report-render"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "orb-report-render"
+path = "src/main.rs"
+
+# rpt-rs is not published on crates.io — pinned to a specific commit so a build stays
+# reproducible against an "experimental, API unstable" upstream (see the maintainers' own
+# CONTRIBUTING.md). Bump this rev deliberately, not as a side effect of an unrelated change.
+#
+# Pointed at the blasvicco/rpt-rs fork (not upstream MrSrsen/rpt-rs). Bumped to cd79b1d
+# ("Fixing bunch of problems.") -- the commit that lands object_visibility/section_visibility
+# support that this renderer's main.rs already relies on (RenderOptions::section_visibility /
+# object_visibility). Previously pinned to c9eb5df, which predates that support and does not
+# build against this main.rs -- see docs/pdf diagnosis/ investigation notes for context. Carries
+# forward the three earlier fixes noted in git history at c9eb5df (subreport formula resolution,
+# Detail-section suppression, Field word-wrap) plus whatever cd79b1d itself fixed.
+[dependencies]
+rpt-data = { git = "https://github.com/blasvicco/rpt-rs", rev = "cd79b1d" }
+rpt-formula = { git = "https://github.com/blasvicco/rpt-rs", rev = "cd79b1d" }
+rpt-model = { git = "https://github.com/blasvicco/rpt-rs", rev = "cd79b1d" }
+rpt-reader = { git = "https://github.com/blasvicco/rpt-rs", rev = "cd79b1d" }
+rpt-render = { git = "https://github.com/blasvicco/rpt-rs", rev = "cd79b1d" }
+rpt-render-pdf = { git = "https://github.com/blasvicco/rpt-rs", rev = "cd79b1d" }
+serde_json = "1"

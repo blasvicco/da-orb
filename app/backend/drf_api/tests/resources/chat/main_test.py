@@ -257,8 +257,8 @@ def test_delete_session_404_on_mismatched_connection_key():
 		assert response.status_code == 404
 
 
-def test_delete_session_removes_matching_session():
-	"""Test delete_session deletes the session when org, username, and connection_key all match"""
+def test_delete_session_soft_deletes_matching_session():
+	"""Test delete_session marks deleted_on rather than removing the row, when org/username/connection_key all match"""
 
 	with step("Arrange: A session scoped to TESTDB/bob."):
 		org = _make_org()
@@ -276,9 +276,36 @@ def test_delete_session_removes_matching_session():
 	with step("Act: Call delete_session."):
 		response = VSChat.as_view({"delete": "delete_session"})(request)
 
-	with step("Assert: The session was deleted."):
+	with step("Assert: The row still exists with deleted_on set, not removed."):
 		assert response.status_code == 204
-		assert not MChatSession.objects.filter(id=session.id).exists()
+		session.refresh_from_db()
+		assert session.deleted_on is not None
+
+
+def test_sessions_excludes_soft_deleted_session():
+	"""Test sessions omits a soft-deleted session from the requesting user's listing"""
+
+	with step(
+		"Arrange: One active and one soft-deleted session, same org/username/connection_key."
+	):
+		org = _make_org()
+		active = MChatSession.objects.create(
+			connection_key="TESTDB", org=org, username="bob"
+		)
+		MChatSession.objects.create(
+			connection_key="TESTDB",
+			deleted_on=timezone.now(),
+			org=org,
+			username="bob",
+		)
+		request = _make_request("get", org, connection_key="TESTDB", username="bob")
+
+	with step("Act: Call sessions."):
+		response = VSChat.as_view({"get": "sessions"})(request)
+
+	with step("Assert: Only the active session is returned."):
+		assert response.status_code == 200
+		assert [row["id"] for row in response.data] == [active.id]
 
 
 def _make_callback_request(data, org, secret="test-secret"):
@@ -653,6 +680,43 @@ def test_n8n_callback_ignores_missing_session(settings):
 	with step("Assert: 200 is still returned and no message was persisted."):
 		assert response.status_code == 200
 		assert not MChatMessage.objects.filter(text="hi").exists()
+
+
+def test_n8n_callback_persists_message_for_soft_deleted_session(settings):
+	"""Test n8n_callback still persists a message against a soft-deleted session -- an in-flight
+	execution fired before the user deleted the chat must still be able to write its result back"""
+
+	with step(
+		"Arrange: A soft-deleted session and a callback payload referencing its id."
+	):
+		settings.N8N_CALLBACK_SECRET = "test-secret"
+		org = _make_org()
+		session = MChatSession.objects.create(
+			connection_key="TESTDB",
+			deleted_on=timezone.now(),
+			org=org,
+			username="bob",
+		)
+		request = _make_callback_request(
+			{
+				"group_name": "chat_soft_deleted_session",
+				"session_id": session.id,
+				"text": "hi",
+				"type": "agent",
+			},
+			org,
+		)
+
+	with step("Act: Call n8n_callback."):
+		response = VSChat.as_view(
+			{"post": "n8n_callback"}, permission_classes=[PN8nCallback]
+		)(request)
+
+	with step(
+		"Assert: 200 is returned and the message was persisted against the session."
+	):
+		assert response.status_code == 200
+		assert MChatMessage.objects.filter(session=session, text="hi").exists()
 
 
 def test_n8n_callback_rejects_a_field_it_does_not_declare(settings):
