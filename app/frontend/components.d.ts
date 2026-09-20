@@ -11,9 +11,11 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    ABadge: typeof import('antdv-next')['Badge']
     AButton: typeof import('antdv-next')['Button']
     AConfigProvider: typeof import('antdv-next')['ConfigProvider']
     ADivider: typeof import('antdv-next')['Divider']
+    ADrawer: typeof import('antdv-next')['Drawer']
     AInput: typeof import('antdv-next')['Input']
     AInputNumber: typeof import('antdv-next')['InputNumber']
     AModal: typeof import('antdv-next')['Modal']
@@ -24,12 +26,17 @@ declare module 'vue' {
     ARow: typeof import('antdv-next')['Row']
     ASelect: typeof import('antdv-next')['Select']
     ASlider: typeof import('antdv-next')['Slider']
+    ASpin: typeof import('antdv-next')['Spin']
     ASwitch: typeof import('antdv-next')['Switch']
     ATable: typeof import('antdv-next')['Table']
     ATag: typeof import('antdv-next')['Tag']
+    ATooltip: typeof import('antdv-next')['Tooltip']
+    ATree: typeof import('antdv-next')['Tree']
+    AttachMenu: typeof import('./src/components/chat/attach-menu.vue')['default']
     Badge: typeof import('./src/components/chat/badge.vue')['default']
     Bubble: typeof import('./src/components/chat/bubble.vue')['default']
     Detail: typeof import('./src/components/user/detail.vue')['default']
+    DocumentChip: typeof import('./src/components/chat/document-chip.vue')['default']
     Export: typeof import('./src/components/chat/export.vue')['default']
     Header: typeof import('./src/components/chat/header.vue')['default']
     History: typeof import('./src/components/chat/history.vue')['default']
@@ -46,7 +53,9 @@ declare module 'vue' {
     SessionItem: typeof import('./src/components/chat/session-item.vue')['default']
     Settings: typeof import('./src/components/chat/settings.vue')['default']
     Signin: typeof import('./src/components/auth/signin.vue')['default']
+    Stack: typeof import('./src/components/intention/stack.vue')['default']
     Tabs: typeof import('./src/components/admin/tabs.vue')['default']
+    Trigger: typeof import('./src/components/bucket/trigger.vue')['default']
     Welcome: typeof import('./src/components/chat/welcome.vue')['default']
   }
 }

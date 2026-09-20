@@ -1,0 +1,33 @@
+{
+  "node": "Check Registration Needed",
+  "cases": [
+    {
+      "description": "merged (2026-08-15) with what used to be a separate Fan Out To Register node -- an intent with pending registrations now fans out directly into one item per record, each tagged with the shared parent_id/set_active:false/the pre-loop intention_nodes snapshot/has_registrations:true (note: the Tier 1 mock's $().all() only ever returns one item, so this only exercises the single-intent shape -- the real multi-intent flattening is covered by Tier 2)",
+      "input": {},
+      "nodeResults": {
+        "Group Results By Intent": {
+          "new_process_parent_id": "9#0",
+          "intention_nodes": { "9#0": { "id": "9#0", "status": "paused" } },
+          "_pending_registration": [
+            { "process_definition": { "id": "purchase_request" }, "form_state": { "CardCode": "V10000" }, "status": "completed" },
+            { "process_definition": { "id": "purchase_request" }, "form_state": { "CardCode": "V20000", "ready": false }, "status": "failed" }
+          ]
+        }
+      },
+      "expectedItems": [
+        { "process_definition": { "id": "purchase_request" }, "form_state": { "CardCode": "V10000" }, "status": "completed", "parent_id": "9#0", "set_active": false, "intention_nodes": { "9#0": { "id": "9#0", "status": "paused" } }, "has_registrations": true },
+        { "process_definition": { "id": "purchase_request" }, "form_state": { "CardCode": "V20000", "ready": false }, "status": "failed", "parent_id": "9#0", "set_active": false, "intention_nodes": { "9#0": { "id": "9#0", "status": "paused" } }, "has_registrations": true }
+      ]
+    },
+    {
+      "description": "no pending registrations at all (e.g. every intent failed schema resolution) -> a single {has_registrations: false} placeholder item, not zero items -- Has Registrations?'s own graph input must never be empty",
+      "input": {},
+      "nodeResults": {
+        "Group Results By Intent": { "new_process_parent_id": null, "intention_nodes": {} }
+      },
+      "expectedItems": [
+        { "has_registrations": false }
+      ]
+    }
+  ]
+}

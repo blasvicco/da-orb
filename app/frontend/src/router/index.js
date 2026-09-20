@@ -8,6 +8,7 @@ import { useAuth } from '@/modules/auth';
 import landing from '@/views/landing.vue';
 import chat from '@/views/chat.vue';
 import privacy from '@/views/privacy.vue';
+import documentTemplates from '@/views/admin/document-templates.vue';
 import seats from '@/views/admin/seats.vue';
 import terms from '@/views/terms.vue';
 import usage from '@/views/admin/usage.vue';
@@ -66,6 +67,14 @@ const router = createRouter({
     path: '/admin/usage',
     name: 'admin-usage',
     component: usage,
+    meta: {
+      auth: true,
+      adminOnly: true,
+    },
+  }, {
+    path: '/admin/document-templates',
+    name: 'admin-document-templates',
+    component: documentTemplates,
     meta: {
       auth: true,
       adminOnly: true,

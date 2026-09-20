@@ -56,7 +56,7 @@
             :min="1"
             :max="3"
             :step="1"
-            :tooltip-open="false"
+            :tooltip="{ open: false }"
             @change="emit('expertise-change', $event)"
           />
         </div>

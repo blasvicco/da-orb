@@ -1,0 +1,74 @@
+{
+  "node": "Fan Out Intents",
+  "cases": [
+    {
+      "description": "merged (2026-08-15) with what used to be a separate Fan Out All Records node -- reads intents back from Status Text: Batch Processing (the HTTP status ping wipes $json) and flattens straight to per-record work items in one pass. A resolved intent's own records each become their own work item.",
+      "input": {},
+      "nodeResults": {
+        "Status Text: Batch Processing": {
+          "group_name": "g1",
+          "session_id": "s1",
+          "language": "es",
+          "intents": [
+            { "path": "purchase/purch_request.json", "process_name": "Purchase Request", "process_definition": { "id": "purchase_request" }, "error": null, "error_message": null, "items": [{ "CardCode": "V10000" }, { "CardCode": "V20000" }] }
+          ]
+        }
+      },
+      "expectedItems": [
+        { "group_name": "g1", "session_id": "s1", "path": "purchase/purch_request.json", "process_name": "Purchase Request", "_record": { "CardCode": "V10000" }, "_record_index": 1, "_record_total": 2 },
+        { "group_name": "g1", "session_id": "s1", "path": "purchase/purch_request.json", "process_name": "Purchase Request", "_record": { "CardCode": "V20000" }, "_record_index": 2, "_record_total": 2 }
+      ]
+    },
+    {
+      "description": "an intent that already failed schema/extraction resolution -> exactly one _skip_execution marker, not dropped -- Group Results By Intent's own graph input must never be empty, so every intent contributes at least one item regardless of outcome",
+      "input": {},
+      "nodeResults": {
+        "Status Text: Batch Processing": {
+          "group_name": "g1",
+          "intents": [
+            { "path": "bogus/x.json", "process_name": "Unknown", "process_definition": null, "error": "NOT_FOUND", "error_message": "No se encontró la definición del proceso.", "items": [] }
+          ]
+        }
+      },
+      "expectedItems": [
+        { "path": "bogus/x.json", "process_name": "Unknown", "process_definition": null, "error": "NOT_FOUND", "error_message": "No se encontró la definición del proceso.", "_skip_execution": true }
+      ]
+    },
+    {
+      "description": "an intent that resolved fine but genuinely has zero records (e.g. extraction found nothing to create) -> also a _skip_execution marker, distinguished from a resolution failure only by error being null",
+      "input": {},
+      "nodeResults": {
+        "Status Text: Batch Processing": {
+          "intents": [
+            { "path": "purchase/purch_request.json", "process_name": "Purchase Request", "process_definition": { "id": "purchase_request" }, "error": null, "error_message": null, "items": [] }
+          ]
+        }
+      },
+      "expectedItems": [
+        { "path": "purchase/purch_request.json", "process_name": "Purchase Request", "error": null, "_skip_execution": true }
+      ]
+    },
+    {
+      "description": "multiple distinct intents in one turn -> each contributes its own work items to one flat combined list, in order; _record_index/_record_total number the real records across the WHOLE turn, not per-intent",
+      "input": {},
+      "nodeResults": {
+        "Status Text: Batch Processing": {
+          "intents": [
+            { "path": "purchase/purch_request.json", "process_name": "Purchase Request", "process_definition": { "id": "purchase_request" }, "error": null, "error_message": null, "items": [{ "CardCode": "V1" }] },
+            { "path": "purchase/vendor_list.json", "process_name": "List Vendors", "process_definition": { "id": "vendor_list" }, "error": null, "error_message": null, "items": [{ "CardName": "Flete" }] }
+          ]
+        }
+      },
+      "expectedItems": [
+        { "path": "purchase/purch_request.json", "_record": { "CardCode": "V1" }, "_record_index": 1, "_record_total": 2 },
+        { "path": "purchase/vendor_list.json", "_record": { "CardName": "Flete" }, "_record_index": 2, "_record_total": 2 }
+      ]
+    },
+    {
+      "description": "no intents at all -> fans out into zero items",
+      "input": {},
+      "nodeResults": { "Status Text: Batch Processing": { "group_name": "g1", "session_id": "s1", "intents": [] } },
+      "expectedItems": []
+    }
+  ]
+}

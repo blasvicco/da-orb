@@ -1,0 +1,67 @@
+{
+  "node": "Build Callback Payload",
+  "cases": [
+    {
+      "description": "normal success message -> type agent",
+      "input": { "group_name": "g1", "session_id": "s1", "message": "here you go" },
+      "nodeResults": {},
+      "expected": { "group_name": "g1", "session_id": "s1", "text": "here you go", "type": "agent" }
+    },
+    {
+      "description": "_root_execution_id (set once in spine.json, round-tripped through context like any other field) passes through as root_execution_id -- Django's n8n_callback handler uses this to walk the execution tree and compute token usage once the callback confirms the turn is done",
+      "input": { "group_name": "g1", "session_id": "s1", "message": "here you go", "_root_execution_id": "7530" },
+      "nodeResults": {},
+      "expected": { "root_execution_id": "7530" }
+    },
+    {
+      "description": "a hard error not in the soft-error list -> type alert",
+      "input": { "group_name": "g1", "session_id": "s1", "message": "auth failed", "error": "AUTH_ERROR" },
+      "nodeResults": {},
+      "expected": { "type": "alert" }
+    },
+    {
+      "description": "NO_MATCH is a soft error -> still delivered as a normal agent message, not an alert",
+      "input": { "group_name": "g1", "session_id": "s1", "message": "no entendi", "error": "NO_MATCH" },
+      "nodeResults": {},
+      "expected": { "type": "agent" }
+    },
+    {
+      "description": "MULTIPLE_PROCESSES is a soft error -> type agent",
+      "input": { "group_name": "g1", "session_id": "s1", "message": "pick one", "error": "MULTIPLE_PROCESSES" },
+      "nodeResults": {},
+      "expected": { "type": "agent" }
+    },
+    {
+      "description": "AGENT_ERROR is a soft error too -- a batch record's own extraction/execution agent failure still delivers as a normal message, not an alert",
+      "input": { "group_name": "g1", "session_id": "s1", "message": "no pude extraer los datos", "error": "AGENT_ERROR" },
+      "nodeResults": {},
+      "expected": { "type": "agent" }
+    },
+    {
+      "description": "state fields default to their empty/null shape when absent -- form_state/process_id/process_definition/paused_node_ids/last_error/last_batch_result/intents are gone entirely from the state object now (confirmed dead 2026-08-14: root-level working copy eliminated in favor of intention_nodes[active_node_id]; last_error/last_batch_result/intents were shipped every turn but Django's _resolve_and_persist_state never persisted them, so the round-trip to a later general_inquiry turn they were built for never actually happened). reset_process defaults false when absent -- Django's resettable-merge signal for active_node_id/last_bot_message.",
+      "input": { "group_name": "g1", "session_id": "s1", "message": "hi" },
+      "nodeResults": {},
+      "expected": {
+        "state": {
+          "last_bot_message": "hi",
+          "intention_nodes": {},
+          "active_node_id": null,
+          "reset_process": false
+        }
+      }
+    },
+    {
+      "description": "intention_nodes preserved as-is when present, now shaped as an object keyed by id (restructured 2026-08-13: was Node[], now Record<id, Node>); reset_process true passes through when the upstream node set it",
+      "input": { "group_name": "g1", "session_id": "s1", "message": "hi", "intention_nodes": { "p1#0": { "id": "p1#0", "status": "active" } }, "active_node_id": "p1#0", "reset_process": true },
+      "nodeResults": {},
+      "expected": {
+        "state": {
+          "last_bot_message": "hi",
+          "intention_nodes": { "p1#0": { "id": "p1#0", "status": "active" } },
+          "active_node_id": "p1#0",
+          "reset_process": true
+        }
+      }
+    }
+  ]
+}

@@ -21,7 +21,6 @@ class FSession(factory.Factory):
 	database = "COMPANY_DB"
 	expires_at = 0
 	id_token = ""
-	language = "es"
 	org = "acme"
 	refresh_token = ""
 	user = factory.LazyFunction(lambda: {"password": "", "username": "bob"})

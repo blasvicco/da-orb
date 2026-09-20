@@ -6,10 +6,6 @@
   import '@/components/chat/header.css';
 
   defineProps({
-    connection: {
-      default: '',
-      type: String,
-    },
     connectionStatus: {
       default: 'connecting',
       type: String,
@@ -21,6 +17,10 @@
     messages: {
       default: () => [],
       type: Array,
+    },
+    sessionId: {
+      default: null,
+      type: [Number, String],
     },
     sessionTitle: {
       default: null,
@@ -44,12 +44,6 @@
     </div>
     <div class="orb-header-status">
       <span
-        v-if="connection"
-        class="orb-header-connection"
-      >
-        {{ $t('component.userDetail.connectedTo', { database: connection }) }}
-      </span>
-      <span
         v-if="tokensUsed > 0"
         class="orb-header-tokens"
       >
@@ -57,6 +51,7 @@
       </span>
       <Export
         :messages="messages"
+        :session-id="sessionId"
         :session-title="sessionTitle"
         :user-name="userName"
       />

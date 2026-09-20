@@ -1,0 +1,36 @@
+{
+  "node": "Split Files",
+  "cases": [
+    {
+      "description": "one bucket_file_id -> one item carrying org_slug/access_token from the turn",
+      "input": {
+        "bucket_file_ids": [101],
+        "organization": { "slug": "bvs" },
+        "session": { "access_token": "tok-abc" }
+      },
+      "expectedItems": [
+        { "bucket_file_id": 101, "org_slug": "bvs", "access_token": "tok-abc" }
+      ]
+    },
+    {
+      "description": "multiple bucket_file_ids -> one item per id, same org_slug/access_token repeated on each",
+      "input": {
+        "bucket_file_ids": [101, 102, 103],
+        "organization": { "slug": "bvs" },
+        "session": { "access_token": "tok-abc" }
+      },
+      "expectedItems": [
+        { "bucket_file_id": 101, "org_slug": "bvs", "access_token": "tok-abc" },
+        { "bucket_file_id": 102, "org_slug": "bvs", "access_token": "tok-abc" },
+        { "bucket_file_id": 103, "org_slug": "bvs", "access_token": "tok-abc" }
+      ]
+    },
+    {
+      "description": "missing organization/session -> defaults org_slug/access_token to empty string rather than throwing",
+      "input": { "bucket_file_ids": [101] },
+      "expectedItems": [
+        { "bucket_file_id": 101, "org_slug": "", "access_token": "" }
+      ]
+    }
+  ]
+}

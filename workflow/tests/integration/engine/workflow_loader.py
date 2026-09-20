@@ -17,7 +17,16 @@ class WorkflowLoader:
 		"""Load the workflow JSON once; every test definition is built from this snapshot."""
 		with open(json_path, encoding='utf-8') as source_file:
 			self._workflow = json.load(source_file)
+		# Phase 2 introduced sub-workflow files triggered by n8n-nodes-base.executeWorkflowTrigger
+		# instead of a public webhook (they're only ever called via an Execute Workflow node, never
+		# hit directly) — detect which shape this file is instead of assuming every workflow has a
+		# webhook. is_subworkflow drives which lifecycle runner.py uses for it. Keyed off
+		# executeWorkflowTrigger presence, not webhook absence: batch.json (Stage 7) is a
+		# sub-workflow that ALSO carries its own real webhook (for self-call continuations,
+		# bypassing the spine entirely) — webhook-absence alone would misclassify it as a
+		# webhook-triggered top-level file like spine.json.
 		self._webhook_path = self._find_webhook_path()
+		self.is_subworkflow = self._has_execute_workflow_trigger()
 
 	def build_test_definition(self, webhook_path, pins):
 		"""Return a create/update-ready body with an isolated webhook path and pinned nodes swapped for deterministic stand-ins."""
@@ -31,6 +40,28 @@ class WorkflowLoader:
 		settings = {key: value for key, value in (self._workflow.get('settings') or {}).items() if key in SETTINGS_ALLOWLIST}
 		return {
 			'name': f'__test__ {self._workflow["name"]} [{webhook_path}]',
+			'nodes': nodes,
+			'connections': connections,
+			'settings': settings,
+		}
+
+	def build_subworkflow_definition(self, pins, label):
+		"""Same node-substitution pinning as build_test_definition, for a workflow reached via an
+		Execute Workflow node in a harness. Most sub-workflow files have no webhook at all; batch.json
+		(Stage 7) is the one exception — it also owns a real webhook for self-call continuations, which
+		must be renamed to a disposable path here so the test copy doesn't collide with the live
+		workflow's own registered webhook while both are active."""
+		nodes = copy.deepcopy(self._workflow['nodes'])
+		connections = copy.deepcopy(self._workflow['connections'])
+		if self._webhook_path is not None:
+			# label is also used verbatim as the harness's own webhook path (see
+			# run_subworkflow_suite) — a distinct suffix here keeps the two from
+			# colliding as two simultaneously-active workflows on the same path.
+			self._rewrite_webhook_path(nodes, f'{label}-inner')
+		self._apply_pins(nodes, connections, pins)
+		settings = {key: value for key, value in (self._workflow.get('settings') or {}).items() if key in SETTINGS_ALLOWLIST}
+		return {
+			'name': f'__test__ {self._workflow["name"]} [{label}]',
 			'nodes': nodes,
 			'connections': connections,
 			'settings': settings,
@@ -50,8 +81,20 @@ class WorkflowLoader:
 			node['typeVersion'] = 2
 			node.pop('credentials', None)
 			node.pop('webhookId', None)
+			# onError: continueErrorOutput tells n8n this node has a second (error) output slot —
+			# stale on a plain Code stand-in with only one connection array, and left in place it
+			# silently swallows the stand-in's entire return value (confirmed live: the node runs,
+			# produces no error, but nothing downstream ever receives it).
+			node.pop('onError', None)
 			output = json.dumps(error_payload if error_payload is not None else spec)
-			node['parameters'] = {'jsCode': f'return [{{ json: {output} }}];'}
+			# mode: runOnceForEachItem so a pinned node fed N input items (e.g. a batch turn's
+			# per-record loop calling a pinned sub-workflow once per record) still yields N
+			# identical pinned outputs, not just 1 -- the default runOnceForAllItems mode
+			# would otherwise call the code once total regardless of input count, silently
+			# dropping every item past the first (confirmed live: an intent's own marker item
+			# vanished this way when it shared a pinned node with another intent's real
+			# record). n8n's own per-item mode requires a bare object return, not an array.
+			node['parameters'] = {'mode': 'runOnceForEachItem', 'jsCode': f'return {{ json: {output} }};'}
 			if error_payload is not None:
 				connections[node['name']] = {'main': [self._original_error_targets(node['name'])]}
 		self._strip_stale_side_connections(connections, set(pins))
@@ -60,7 +103,10 @@ class WorkflowLoader:
 		for node in self._workflow['nodes']:
 			if node['type'] == 'n8n-nodes-base.webhook':
 				return node['parameters']['path']
-		raise ValueError('No webhook node found in workflow')
+		return None
+
+	def _has_execute_workflow_trigger(self):
+		return any(node['type'] == 'n8n-nodes-base.executeWorkflowTrigger' for node in self._workflow['nodes'])
 
 	def _original_error_targets(self, node_name):
 		main_outputs = self._workflow['connections'].get(node_name, {}).get('main', [])

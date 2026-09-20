@@ -1,0 +1,29 @@
+{
+  "node": "Recover State: Intention Focus",
+  "cases": [
+    {
+      "description": "success -> extracts focus from the parsed agent output onto the original state",
+      "input": { "output": "{\"focus\": \"The user is creating a purchase request and is now looking up a vendor code for one of its line items.\"}" },
+      "nodeResults": {
+        "Prompt: Intention Focus": { "message": "test", "intention_nodes": {}, "chatInput": "..." }
+      },
+      "expected": { "message": "test", "focus": "The user is creating a purchase request and is now looking up a vendor code for one of its line items." }
+    },
+    {
+      "description": "agent/tool failure -> degrades gracefully to focus: null instead of failing the whole turn",
+      "input": { "error": "Rate limit exceeded" },
+      "nodeResults": {
+        "Prompt: Intention Focus": { "message": "test", "intention_nodes": {}, "chatInput": "..." }
+      },
+      "expected": { "message": "test", "focus": null }
+    },
+    {
+      "description": "unparseable output -> also degrades gracefully to focus: null rather than throwing",
+      "input": { "output": "not json" },
+      "nodeResults": {
+        "Prompt: Intention Focus": { "message": "test", "intention_nodes": {}, "chatInput": "..." }
+      },
+      "expected": { "message": "test", "focus": null }
+    }
+  ]
+}

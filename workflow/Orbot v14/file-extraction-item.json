@@ -1,0 +1,867 @@
+{
+  "name": "Orbot v14 - File Extraction Item",
+  "nodes": [
+    {
+      "id": "259f2e23-b6aa-4c68-84bb-6a2682618b69",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -432,
+        112
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "bucket_file_id"
+            },
+            {
+              "name": "org_slug"
+            },
+            {
+              "name": "access_token"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "4d96fd12-76b6-4937-b79b-58bcae3ff926",
+      "name": "Get Presigned URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -192,
+        112
+      ],
+      "parameters": {
+        "url": "=http://blas.local/api/v1/bucket/download/",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "file_id",
+              "value": "={{ $('When Executed by Another Workflow').item.json.bucket_file_id }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Host",
+              "value": "={{ $('When Executed by Another Workflow').item.json.org_slug }}.blas.local"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('When Executed by Another Workflow').item.json.access_token }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "5523df6d-51aa-40ea-8b1d-d49662335ec0",
+      "name": "Download File",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        48,
+        112
+      ],
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "7ac5fff8-ef37-405a-97e4-45ecf352d9d7",
+      "name": "Route by Mime Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        272,
+        -16
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "mime-csv",
+                    "leftValue": "={{ $binary.data.mimeType }}",
+                    "rightValue": "text/csv",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "csv"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "mime-xls",
+                    "leftValue": "={{ $binary.data.mimeType }}",
+                    "rightValue": "application/vnd.ms-excel",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "xls"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "mime-xlsx",
+                    "leftValue": "={{ $binary.data.mimeType }}",
+                    "rightValue": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "xlsx"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "mime-ods",
+                    "leftValue": "={{ $binary.data.mimeType }}",
+                    "rightValue": "application/vnd.oasis.opendocument.spreadsheet",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ods"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "mime-pdf",
+                    "leftValue": "={{ $binary.data.mimeType }}",
+                    "rightValue": "application/pdf",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "pdf"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "mime-html",
+                    "leftValue": "={{ $binary.data.mimeType }}",
+                    "rightValue": "text/html",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "html"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "mime-json",
+                    "leftValue": "={{ $binary.data.mimeType }}",
+                    "rightValue": "application/json",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "json"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "mime-rtf",
+                    "leftValue": "={{ $binary.data.mimeType }}",
+                    "rightValue": "application/rtf",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "rtf"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "mime-text",
+                    "leftValue": "={{ $binary.data.mimeType }}",
+                    "rightValue": "text/plain",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "text"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      }
+    },
+    {
+      "id": "78b38e7c-3f56-46c5-aaea-f8501d59afa0",
+      "name": "Extract: CSV",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        624,
+        -672
+      ],
+      "parameters": {
+        "options": {}
+      }
+    },
+    {
+      "id": "3d8d15dc-7fdf-49fb-908a-56a4898b2c91",
+      "name": "Extract: XLS",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        624,
+        -512
+      ],
+      "parameters": {
+        "operation": "xls",
+        "options": {}
+      }
+    },
+    {
+      "id": "4802f41d-eca2-41c3-a2ca-27bc352ea112",
+      "name": "Extract: XLSX",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        624,
+        -352
+      ],
+      "parameters": {
+        "operation": "xlsx",
+        "options": {}
+      }
+    },
+    {
+      "id": "e4c31184-b1e8-4bb7-bc55-9eb458f1db7a",
+      "name": "Extract: ODS",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        624,
+        -192
+      ],
+      "parameters": {
+        "operation": "ods",
+        "options": {}
+      }
+    },
+    {
+      "id": "d6602122-3da1-4bce-a5b0-1a60faa12580",
+      "name": "Extract: PDF",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        624,
+        -32
+      ],
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      }
+    },
+    {
+      "id": "9b194b47-1aa8-4f54-ba7e-e1f454ad5f72",
+      "name": "Extract: HTML",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        624,
+        128
+      ],
+      "parameters": {
+        "operation": "html",
+        "options": {}
+      }
+    },
+    {
+      "id": "495485b2-39cb-40b5-8e7a-84d887f66337",
+      "name": "Extract: JSON",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        624,
+        288
+      ],
+      "parameters": {
+        "operation": "fromJson",
+        "options": {}
+      }
+    },
+    {
+      "id": "e7b90adb-3474-4128-8b0d-5240b13cedc5",
+      "name": "Extract: RTF",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        624,
+        448
+      ],
+      "parameters": {
+        "operation": "rtf",
+        "options": {}
+      }
+    },
+    {
+      "id": "4853ee6e-8a2b-44d5-a46b-d0885beff1cc",
+      "name": "Extract: TEXT",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        624,
+        608
+      ],
+      "parameters": {
+        "operation": "text",
+        "options": {}
+      }
+    },
+    {
+      "id": "917f771f-2720-435d-a4cf-8d12fcf5e66b",
+      "name": "Handler: Unsupported Format",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        624,
+        768
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "unsupported-content",
+              "name": "extracted_content",
+              "type": "string",
+              "value": null
+            },
+            {
+              "id": "unsupported-error",
+              "name": "error",
+              "type": "string",
+              "value": "UNSUPPORTED_MIME_TYPE"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ed0657b8-1177-4444-a01d-a41cbaf0c4a0",
+      "name": "Normalize Extraction Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        96
+      ],
+      "parameters": {
+        "jsCode": "// Merge Extraction Branches (upstream) combines every supported-mime-type branch into\n// one run, so a batch mixing e.g. a CSV and a PDF no longer loses one branch's items to\n// n8n's default \"last unmerged run wins\" behavior on the calling Execute Workflow node.\n// That combined stream can hold rows from several different files at once (a CSV alone\n// already produces one item per row), so group back to one result per source file using\n// pairedItem lineage -- $json no longer carries bucket_file_id by this point (Get Presigned\n// URL / Download File already overwrote it), so recover it from the trigger item itself.\nconst items = $input.all();\nconst groups = new Map();\nfor (let i = 0; i < items.length; i++) {\n  const bucketFileId = $('When Executed by Another Workflow').itemMatching(i).json.bucket_file_id;\n  if (!groups.has(bucketFileId)) groups.set(bucketFileId, { rows: [], indices: [] });\n  const group = groups.get(bucketFileId);\n  group.rows.push(items[i].json);\n  group.indices.push(i);\n}\nreturn Array.from(groups.entries()).map(([bucket_file_id, group]) => ({\n  json: { bucket_file_id, extracted_content: JSON.stringify(group.rows) },\n  pairedItem: group.indices,\n}));"
+      }
+    },
+    {
+      "id": "3299da1c-95f9-4244-972f-93097a3ee446",
+      "name": "Persist Extraction",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1504,
+        96
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "=http://blas.local/api/v1/bucket/extraction/",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "file_id",
+              "value": "={{ $('When Executed by Another Workflow').item.json.bucket_file_id }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Host",
+              "value": "={{ $('When Executed by Another Workflow').item.json.org_slug }}.blas.local"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('When Executed by Another Workflow').item.json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ extracted_content: $json.extracted_content }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "2ae92732-e1f7-4e59-bfda-615d6f2886d2",
+      "name": "Return Extraction Result",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        416
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "1bc87c56-9438-42a5-b19c-627bc89c020d",
+      "name": "Merge Extraction Branches",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1024,
+        -16
+      ],
+      "parameters": {
+        "numberInputs": 9
+      }
+    },
+    {
+      "id": "3610647c-8d23-4487-a8ac-8f2ed6aae5fc",
+      "name": "Merge Extraction Outcomes",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1776,
+        416
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "1baa044c-2b55-41d0-8818-fc335eefd27d",
+      "name": "Attach Bucket File ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1952,
+        416
+      ],
+      "parameters": {
+        "jsCode": "// Neither path into this node carries bucket_file_id as a JSON field (Persist\n// Extraction's PATCH response replaces it; Handler: Unsupported Format never had it) --\n// recover it via pairedItem so the parent (file-extraction-core.json's Merge File\n// Extractions) can match results to bucket_file_ids explicitly instead of by position.\nreturn $input.all().map((item, i) => ({\n  json: {\n    ...item.json,\n    bucket_file_id: $('When Executed by Another Workflow').itemMatching(i).json.bucket_file_id,\n  },\n}));"
+      }
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Get Presigned URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Presigned URL": {
+      "main": [
+        [
+          {
+            "node": "Download File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download File": {
+      "main": [
+        [
+          {
+            "node": "Route by Mime Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Mime Type": {
+      "main": [
+        [
+          {
+            "node": "Extract: CSV",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract: XLS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract: XLSX",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract: ODS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract: PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract: HTML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract: JSON",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract: RTF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract: TEXT",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handler: Unsupported Format",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract: CSV": {
+      "main": [
+        [
+          {
+            "node": "Merge Extraction Branches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract: XLS": {
+      "main": [
+        [
+          {
+            "node": "Merge Extraction Branches",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Extract: XLSX": {
+      "main": [
+        [
+          {
+            "node": "Merge Extraction Branches",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Extract: ODS": {
+      "main": [
+        [
+          {
+            "node": "Merge Extraction Branches",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Extract: PDF": {
+      "main": [
+        [
+          {
+            "node": "Merge Extraction Branches",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Extract: HTML": {
+      "main": [
+        [
+          {
+            "node": "Merge Extraction Branches",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Extract: JSON": {
+      "main": [
+        [
+          {
+            "node": "Merge Extraction Branches",
+            "type": "main",
+            "index": 6
+          }
+        ]
+      ]
+    },
+    "Extract: RTF": {
+      "main": [
+        [
+          {
+            "node": "Merge Extraction Branches",
+            "type": "main",
+            "index": 7
+          }
+        ]
+      ]
+    },
+    "Extract: TEXT": {
+      "main": [
+        [
+          {
+            "node": "Merge Extraction Branches",
+            "type": "main",
+            "index": 8
+          }
+        ]
+      ]
+    },
+    "Handler: Unsupported Format": {
+      "main": [
+        [
+          {
+            "node": "Merge Extraction Outcomes",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Normalize Extraction Result": {
+      "main": [
+        [
+          {
+            "node": "Persist Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Persist Extraction": {
+      "main": [
+        [
+          {
+            "node": "Merge Extraction Outcomes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Extraction Branches": {
+      "main": [
+        [
+          {
+            "node": "Normalize Extraction Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Extraction Outcomes": {
+      "main": [
+        [
+          {
+            "node": "Attach Bucket File ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Bucket File ID": {
+      "main": [
+        [
+          {
+            "node": "Return Extraction Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

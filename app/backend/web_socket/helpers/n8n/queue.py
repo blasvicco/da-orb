@@ -33,31 +33,35 @@ class N8nQueueState:
 		self._pending_key = f"{_PENDING_KEY_PREFIX}:{group_name}"
 		self._redis = Redis(
 			decode_responses=True,
-			host=settings.CONFIG.get("REDIS_HOST", "localhost"),
-			port=int(settings.CONFIG.get("REDIS_PORT", 6379)),
+			host=settings.REDIS_HOST,
+			port=settings.REDIS_PORT,
 			socket_connect_timeout=5,
 			socket_timeout=5,
 		)
 		# Safety net so a crash between try_start() and the matching callback can't
 		# wedge a chat permanently — the lock expires and a later message can proceed.
-		self._ttl = settings.CONFIG.get("N8N_INFLIGHT_TTL_SECONDS", 300)
+		self._ttl = settings.N8N_INFLIGHT_TTL_SECONDS
 
-	async def try_start(self) -> bool:
-		"""Attempt to acquire the in-flight lock for this chat."""
-		# Returns True if acquired (caller should fire to n8n now), False if another
-		# execution is already in flight (caller should queue instead).
+	async def close(self) -> None:
+		"""Close the underlying Redis connection pool."""
 		try:
-			acquired = await self._redis.set(
-				self._inflight_key, "1", nx=True, ex=self._ttl
-			)
-			return bool(acquired)
+			await self._redis.aclose()
+		except Exception:  # pylint: disable=broad-except
+			logger.exception("N8nQueueState: failed to close Redis connection")
+
+	async def pop_pending(self) -> dict | None:
+		"""Return and clear the pending message, if any."""
+		try:
+			raw = await self._redis.get(self._pending_key)
+			if not raw:
+				return None
+			await self._redis.delete(self._pending_key)
+			return json.loads(raw)
 		except Exception:  # pylint: disable=broad-except
 			logger.exception(
-				"N8nQueueState: failed to acquire in-flight lock for %s",
-				self._inflight_key,
+				"N8nQueueState: failed to pop pending message for %s", self._pending_key
 			)
-			# Fail open — a Redis outage shouldn't silently swallow the user's message.
-			return True
+			return None
 
 	async def release(self) -> None:
 		"""Release the in-flight lock (called once the execution's result is back)."""
@@ -78,23 +82,19 @@ class N8nQueueState:
 				"N8nQueueState: failed to set pending message for %s", self._pending_key
 			)
 
-	async def pop_pending(self) -> dict | None:
-		"""Return and clear the pending message, if any."""
+	async def try_start(self) -> bool:
+		"""Attempt to acquire the in-flight lock for this chat."""
+		# Returns True if acquired (caller should fire to n8n now), False if another
+		# execution is already in flight (caller should queue instead).
 		try:
-			raw = await self._redis.get(self._pending_key)
-			if not raw:
-				return None
-			await self._redis.delete(self._pending_key)
-			return json.loads(raw)
+			acquired = await self._redis.set(
+				self._inflight_key, "1", nx=True, ex=self._ttl
+			)
+			return bool(acquired)
 		except Exception:  # pylint: disable=broad-except
 			logger.exception(
-				"N8nQueueState: failed to pop pending message for %s", self._pending_key
+				"N8nQueueState: failed to acquire in-flight lock for %s",
+				self._inflight_key,
 			)
-			return None
-
-	async def close(self) -> None:
-		"""Close the underlying Redis connection pool."""
-		try:
-			await self._redis.aclose()
-		except Exception:  # pylint: disable=broad-except
-			logger.exception("N8nQueueState: failed to close Redis connection")
+			# Fail open — a Redis outage shouldn't silently swallow the user's message.
+			return True

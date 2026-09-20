@@ -1,0 +1,43 @@
+{
+  "node": "Normalize Extraction Result",
+  "cases": [
+    {
+      "description": "single extracted row -> one result, extracted_content is a JSON string of a one-element array, tagged with its bucket_file_id (recovered via pairedItem, since $json itself no longer carries it by this point)",
+      "input": {},
+      "inputItems": [{ "col1": "1", "col2": "2" }],
+      "nodeResults": {
+        "When Executed by Another Workflow": [{ "bucket_file_id": 101 }]
+      },
+      "expected": { "bucket_file_id": 101, "extracted_content": "[{\"col1\":\"1\",\"col2\":\"2\"}]" }
+    },
+    {
+      "description": "multiple rows from the SAME file (e.g. a multi-row CSV) -> one result, extracted_content is a JSON string of all rows, in order",
+      "input": {},
+      "inputItems": [{ "name": "a" }, { "name": "b" }],
+      "nodeResults": {
+        "When Executed by Another Workflow": [{ "bucket_file_id": 101 }, { "bucket_file_id": 101 }]
+      },
+      "expected": { "bucket_file_id": 101, "extracted_content": "[{\"name\":\"a\"},{\"name\":\"b\"}]" }
+    },
+    {
+      "description": "REGRESSION: rows from TWO DIFFERENT files interleaved in one combined run (Merge Extraction Branches upstream joins every mime-type branch into one stream) -> grouped back into one result PER FILE, not one blob mixing both files together",
+      "input": {},
+      "inputItems": [
+        { "name": "a" },
+        { "text": "pdf content", "numpages": 1 },
+        { "name": "b" }
+      ],
+      "nodeResults": {
+        "When Executed by Another Workflow": [
+          { "bucket_file_id": 101 },
+          { "bucket_file_id": 102 },
+          { "bucket_file_id": 101 }
+        ]
+      },
+      "expectedItems": [
+        { "bucket_file_id": 101, "extracted_content": "[{\"name\":\"a\"},{\"name\":\"b\"}]" },
+        { "bucket_file_id": 102, "extracted_content": "[{\"text\":\"pdf content\",\"numpages\":1}]" }
+      ]
+    }
+  ]
+}

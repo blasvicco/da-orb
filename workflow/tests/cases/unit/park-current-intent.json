@@ -1,0 +1,96 @@
+{
+  "node": "Park Current Intent",
+  "cases": [
+    {
+      "description": "parks the active process (status flips to paused on the intention_nodes entry itself -- no root-level process_id/process_definition/form_state to clear anymore, no separate form_state snapshot needed since intention_nodes[id] is the only copy that ever existed) and signals which node the new one is interrupting",
+      "input": {
+        "route_key": "sap_form_filling",
+        "active_node_id": "purchase_request#0",
+        "intention_nodes": { "purchase_request#0": { "id": "purchase_request#0", "process_id": "purchase_request", "process_definition": { "id": "purchase_request" }, "form_state": { "supplier": "V1" }, "status": "active" } }
+      },
+      "nodeResults": {},
+      "expected": {
+        "route_key": "sap_form_filling",
+        "active_node_id": null,
+        "new_process_parent_id": "purchase_request#0",
+        "intention_nodes": { "purchase_request#0": { "id": "purchase_request#0", "process_id": "purchase_request", "process_definition": { "id": "purchase_request" }, "form_state": { "supplier": "V1" }, "status": "paused" } }
+      }
+    },
+    {
+      "description": "nothing active to park (edge case -- shouldn't normally reach this node without an active process, but stays a clean no-op) -- no parent signaled",
+      "input": { "route_key": "batch_processing", "active_node_id": null, "intention_nodes": {} },
+      "nodeResults": {},
+      "expected": { "active_node_id": null, "new_process_parent_id": null }
+    },
+    {
+      "description": "active_node_id points at an already-completed inquiry (e.g. a vendor list Compute Execution Outcome just marked 'completed') -- this now runs purely to hand off the parent signal; it must NOT relabel the completed node 'paused', since there's nothing there to resume",
+      "input": {
+        "route_key": "sap_form_filling",
+        "active_node_id": "vendor_list#1",
+        "intention_nodes": {
+          "purchase_request#0": { "id": "purchase_request#0", "process_id": "purchase_request", "process_definition": {}, "form_state": {}, "status": "paused" },
+          "vendor_list#1": { "id": "vendor_list#1", "parent_id": "purchase_request#0", "process_id": "vendor_list", "process_definition": {}, "form_state": null, "status": "completed" }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "active_node_id": null,
+        "new_process_parent_id": "purchase_request#0",
+        "intention_nodes": {
+          "purchase_request#0": { "id": "purchase_request#0", "process_id": "purchase_request", "process_definition": {}, "form_state": {}, "status": "paused" },
+          "vendor_list#1": { "id": "vendor_list#1", "parent_id": "purchase_request#0", "process_id": "vendor_list", "process_definition": {}, "form_state": null, "status": "completed" }
+        }
+      }
+    },
+    {
+      "description": "REGRESSION: a chain of completed side-queries (List Vendors -> List Items -> Get Item, each one completed before the next began) must all fan out as siblings under the still-paused root, not nest into each other -- this was the live bug: each new interruption adopted whichever node was last active_node_id regardless of its status, nesting one level deeper every time",
+      "input": {
+        "route_key": "sap_form_filling",
+        "active_node_id": "get_item#2",
+        "intention_nodes": {
+          "purchase_request#0": { "id": "purchase_request#0", "process_id": "purchase_request", "process_definition": {}, "form_state": {}, "status": "paused" },
+          "list_vendors#1": { "id": "list_vendors#1", "parent_id": "purchase_request#0", "process_id": "list_vendors", "process_definition": {}, "form_state": null, "status": "completed" },
+          "list_items#2": { "id": "list_items#2", "parent_id": "list_vendors#1", "process_id": "list_items", "process_definition": {}, "form_state": null, "status": "completed" },
+          "get_item#2": { "id": "get_item#2", "parent_id": "list_items#2", "process_id": "get_item", "process_definition": {}, "form_state": null, "status": "completed" }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "active_node_id": null,
+        "new_process_parent_id": "purchase_request#0"
+      }
+    },
+    {
+      "description": "REGRESSION: an abandoned (user-cancelled) node is ALSO walked past, same as a completed one -- a dead end, not a valid parent for the next intent",
+      "input": {
+        "route_key": "sap_form_filling",
+        "active_node_id": "vendor_create#1",
+        "intention_nodes": {
+          "purchase_request#0": { "id": "purchase_request#0", "process_id": "purchase_request", "process_definition": {}, "form_state": {}, "status": "paused" },
+          "vendor_create#1": { "id": "vendor_create#1", "parent_id": "purchase_request#0", "process_id": "vendor_create", "process_definition": {}, "form_state": null, "status": "abandoned" }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "active_node_id": null,
+        "new_process_parent_id": "purchase_request#0"
+      }
+    },
+    {
+      "description": "the immediately active node is itself still open (paused, not completed) -- it becomes the new node's parent directly, no walk needed",
+      "input": {
+        "route_key": "sap_form_filling",
+        "active_node_id": "list_vendors#1",
+        "intention_nodes": {
+          "purchase_request#0": { "id": "purchase_request#0", "process_id": "purchase_request", "process_definition": {}, "form_state": {}, "status": "paused" },
+          "list_vendors#1": { "id": "list_vendors#1", "parent_id": "purchase_request#0", "process_id": "list_vendors", "process_definition": {}, "form_state": {}, "status": "paused" }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "active_node_id": null,
+        "new_process_parent_id": "list_vendors#1"
+      }
+    }
+  ]
+}

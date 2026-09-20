@@ -1,0 +1,45 @@
+{
+  "node": "Recover State: Extract Batch Records",
+  "cases": [
+    {
+      "description": "raw JSON text output (no code fences) -> parsed straight into items",
+      "input": { "output": "{\"records\": [{\"CardCode\": \"V10000\"}, {\"CardCode\": \"V20000\"}]}" },
+      "nodeResults": { "Prompt: Extract Batch Records": { "path": "purchase/purch_request.json", "process_name": "Purchase Request" } },
+      "expected": {
+        "path": "purchase/purch_request.json",
+        "process_name": "Purchase Request",
+        "items": [{ "CardCode": "V10000" }, { "CardCode": "V20000" }]
+      }
+    },
+    {
+      "description": "fenced ```json code block -> stripped and parsed, same fallback Recover State: Extract Batch Query Filters used to have",
+      "input": { "output": "```json\n{\"records\": [{\"CardName\": \"Flete\"}]}\n```" },
+      "nodeResults": { "Prompt: Extract Batch Records": { "path": "purchase/vendor_list.json" } },
+      "expected": { "items": [{ "CardName": "Flete" }] }
+    },
+    {
+      "description": "GET process finds nothing to extract -> still exactly one record (empty), never zero",
+      "input": { "output": "{\"records\": [{}]}" },
+      "nodeResults": { "Prompt: Extract Batch Records": { "path": "purchase/vendor_list.json" } },
+      "expected": { "items": [{}] }
+    },
+    {
+      "description": "agent/tool failure (onError: continueErrorOutput's second output, error is an object with a message field) -> maps to this intent's own error/error_message as a plain string, same channel a schema-resolution failure already uses",
+      "input": { "error": { "message": "Rate limit exceeded, tokens per min" } },
+      "nodeResults": { "Prompt: Extract Batch Records": { "path": "purchase/purch_request.json" } },
+      "expected": { "path": "purchase/purch_request.json", "error": "AGENT_ERROR", "error_message": "Rate limit exceeded, tokens per min" }
+    },
+    {
+      "description": "unparseable output -> treated the same as an agent failure",
+      "input": { "output": "not json at all" },
+      "nodeResults": { "Prompt: Extract Batch Records": { "path": "purchase/purch_request.json" } },
+      "expected": { "error": "AGENT_ERROR", "error_message": "Model output is not valid JSON" }
+    },
+    {
+      "description": "valid JSON but missing/wrong-shaped records field -> also treated as an agent failure, never a silent empty batch",
+      "input": { "output": "{\"foo\": \"bar\"}" },
+      "nodeResults": { "Prompt: Extract Batch Records": { "path": "purchase/purch_request.json" } },
+      "expected": { "error": "AGENT_ERROR", "error_message": "Model output is not valid JSON" }
+    }
+  ]
+}

@@ -180,8 +180,9 @@ def test_disconnect(payload):
 			"assert_raises": None,
 			"assert_send_json": False,
 			"auth_ready": True,
-			"description": "receive_json dispatches known type to method once auth is ready",
-			"input": {"type": "log.event"},
+			"description": "receive_json dispatches known type to method once auth is ready, stripping the dispatch-only type field first",
+			"expected_handler_arg": {"data": "value"},
+			"input": {"data": "value", "type": "log.event"},
 			"method": "receive_json",
 			"setup_handler": "log_event",
 		},
@@ -234,7 +235,7 @@ def test_consumer_interface(payload):
 		if payload["assert_send_json"]:
 			consumer.send_json.assert_awaited_once_with(payload["input"]["payload"])
 		if payload["assert_handler"] and mock_handler:
-			mock_handler.assert_awaited_once_with(payload["input"])
+			mock_handler.assert_awaited_once_with(payload["expected_handler_arg"])
 		if not payload["assert_handler"] and not payload["assert_send_json"]:
 			assert result is None
 			if mock_handler:

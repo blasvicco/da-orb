@@ -1,0 +1,241 @@
+{
+  "path": "sap_inquiry_execution",
+  "target_workflow": "sap-inquiry-execution.json",
+  "cases": [
+    {
+      "description": "success, single node with no other node in the graph -> delivers directly, marks the node 'completed'; active_node_id resumes to null since there's no parent to hand control back to (Compute Execution Outcome's own auto-resume walk, same TERMINAL_STATUSES/walk logic validated in Tier 1's compute-execution-outcome.json). form_state.ready is forced false by Build SAP Payload's own speculative reset (folded in from the old, error-only Reset Form Not Ready node) -- harmless here since a completed node's ready flag is never read again. process_definition is pruned to just {name: null} (no name field on this stub definition) since a completed node never re-enters form-filling or SAP execution.",
+      "input": {
+        "language": "es",
+        "message": "test",
+        "group_name": "g1",
+        "session_id": "s1",
+        "active_node_id": "p1#0",
+        "intention_nodes": {
+          "p1#0": {
+            "id": "p1#0",
+            "status": "active",
+            "parent_id": null,
+            "process_id": "p1",
+            "process_definition": {
+              "api": { "method": "GET", "service": "BusinessPartners" },
+              "query": { "key": { "id": "CardCode", "sap_field": "CardCode" }, "expand": [] }
+            },
+            "form_state": { "CardCode": "C001" }
+          }
+        },
+        "organization": { "integration": { "auth_driver": "b1s", "base_url": "https://sap.example.com" } },
+        "session": { "user": { "username": "u", "password": "p" }, "database": "TESTDB" }
+      },
+      "pins": {
+        "Agent: Execute": { "output": "{\"status\":\"success\",\"message\":\"Aquí está tu resultado\"}" },
+        "Status: Submitting": { "status_text": "stub" },
+        "Execute Workflow: Response": { "delivered": true }
+      },
+      "assert": {
+        "node": "Compute Execution Outcome",
+        "fields": {
+          "message": "Aquí está tu resultado",
+          "reset_process": true,
+          "active_node_id": null,
+          "intention_nodes": {
+            "p1#0": {
+              "id": "p1#0",
+              "status": "completed",
+              "parent_id": null,
+              "process_id": "p1",
+              "process_definition": { "name": null },
+              "form_state": { "CardCode": "C001", "ready": false },
+              "error_detail": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "success on a GET-style inquiry (e.g. a vendor list, even one that returns empty) -> the matching intention node is marked 'completed' rather than left dangling 'active' forever; the parent it interrupted auto-resumes -- its status flips to 'active' and active_node_id moves to it, same TERMINAL_STATUSES/walk logic validated in Tier 1's compute-execution-outcome.json -- and reset_process is set so Django's resettable merge actually applies the change instead of a stale prior value resurfacing on the next turn. process_definition is pruned to {name: null} on the completed child; the now-resumed parent's own process_definition is left untouched (it has none set here, but a real one would be preserved in full).",
+      "input": {
+        "language": "es",
+        "message": "test",
+        "group_name": "g1",
+        "session_id": "s1",
+        "active_node_id": "vendor_list#1",
+        "intention_nodes": {
+          "purchase_request#0": { "id": "purchase_request#0", "status": "paused", "parent_id": null, "process_id": "purchase_request" },
+          "vendor_list#1": {
+            "id": "vendor_list#1",
+            "status": "active",
+            "parent_id": "purchase_request#0",
+            "process_id": "vendor_list",
+            "process_definition": {
+              "api": { "method": "GET", "service": "BusinessPartners" },
+              "query": { "key": { "id": "CardCode", "sap_field": "CardCode" }, "expand": [] }
+            },
+            "form_state": { "ready": true }
+          }
+        },
+        "organization": { "integration": { "auth_driver": "b1s", "base_url": "https://sap.example.com" } },
+        "session": { "user": { "username": "u", "password": "p" }, "database": "TESTDB" }
+      },
+      "pins": {
+        "Agent: Execute": { "output": "{\"status\":\"success\",\"message\":\"No se encontraron registros.\"}" },
+        "Status: Submitting": { "status_text": "stub" },
+        "Execute Workflow: Response": { "delivered": true }
+      },
+      "assert": {
+        "node": "Compute Execution Outcome",
+        "fields": {
+          "reset_process": true,
+          "active_node_id": "purchase_request#0",
+          "intention_nodes": {
+            "purchase_request#0": { "id": "purchase_request#0", "status": "active", "parent_id": null, "process_id": "purchase_request" },
+            "vendor_list#1": {
+              "id": "vendor_list#1",
+              "status": "completed",
+              "parent_id": "purchase_request#0",
+              "process_id": "vendor_list",
+              "process_definition": { "name": null },
+              "form_state": { "ready": false },
+              "error_detail": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "error status -> classified via the real shared Error Parser, active_node_id untouched, node stays 'active', form_state.ready flips back to false so next turn's Agent: Find still sees an active, mid-form process (delivered; Response pinned only to avoid a live Django call in this test)",
+      "input": {
+        "language": "es",
+        "message": "test",
+        "group_name": "g1",
+        "session_id": "s1",
+        "active_node_id": "p1#0",
+        "intention_nodes": {
+          "p1#0": {
+            "id": "p1#0",
+            "status": "active",
+            "parent_id": null,
+            "process_id": "p1",
+            "process_definition": {
+              "api": { "method": "GET", "service": "BusinessPartners" },
+              "query": { "key": { "id": "CardCode", "sap_field": "CardCode" }, "expand": [] }
+            },
+            "form_state": { "CardCode": "C001", "ready": true }
+          }
+        },
+        "organization": { "integration": { "auth_driver": "b1s", "base_url": "https://sap.example.com" } },
+        "session": { "user": { "username": "u", "password": "p" }, "database": "TESTDB" }
+      },
+      "pins": {
+        "Agent: Execute": { "output": "{\"status\":\"error\",\"message\":\"El proveedor no existe\"}" },
+        "Status: Submitting": { "status_text": "stub" },
+        "Execute Workflow: Response": { "delivered": true }
+      },
+      "assert": {
+        "node": "Execute Workflow: Error Parser (Outcome)",
+        "fields": {
+          "error": "SAP_ERROR",
+          "message": "El proveedor no existe",
+          "active_node_id": "p1#0",
+          "intention_nodes": {
+            "p1#0": {
+              "id": "p1#0",
+              "status": "active",
+              "parent_id": null,
+              "process_id": "p1",
+              "process_definition": {
+                "api": { "method": "GET", "service": "BusinessPartners" },
+                "query": { "key": { "id": "CardCode", "sap_field": "CardCode" }, "expand": [] }
+              },
+              "form_state": { "CardCode": "C001", "ready": false },
+              "error_detail": "El proveedor no existe"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "suppress_delivery: true -> skips Response entirely (no pin needed on it -- it genuinely never runs), returning the raw outcome directly to the caller instead. This is what lets Batch Processing call this per item without each call triggering its own Django callback.",
+      "input": {
+        "language": "es",
+        "message": "test",
+        "group_name": "g1",
+        "session_id": "s1",
+        "suppress_delivery": true,
+        "active_node_id": "p1#0",
+        "intention_nodes": {
+          "p1#0": {
+            "id": "p1#0",
+            "status": "active",
+            "parent_id": null,
+            "process_id": "p1",
+            "process_definition": {
+              "api": { "method": "GET", "service": "BusinessPartners" },
+              "query": { "key": { "id": "CardCode", "sap_field": "CardCode" }, "expand": [] }
+            },
+            "form_state": { "CardCode": "C001" }
+          }
+        },
+        "organization": { "integration": { "auth_driver": "b1s", "base_url": "https://sap.example.com" } },
+        "session": { "user": { "username": "u", "password": "p" }, "database": "TESTDB" }
+      },
+      "pins": {
+        "Agent: Execute": { "output": "{\"status\":\"success\",\"message\":\"Aquí está tu resultado\"}" },
+        "Status: Submitting": { "status_text": "stub" }
+      },
+      "assert": {
+        "node": "Return SAP Inquiry Execution Result",
+        "fields": { "message": "Aquí está tu resultado", "active_node_id": null }
+      }
+    },
+    {
+      "description": "agent/tool failure -> classified via the real shared Error Parser AND form_state.ready flips back to false the same as a graceful error would (now via Build SAP Payload's own unconditional reset rather than a dedicated Reset Form Not Ready node), so the next turn still resolves to form_fill",
+      "input": {
+        "language": "es",
+        "message": "test",
+        "group_name": "g1",
+        "session_id": "s1",
+        "active_node_id": "p1#0",
+        "intention_nodes": {
+          "p1#0": {
+            "id": "p1#0",
+            "status": "active",
+            "parent_id": null,
+            "process_id": "p1",
+            "process_definition": {
+              "api": { "method": "GET", "service": "BusinessPartners" },
+              "query": { "key": { "id": "CardCode", "sap_field": "CardCode" }, "expand": [] }
+            },
+            "form_state": { "CardCode": "C001", "ready": true }
+          }
+        },
+        "organization": { "integration": { "auth_driver": "b1s", "base_url": "https://sap.example.com" } },
+        "session": { "user": { "username": "u", "password": "p" }, "database": "TESTDB" }
+      },
+      "pins": {
+        "Agent: Execute": { "__error__": { "error": { "message": "Rate limit exceeded, tokens per min" } } },
+        "Status: Submitting": { "status_text": "stub" },
+        "Execute Workflow: Response": { "delivered": true }
+      },
+      "assert": {
+        "node": "Execute Workflow: Error Parser (Agent Failure)",
+        "fields": {
+          "error": "RATE_LIMIT",
+          "active_node_id": "p1#0",
+          "intention_nodes": {
+            "p1#0": {
+              "id": "p1#0",
+              "status": "active",
+              "parent_id": null,
+              "process_id": "p1",
+              "process_definition": {
+                "api": { "method": "GET", "service": "BusinessPartners" },
+                "query": { "key": { "id": "CardCode", "sap_field": "CardCode" }, "expand": [] }
+              },
+              "form_state": { "CardCode": "C001", "ready": false }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

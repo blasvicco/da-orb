@@ -32,19 +32,25 @@ Tier 2 also needs `N8N_API_KEY` available inside the `backend` container — it 
 ## Running everything
 
 ```bash
-./workflow/tests/run.sh "workflow/Orbot v4.json"
+./workflow/tests/run.sh "workflow/Orbot v12/spine.json"
 ```
 
-Runs Tier 1 then Tier 2 against the given workflow file and prints both results. Swap in
-`"workflow/Orbot v3.json"` (or any other version) to test that file instead — nothing about the
-framework itself needs to change.
+Runs Tier 1 then Tier 2 against the given workflow file and prints both results. Swap in any
+other file under `workflow/Orbot v12/` (e.g. `batch.json`, `agent-find.json`) to test that file
+instead — nothing about the framework itself needs to change. Tier 1 needs every file a suite's
+cases might touch nodes in passed together (e.g. `spine.json` plus `batch.json`, since
+`cases/integration/path_batch.json` asserts on nodes that live in both); Tier 2 auto-detects
+whether the target file has a public webhook (a spine-style workflow, suites from
+`cases/integration/*.json`) or is only reachable via `n8n-nodes-base.executeWorkflowTrigger` (a
+sub-workflow, suites from `cases/integration/subworkflows/*.json`, matched by each suite's own
+`target_workflow` field).
 
 ## Running Tier 1 (unit tests) only
 
 ```bash
 ssh -p 8532 blas@blas.local \
   "docker run --rm -v '/Volumes/Data/Users/blas/Workspace/da-orb/workflow:/workflow' node:20-alpine \
-   node /workflow/tests/run.js '/workflow/Orbot v4.json'"
+   node /workflow/tests/run.js '/workflow/Orbot v12/spine.json' '/workflow/Orbot v12/batch.json'"
 ```
 
 Extracts each `n8n-nodes-base.code` node's JS from the workflow JSON and runs it directly in a
@@ -56,14 +62,14 @@ exits non-zero if any case fails.
 
 ```bash
 ssh -p 8532 blas@blas.local \
-  "docker exec da-sapot-backend python3 /home/workflow/tests/integration/runner.py '/home/workflow/Orbot v4.json'"
+  "docker exec da-orb-backend python3 /home/workflow/tests/integration/runner.py '/home/workflow/Orbot v12/spine.json'"
 ```
 
 For each file in `cases/integration/*.json`, creates a **disposable, isolated copy** of the
 workflow in n8n (own webhook path, own workflow ID), activates it, runs each case's `input`
 through its live webhook, polls `/api/v1/executions` for the result, asserts on the target
-node's output, then deactivates and deletes the copy. Your actual "Orbot v3" workflow already
-running in n8n is never read from or written to.
+node's output, then deactivates and deletes the copy. Your actual live workflow (`A4tWYpCiZA0EQgCE`,
+`spine.json`, plus each sub-workflow it calls) is never read from or written to.
 
 Nodes named in a case's `pins` are swapped for a deterministic Code-node stand-in that just
 returns the given JSON — this is *not* n8n's `pinData` field, because n8n silently ignores
@@ -73,7 +79,7 @@ works, including the `__error__` pin variant used to simulate a node's native er
 (e.g. an Agent node failing) rather than its normal success output.
 
 Requires `N8N_API_KEY` in the `backend` container's environment and network access to
-`da-sapot-n8n-main` — both already true in this repo's `docker-compose.yml`.
+`da-orb-n8n-main` — both already true in this repo's `docker-compose.yml`.
 
 ## Writing new test cases
 
@@ -160,7 +166,7 @@ a neutral stub, or the cascade will make a real OpenAI/SAP call.
   with a short backoff for this.
 - **A Tier 2 run leaves an orphaned `__test__ ...` workflow in n8n**: this shouldn't happen
   (cleanup runs in a `finally` block), but if a run was killed mid-flight, list and remove it:
-  `GET/DELETE /api/v1/workflows` on `da-sapot-n8n-main`, filtering by name prefix `__test__`.
+  `GET/DELETE /api/v1/workflows` on `da-orb-n8n-main`, filtering by name prefix `__test__`.
 
 ## Verifying the framework itself still detects regressions
 

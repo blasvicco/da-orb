@@ -1,0 +1,88 @@
+{
+  "node": "Prompt: Form",
+  "cases": [
+    {
+      "description": "resuming a node that previously failed (e.g. clicked from the Intention Graph sidebar per UC-6) -> a PREVIOUS ATTEMPT FAILED block is injected with the node's own error_detail verbatim, so Agent: Form itself can answer \"what went wrong\" instead of guessing -- this is the read side of the error_detail fix (see compute-execution-outcome.json / record-execution-result.json / group-results-by-intent.json / register-node.json for the write side)",
+      "expected": {
+        "chatInput": "Today: 2026-08-16. Respond in: es.\n\n## INTERACTION STYLE\nBatch ALL PENDING required fields in one message (see FIELD STATUS below). Skip descriptions, skip examples. \"Skip optional fields\" means skip ASKING about ones the user hasn't mentioned -- it never means skip reading the CURRENT USER MESSAGE below. Always extract every value that message actually provides first -- for any field, required or optional, including every QUERY FILTER if this is a search process -- THEN set status to confirmed once all required fields are present.\n\n## STATUS REPORTING (optional)\nIf this turn is likely to take a noticeable moment (e.g. reasoning through many pending fields, or an unusually large PROCESS DEFINITION below), you may call the send_status tool ONCE with group_name=\"g\", session_id=1, and a short human-readable message in es (e.g. \"Revisando los campos...\"). This is purely supplementary narration shown in place of the typing indicator -- it never replaces the OUTPUT below, which you must always still return.\n\n## FIELD STATUS \u2014 AUTHORITATIVE (computed by code, not by LLM; overrides all other reasoning)\nFILLED \u2014 already collected; don't ask about these again unprompted. But nothing here has been submitted to SAP yet, so if the user's message provides a new value for one \u2014 including a value inherited from an earlier failed attempt at this same request \u2014 treat it as a correction and update it. Only an entity already created in SAP needs its own separate update process; anything still in this form is freely editable at any time:\n  (none)\nDECLINED by user \u2014 user said no, do NOT ask again:\n  (none)\nPENDING \u2014 not yet complete, must be collected before confirming:\n  (all fields complete \u2014 ready to confirm)\n\n## PROCESS DEFINITION\n{\n  \"id\": 1,\n  \"name\": \"Create Purchase Request\",\n  \"api\": {\n    \"method\": \"POST\"\n  },\n  \"form\": {\n    \"sections\": []\n  }\n}\n\n## CURRENT FORM STATE\n{\n  \"ready\": false\n}\n\n## LAST MESSAGE YOU SENT (context only, to ground a terse or batched reply \u2014 FIELD STATUS above is still authoritative for what's filled/pending)\n(none \u2014 first message in this form)\n\n## PREVIOUS ATTEMPT FAILED (SAP rejected the last submission of this same request -- if the user asks what went wrong or why they are correcting this, cite this verbatim; it will not recur once the offending field is fixed and resubmitted)\nRequired date is missing (1)\n\n## USER MESSAGE -- READ THIS CAREFULLY AGAINST QUERY FILTERS ABOVE (if any) BEFORE DECIDING YOUR RESPONSE\n\"mu\u00e9strame el error de esta solicitud\"\n\n## READ-ONLY REQUESTS OVERRIDE AUTO-CONFIRM\nIf the USER MESSAGE above is only asking to see, review, recap, or double-check the current data (e.g. \"show me the details\", \"mostrame el detalle\", \"what do we have so far\") \u2014 and is not itself providing a new value, correcting a field, or explicitly saying yes/confirm/proceed \u2014 answer it directly by presenting the current field values, return status='in_progress', and do NOT advance to 'confirmed' even if every field above is already filled. Only move to 'confirmed' when the user's own message provides data that completes the form or explicitly confirms submission.\n\n## OUTPUT\nIn progress: {\"status\": \"in_progress\", \"message\": \"<question in es>\", \"form_state\": {...updated...}, \"processes\": null}\nAll required fields collected: {\"status\": \"confirmed\", \"message\": \"<brief in es>\", \"form_state\": {...complete...}, \"processes\": null}\nCancelled: {\"status\": \"cancelled\", \"message\": \"<in es>\", \"form_state\": null, \"processes\": null}"
+      },
+      "nodeResults": {
+        "Status Text: Collecting": {
+          "language": "es",
+          "current_date": "2026-08-16",
+          "expertise_level": 3,
+          "message": "mu\u00e9strame el error de esta solicitud",
+          "last_bot_message": null,
+          "active_node_id": "1#3",
+          "focus": null,
+          "extracted_files": null,
+          "group_name": "g",
+          "session_id": 1,
+          "intention_nodes": {
+            "1#3": {
+              "id": "1#3",
+              "status": "active",
+              "process_id": 1,
+              "process_definition": {
+                "id": 1,
+                "name": "Create Purchase Request",
+                "api": {
+                  "method": "POST"
+                },
+                "form": {
+                  "sections": []
+                }
+              },
+              "form_state": {
+                "ready": false
+              },
+              "error_detail": "Required date is missing (1)"
+            }
+          }
+        }
+      },
+      "input": {}
+    },
+    {
+      "description": "node has no error_detail (the normal case -- fresh node, or one that succeeded and had it cleared) -> no PREVIOUS ATTEMPT FAILED block at all",
+      "expected": {
+        "chatInput": "Today: 2026-08-16. Respond in: es.\n\n## INTERACTION STYLE\nBatch ALL PENDING required fields in one message (see FIELD STATUS below). Skip descriptions, skip examples. \"Skip optional fields\" means skip ASKING about ones the user hasn't mentioned -- it never means skip reading the CURRENT USER MESSAGE below. Always extract every value that message actually provides first -- for any field, required or optional, including every QUERY FILTER if this is a search process -- THEN set status to confirmed once all required fields are present.\n\n## STATUS REPORTING (optional)\nIf this turn is likely to take a noticeable moment (e.g. reasoning through many pending fields, or an unusually large PROCESS DEFINITION below), you may call the send_status tool ONCE with group_name=\"g\", session_id=1, and a short human-readable message in es (e.g. \"Revisando los campos...\"). This is purely supplementary narration shown in place of the typing indicator -- it never replaces the OUTPUT below, which you must always still return.\n\n## FIELD STATUS \u2014 AUTHORITATIVE (computed by code, not by LLM; overrides all other reasoning)\nFILLED \u2014 already collected; don't ask about these again unprompted. But nothing here has been submitted to SAP yet, so if the user's message provides a new value for one \u2014 including a value inherited from an earlier failed attempt at this same request \u2014 treat it as a correction and update it. Only an entity already created in SAP needs its own separate update process; anything still in this form is freely editable at any time:\n  (none)\nDECLINED by user \u2014 user said no, do NOT ask again:\n  (none)\nPENDING \u2014 not yet complete, must be collected before confirming:\n  (all fields complete \u2014 ready to confirm)\n\n## PROCESS DEFINITION\n{\n  \"id\": 1,\n  \"name\": \"Create Purchase Request\",\n  \"api\": {\n    \"method\": \"POST\"\n  },\n  \"form\": {\n    \"sections\": []\n  }\n}\n\n## CURRENT FORM STATE\n{\n  \"ready\": false\n}\n\n## LAST MESSAGE YOU SENT (context only, to ground a terse or batched reply \u2014 FIELD STATUS above is still authoritative for what's filled/pending)\n(none \u2014 first message in this form)\n\n## USER MESSAGE -- READ THIS CAREFULLY AGAINST QUERY FILTERS ABOVE (if any) BEFORE DECIDING YOUR RESPONSE\n\"cu\u00e1l es el precio unitario?\"\n\n## READ-ONLY REQUESTS OVERRIDE AUTO-CONFIRM\nIf the USER MESSAGE above is only asking to see, review, recap, or double-check the current data (e.g. \"show me the details\", \"mostrame el detalle\", \"what do we have so far\") \u2014 and is not itself providing a new value, correcting a field, or explicitly saying yes/confirm/proceed \u2014 answer it directly by presenting the current field values, return status='in_progress', and do NOT advance to 'confirmed' even if every field above is already filled. Only move to 'confirmed' when the user's own message provides data that completes the form or explicitly confirms submission.\n\n## OUTPUT\nIn progress: {\"status\": \"in_progress\", \"message\": \"<question in es>\", \"form_state\": {...updated...}, \"processes\": null}\nAll required fields collected: {\"status\": \"confirmed\", \"message\": \"<brief in es>\", \"form_state\": {...complete...}, \"processes\": null}\nCancelled: {\"status\": \"cancelled\", \"message\": \"<in es>\", \"form_state\": null, \"processes\": null}"
+      },
+      "nodeResults": {
+        "Status Text: Collecting": {
+          "language": "es",
+          "current_date": "2026-08-16",
+          "expertise_level": 3,
+          "message": "cu\u00e1l es el precio unitario?",
+          "last_bot_message": null,
+          "active_node_id": "1#3",
+          "focus": null,
+          "extracted_files": null,
+          "group_name": "g",
+          "session_id": 1,
+          "intention_nodes": {
+            "1#3": {
+              "id": "1#3",
+              "status": "active",
+              "process_id": 1,
+              "process_definition": {
+                "id": 1,
+                "name": "Create Purchase Request",
+                "api": {
+                  "method": "POST"
+                },
+                "form": {
+                  "sections": []
+                }
+              },
+              "form_state": {
+                "ready": false
+              }
+            }
+          }
+        }
+      },
+      "input": {}
+    }
+  ]
+}

@@ -1,0 +1,504 @@
+{
+  "name": "Orbot v14 - Batch Processing",
+  "nodes": [
+    {
+      "id": "af34cb51-91bb-4a71-b6ab-8cc9c83f0fc0",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "6a273a25-15ce-4c78-8ffa-ace1f7c20f16",
+      "name": "Status Text: Batch Processing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const STATUS = { batch: { es: 'Procesando tu solicitud', en: 'Processing your request' } };\nconst lang = $json.language || 'es';\nreturn [{ json: { ...$json, status_text: STATUS.batch[lang] } }];"
+      }
+    },
+    {
+      "id": "bd95164a-2028-4c94-b4c4-7ec0e02603fa",
+      "name": "Status: Batch Processing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "continueOnFail": true,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://blas.local/api/v1/chat/n8n_callback/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ group_name: $json.group_name, session_id: $json.session_id, text: $json.status_text, type: 'status' }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Zl1ukJrgzCeUg7zJ",
+          "name": "Orb Auth"
+        }
+      }
+    },
+    {
+      "id": "5fe3789a-e1cf-4dde-aaf6-6abd6dd67271",
+      "name": "Fan Out Intents",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Merged (2026-08-15): this used to be two nodes -- Fan Out Intents (turned the turn's\n// intents array into one item per intent) and Fan Out All Records (flattened each intent's\n// own records into per-record work items) -- combined into one, since the first step's only\n// consumer was ever the second. Status: Batch Processing (the HTTP status ping) replaces the\n// item's json entirely with just its own response -- read the real turn context back from\n// Status Text: Batch Processing instead, the last node before that wipe. An intent that\n// failed resolution, or genuinely resolved to zero records, still gets exactly one marker\n// item (_skip_execution: true) rather than being dropped -- Group Results By Intent's own\n// graph input must never be empty (confirmed live: a node whose only graph input delivers\n// zero items never runs at all).\nconst { intents, ...base } = $('Status Text: Batch Processing').first().json;\nconst workItems = [];\nfor (const intent of (intents || [])) {\n  const { items, ...intentContext } = intent;\n  if (intent.error || !(items || []).length) {\n    workItems.push({ ...base, ...intentContext, _skip_execution: true });\n  } else {\n    for (const record of items) {\n      workItems.push({ ...base, ...intentContext, _record: record });\n    }\n  }\n}\n// Stamp 1-based _record_index/_record_total across every real record in this turn (all\n// intents combined, not per-intent) so sap-inquiry-execution.json's own Status: Submitting\n// ping can report \"Procesando N de M...\" as each record's own sub-execution runs -- skip\n// markers never reach that ping (short-circuited by Needs Real Execution?), so they're\n// excluded from both the count and the numbering.\nconst recordTotal = workItems.filter((item) => !item._skip_execution).length;\nlet recordIndex = 0;\nfor (const item of workItems) {\n  if (!item._skip_execution) {\n    recordIndex += 1;\n    item._record_index = recordIndex;\n    item._record_total = recordTotal;\n  }\n}\nreturn workItems.map((json) => ({ json }));"
+      }
+    },
+    {
+      "id": "b86b2e12-dfe0-49c4-a48f-75c53adbc7fd",
+      "name": "Compose Batch Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2464,
+        112
+      ],
+      "parameters": {
+        "jsCode": "const items = $input.all().map((it) => it.json);\nconst raw = items[0] || {};\nconst { path, process_name, process_definition, error, error_message, items: entryItems, ...sharedContext } = raw;\nconst lang = sharedContext.language || 'es';\nconst lines = items.map((it) => {\n  if (it.error) return lang === 'en' ? `- ${it.process_name}: could not resolve (${it.error_message})` : `- ${it.process_name}: no se pudo resolver (${it.error_message})`;\n  const results = it.items || [];\n  const isGet = (it.process_definition?.api?.method || '').toUpperCase() === 'GET';\n  if (isGet) {\n    const result = results[0];\n    const body = result ? result.message : (lang === 'en' ? 'no result' : 'sin resultado');\n    return `- ${it.process_name}:\\n${body}`;\n  }\n  const succeeded = results.filter((r) => r.status === 'completed').length;\n  const failed = results.filter((r) => r.status === 'failed').length;\n  return lang === 'en' ? `- ${it.process_name}: ${succeeded} created, ${failed} failed` : `- ${it.process_name}: ${succeeded} creadas, ${failed} fallidas`;\n});\nconst header = lang === 'en' ? '**Batch execution completed**' : '**Ejecuci\u00f3n por lotes completada**';\nconst message = [header, ...lines].join('\\n');\nreturn [{ json: { ...sharedContext, message } }];"
+      }
+    },
+    {
+      "id": "a9606092-58c5-4875-96ac-352418cf5d0c",
+      "name": "Execute Workflow: Error Parser (Agent Failure)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2464,
+        -192
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "E4JerYpWJslysUQx",
+          "mode": "id"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "8963eafe-9753-4d8c-8b29-8b6f97ff0334",
+      "name": "Execute Workflow: Response",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        4080,
+        -192
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "vGK7I4eSKjbCGqvi",
+          "mode": "id"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "09e6ddbe-c654-4a97-a7b0-e915bdbfad36",
+      "name": "Return Batch Processing Result",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        4320,
+        -192
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "871dd079-9d6d-477d-b98f-edbc36824c61",
+      "name": "Prepare SAP Inquiry Call",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1168,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Builds a throwaway, single-entry Intention Graph just for this one\n// sap-inquiry-execution.json call -- discarded once it returns (see Record Execution\n// Result, which restores the real intention_nodes/active_node_id). Reused unmodified for every record,\n// GET or CREATE alike, since sap-inquiry-execution.json already branches on\n// process_definition.api.method internally -- this file no longer needs to know which kind\n// of process it's calling. Merged into the real intention_nodes (not replacing it) in case\n// another process is genuinely active/paused there during this batch turn. suppress_delivery\n// skips the sub-workflow's own Django callback (its Suppress Delivery? node) so this call\n// doesn't independently deliver a message -- Compose Batch Summary composes the one real\n// reply for the whole turn.\nconst data = $json;\nconst syntheticId = `batch#${data.path}`;\nreturn { json: {\n  ...data,\n  _original_intention_nodes: data.intention_nodes || {},\n  _original_active_node_id: data.active_node_id ?? null,\n  active_node_id: syntheticId,\n  intention_nodes: {\n    ...(data.intention_nodes || {}),\n    [syntheticId]: {\n      id: syntheticId,\n      status: 'active',\n      parent_id: null,\n      process_id: data.path,\n      process_definition: data.process_definition,\n      form_state: data._record || {},\n    },\n  },\n  suppress_delivery: true,\n} };"
+      }
+    },
+    {
+      "id": "6fc2e48c-a417-4ac6-8971-ca7b2102bd8e",
+      "name": "Execute Workflow: SAP Inquiry Execution",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1408,
+        0
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "lSxFNlkO98YWPk1G",
+          "mode": "id"
+        },
+        "mode": "each",
+        "options": {}
+      }
+    },
+    {
+      "id": "d872d10b-fcf7-4f1a-a28d-26d2b8cb86f5",
+      "name": "Check Registration Needed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2736,
+        112
+      ],
+      "parameters": {
+        "jsCode": "// Runs once, after Compose Batch Summary, purely for sequencing -- reads the original\n// per-intent results back from Group Results By Intent (Compose Batch Summary's own\n// destructuring keeps only the fields it needs for the message text). Folds in what used to\n// be a separate Fan Out To Register node -- fans out directly into one item per\n// record/query that needs registering (has_registrations: true on each), or a single\n// {has_registrations: false} placeholder if there's nothing to register this turn (Has\n// Registrations?'s own graph input must never be empty -- a node whose only graph input\n// delivers zero items never runs at all, confirmed live).\nconst items = $('Group Results By Intent').all().map((it) => it.json);\nconst parentId = items[0]?.new_process_parent_id ?? null;\nconst priorIntentionNodes = items[0]?.intention_nodes || {};\nconst toRegister = [];\nfor (const it of items) {\n  for (const entry of (it._pending_registration || [])) {\n    toRegister.push({ ...entry, parent_id: parentId, set_active: false, intention_nodes: priorIntentionNodes, has_registrations: true });\n  }\n}\nif (toRegister.length === 0) {\n  return [{ json: { has_registrations: false } }];\n}\nreturn toRegister.map((json) => ({ json }));"
+      }
+    },
+    {
+      "id": "62163aa5-e297-4f98-8269-c37b8c818334",
+      "name": "Has Registrations?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3040,
+        112
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-Has Registrations?",
+              "leftValue": "={{ $json.has_registrations === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "28bb55b7-9403-4cce-b75b-17eb2a6cb1b0",
+      "name": "Execute Workflow: Register Intention Node",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        3392,
+        -48
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "ZwhLWhfQHZYnG4P4",
+          "mode": "id"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "5b8cea05-e210-4754-90f9-0d3152539514",
+      "name": "Resolve Final State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3792,
+        128
+      ],
+      "parameters": {
+        "jsCode": "// new_process_parent_id/_pending_registration are consumed here (not spread through), same\n// one-shot-signal convention used everywhere else in this codebase. Fed directly by whichever\n// of Has Registrations?'s two branches actually fired this turn (Execute Workflow: Register\n// Intention Node's own N-item output, or Check Registration Needed's own\n// {has_registrations: false} placeholder) -- folds in what used to be two separate one-line\n// adapter nodes (Merge Registration Result / No Registrations Placeholder). Safe to converge\n// directly like this specifically because the two sources are mutually exclusive branches of\n// the SAME upstream IF (Has Registrations?) -- never both deliver data in the same execution,\n// unlike genuinely independent parallel sources (confirmed live: THAT shape either runs a\n// node multiple times or loses data to a scheduling race -- see Fan Out Intents/Group Results\n// By Intent's own comments). intention_nodes comes from whichever registered node happens to\n// be first (all N carry the same final combined value) or, if nothing was registered, falls\n// back to Compose Batch Summary's own already-carried-through copy.\nconst summary = $('Compose Batch Summary').first().json;\nconst { new_process_parent_id, _pending_registration, ...rest } = summary;\nconst registered = $input.all().map((it) => it.json);\nconst intentionNodesIn = registered[0]?.intention_nodes || rest.intention_nodes || {};\n\n// Auto-resume: this batch turn interrupted whatever was active before it (Intent\n// Manager's Park Current Intent set new_process_parent_id to that node's id when the\n// batch started) -- now that every record has been processed and registered, hand\n// control back rather than stranding active_node_id on null. Same\n// TERMINAL_STATUSES/walk shape duplicated in Park Current Intent (intent-manager.json),\n// Compute Execution Outcome (sap-inquiry-execution.json), Compute Form Outcome\n// (sap-process-form-filling.json), and Classify & Store Error (error-parser.json) --\n// keep all five in sync if this changes.\nconst TERMINAL_STATUSES = new Set(['completed', 'abandoned']);\nconst findResumeTarget = (nodeId, nodes) => {\n  let current = nodeId;\n  while (current) {\n    const node = nodes[current];\n    if (!node) return null;\n    if (!TERMINAL_STATUSES.has(node.status)) return current;\n    current = node.parent_id;\n  }\n  return null;\n};\nconst resumeTargetId = findResumeTarget(new_process_parent_id, intentionNodesIn);\nconst intentionNodes = resumeTargetId\n  ? { ...intentionNodesIn, [resumeTargetId]: { ...intentionNodesIn[resumeTargetId], status: 'active' } }\n  : intentionNodesIn;\n\n// active_node_id must be forced through even when it lands on null (nothing to resume\n// to) -- Django's resettable merge otherwise coalesces an explicit null back to\n// whatever's already in Redis (main.py's _merge_field, resettable=True only lets null\n// through when reset_process is set).\nreturn [{ json: { ...rest, active_node_id: resumeTargetId, intention_nodes: intentionNodes, reset_process: true } }];"
+      }
+    },
+    {
+      "id": "863c71f1-769c-4932-9de7-ac14e08e7e50",
+      "name": "Record Execution Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1648,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Folds in what used to be a separate Has Hard Failure? IF node upstream of this one, and\n// now also the _skip_execution marker case -- branching the main per-record edge and\n// reconverging it downstream was confirmed live to either run the aggregator multiple times\n// or lose data to a scheduling race. Keeping this chain fully linear (every item, marker or\n// real record, flows through Prepare -> Execute -> Record identically) is the one pattern\n// confirmed live to correctly batch every item into Group Results By Intent's own single\n// $input.all() call. A _skip_execution marker never went through a real SAP/LLM call\n// (short-circuited inside sap-inquiry-execution.json itself) -- it passes through with\n// neither a _record_result nor a _hard_failure, just its own intent identity intact, so\n// Group Results By Intent can still build that intent's own bucket from it. A genuine hard\n// failure (not SAP_ERROR) is tagged via _hard_failure instead of producing a normal\n// _record_result -- Group Results By Intent scans for it and routes the whole turn to the\n// shared Error Parser.\nconst data = $json;\nconst restored = { ...data, intention_nodes: data._original_intention_nodes, active_node_id: data._original_active_node_id };\nif (data._skip_execution) {\n  return { json: restored };\n}\nif (data.error && data.error !== 'SAP_ERROR') {\n  return { json: { ...restored, _hard_failure: { error: data.error, error_message: data.error_message } } };\n}\nconst isSapError = data.error === 'SAP_ERROR';\nconst syntheticNode = (data.intention_nodes || {})[data.active_node_id] || {};\nconst status = isSapError ? 'failed' : 'completed';\nreturn { json: {\n  ...restored,\n  error: null,\n  error_message: null,\n  _record_result: {\n    form_state: syntheticNode.form_state || {},\n    status,\n    message: data.message,\n    error_detail: isSapError ? data.message : null,\n  },\n} };"
+      }
+    },
+    {
+      "id": "797397c0-21e9-430c-9f5c-f145016f99fc",
+      "name": "Group Results By Intent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1888,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Every item (a real executed record, or a _skip_execution marker for an intent that never\n// had anything to execute) arrives here via the SAME single linear chain -- see Fan Out\n// Intents/Record Execution Result's own comments for why that matters. error/error_message\n// stay scoped to each intent's OWN resolution-failure status UNLESS a genuine hard failure\n// occurred anywhere in the turn -- in that case every item's error/error_message is\n// overridden to the hard failure's own values instead (folds in what used to be a separate\n// Prepare Hard Failure For Error Parser node -- safe because Has Any Hard Failure?'s true\n// branch is the ONLY consumer of these overridden values, and nothing on that branch ever\n// reaches Compose Batch Summary, where an intent's OWN error would otherwise matter).\nconst items = $input.all().map((it) => it.json);\nconst hardFailureItem = items.find((it) => it._hard_failure);\nconst hardFailure = hardFailureItem ? hardFailureItem._hard_failure : null;\n\nconst byIntent = new Map();\nconst order = [];\nfor (const it of items) {\n  const key = it.path;\n  if (!byIntent.has(key)) {\n    order.push(key);\n    byIntent.set(key, {\n      path: it.path,\n      process_name: it.process_name,\n      process_definition: it.process_definition,\n      error: hardFailure ? hardFailure.error : (it._skip_execution ? (it.error || null) : null),\n      error_message: hardFailure ? hardFailure.error_message : (it._skip_execution ? (it.error_message || null) : null),\n      items: [],\n    });\n  }\n  if (it._record_result) byIntent.get(key).items.push(it._record_result);\n}\n\nconst base = items[0] || {};\nconst { path, process_name, process_definition, error, error_message, _record, _record_result, _skip_execution, ...sharedContext } = base;\n\nreturn order.map((key) => {\n  const intent = byIntent.get(key);\n  const pending = intent.items.map((result) => ({\n    process_definition: intent.process_definition,\n    form_state: result.status === 'failed' ? { ...result.form_state, ready: false } : result.form_state,\n    status: result.status,\n    error_detail: result.status === 'failed' ? (result.error_detail || null) : null,\n  }));\n  return { json: {\n    ...sharedContext,\n    ...intent,\n    _pending_registration: pending,\n    _hard_failure: hardFailure,\n  } };\n});"
+      }
+    },
+    {
+      "id": "e854e666-9840-4e48-b494-8ea18bca21db",
+      "name": "Has Any Hard Failure?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2192,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-Has Any Hard Failure?",
+              "leftValue": "={{ Boolean($json._hard_failure) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Status Text: Batch Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status Text: Batch Processing": {
+      "main": [
+        [
+          {
+            "node": "Status: Batch Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status: Batch Processing": {
+      "main": [
+        [
+          {
+            "node": "Fan Out Intents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fan Out Intents": {
+      "main": [
+        [
+          {
+            "node": "Prepare SAP Inquiry Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose Batch Summary": {
+      "main": [
+        [
+          {
+            "node": "Check Registration Needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow: Error Parser (Agent Failure)": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow: Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow: Response": {
+      "main": [
+        [
+          {
+            "node": "Return Batch Processing Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare SAP Inquiry Call": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow: SAP Inquiry Execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow: SAP Inquiry Execution": {
+      "main": [
+        [
+          {
+            "node": "Record Execution Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Registration Needed": {
+      "main": [
+        [
+          {
+            "node": "Has Registrations?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Registrations?": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow: Register Intention Node",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Resolve Final State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow: Register Intention Node": {
+      "main": [
+        [
+          {
+            "node": "Resolve Final State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Final State": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow: Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Group Results By Intent": {
+      "main": [
+        [
+          {
+            "node": "Has Any Hard Failure?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Any Hard Failure?": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow: Error Parser (Agent Failure)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Compose Batch Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Execution Result": {
+      "main": [
+        [
+          {
+            "node": "Group Results By Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

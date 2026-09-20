@@ -1,0 +1,17 @@
+{
+  "node": "Status Text: Discovering",
+  "cases": [
+    {
+      "description": "es default",
+      "input": { "language": "es" },
+      "nodeResults": {},
+      "expected": { "status_text": "Explorando información relacionada en SAP" }
+    },
+    {
+      "description": "en",
+      "input": { "language": "en" },
+      "nodeResults": {},
+      "expected": { "status_text": "Exploring related SAP data" }
+    }
+  ]
+}
