@@ -10,7 +10,6 @@ class MSession:
 	database = ""
 	expires_at = 0
 	id_token = ""
-	language = "es"
 	org = ""
 	refresh_token = ""
 	user = None
@@ -21,7 +20,6 @@ class MSession:
 		self.database = kwargs.get("database", "")
 		self.expires_at = int(kwargs.get("expires_at", 0))
 		self.id_token = kwargs.get("id_token", "") or str(uuid.uuid4())
-		self.language = kwargs.get("language", "es")
 		self.org = kwargs.get("org", "")
 		self.refresh_token = kwargs.get("refresh_token", "")
 		self.user = kwargs.get("user") or {
@@ -41,7 +39,6 @@ class MSession:
 			"database": self.database,
 			"expires_at": self.expires_at,
 			"id_token": self.id_token,
-			"language": self.language,
 			"org": self.org,
 			"refresh_token": self.refresh_token,
 			"user": {

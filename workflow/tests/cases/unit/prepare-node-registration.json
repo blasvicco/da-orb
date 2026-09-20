@@ -1,0 +1,41 @@
+{
+  "node": "Prepare Node Registration",
+  "cases": [
+    {
+      "description": "adapts intents[0] into the generic Register Node contract, consumes intents/error/error_message/new_process_parent_id (one-shot, not spread through)",
+      "input": {
+        "intents": [{ "path": "purchase/purch_request.json", "process_name": "Purchase Request", "process_definition": { "id": "purchase_request" }, "error": null, "error_message": null, "items": [] }],
+        "error": null,
+        "error_message": null,
+        "new_process_parent_id": "9#0",
+        "group_name": "g1",
+        "intention_nodes": { "9#0": { "id": "9#0", "status": "paused" } },
+        "active_node_id": null
+      },
+      "nodeResults": {},
+      "expected": {
+        "process_definition": { "id": "purchase_request" },
+        "parent_id": "9#0",
+        "form_state": {},
+        "status": "active",
+        "set_active": true,
+        "group_name": "g1",
+        "intention_nodes": { "9#0": { "id": "9#0", "status": "paused" } }
+      }
+    },
+    {
+      "description": "no new_process_parent_id (fresh start, nothing was active) -> parent_id null",
+      "input": {
+        "intents": [{ "process_definition": { "slug": "goods_receipt" } }]
+      },
+      "nodeResults": {},
+      "expected": {
+        "process_definition": { "slug": "goods_receipt" },
+        "parent_id": null,
+        "form_state": {},
+        "status": "active",
+        "set_active": true
+      }
+    }
+  ]
+}

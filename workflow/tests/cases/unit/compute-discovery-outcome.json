@@ -1,0 +1,39 @@
+{
+  "node": "Compute Discovery Outcome",
+  "cases": [
+    {
+      "description": "success -> message passes through, no error fields, stateless (no active_node_id/intention_nodes in play at all)",
+      "input": {
+        "_parsed": { "status": "success", "message": "Encontre 3 proveedores para el grupo Cables: Acme, Beta, Gamma." }
+      },
+      "nodeResults": {},
+      "expected": {
+        "message": "Encontre 3 proveedores para el grupo Cables: Acme, Beta, Gamma."
+      }
+    },
+    {
+      "description": "error status -> flagged as SAP_ERROR with the agent's own message",
+      "input": {
+        "_parsed": { "status": "error", "message": "No se pudo conectar a SAP." }
+      },
+      "nodeResults": {},
+      "expected": {
+        "_needs_error_parse": true,
+        "error": "SAP_ERROR",
+        "error_message": "No se pudo conectar a SAP."
+      }
+    },
+    {
+      "description": "unparseable agent output -> treated as a genuine error rather than a silent success, same catch-all precedent as Compute Execution Outcome's own else branch",
+      "input": {
+        "_parsed": null
+      },
+      "nodeResults": {},
+      "expected": {
+        "_needs_error_parse": true,
+        "error": "SAP_ERROR",
+        "error_message": null
+      }
+    }
+  ]
+}

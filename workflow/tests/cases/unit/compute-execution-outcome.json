@@ -1,0 +1,902 @@
+{
+  "node": "Compute Execution Outcome",
+  "cases": [
+    {
+      "description": "success, no active_node_id at all -> defensive no-op on intention_nodes (nothing to mark completed), reset_process still set so Django's resettable merge (main.py's _merge_field) actually applies it",
+      "input": {
+        "_parsed": {
+          "status": "success",
+          "message": "Listo"
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "message": "Listo",
+        "active_node_id": null,
+        "_needs_error_parse": false,
+        "reset_process": true,
+        "intention_nodes": {}
+      }
+    },
+    {
+      "description": "success, no parent (root process, nothing interrupted) -> the node is marked 'completed', process_definition pruned to just {name}, and active_node_id resumes to null since there's no open ancestor to hand control back to",
+      "input": {
+        "_parsed": {
+          "status": "success",
+          "message": "No se encontraron registros."
+        },
+        "active_node_id": "vendor_list#0",
+        "intention_nodes": {
+          "vendor_list#0": {
+            "id": "vendor_list#0",
+            "status": "active",
+            "parent_id": null,
+            "process_id": "vendor_list",
+            "process_definition": {
+              "name": "Vendor List",
+              "form": {
+                "sections": []
+              }
+            },
+            "form_state": {
+              "ready": true
+            }
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "reset_process": true,
+        "active_node_id": null,
+        "intention_nodes": {
+          "vendor_list#0": {
+            "id": "vendor_list#0",
+            "status": "completed",
+            "parent_id": null,
+            "process_id": "vendor_list",
+            "process_definition": {
+              "name": "Vendor List"
+            },
+            "form_state": {
+              "ready": true
+            },
+            "error_detail": null
+          }
+        }
+      }
+    },
+    {
+      "description": "REGRESSION: success on a node whose process_definition has no name field -> prunes to { name: null } rather than throwing or keeping the full definition",
+      "input": {
+        "_parsed": {
+          "status": "success",
+          "message": "Listo"
+        },
+        "active_node_id": "vendor_list#0",
+        "intention_nodes": {
+          "vendor_list#0": {
+            "id": "vendor_list#0",
+            "status": "active",
+            "parent_id": null,
+            "process_id": "vendor_list",
+            "process_definition": {
+              "id": "vendor_list"
+            },
+            "form_state": {}
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "reset_process": true,
+        "active_node_id": null,
+        "intention_nodes": {
+          "vendor_list#0": {
+            "id": "vendor_list#0",
+            "status": "completed",
+            "parent_id": null,
+            "process_id": "vendor_list",
+            "process_definition": {
+              "name": null
+            },
+            "form_state": {},
+            "error_detail": null
+          }
+        }
+      }
+    },
+    {
+      "description": "success with a paused parent -> auto-resumes: active_node_id switches to the parent, and the parent's own status flips back to 'active' (it was interrupted by this node in the first place, per Park Current Intent's parent_id assignment)",
+      "input": {
+        "_parsed": {
+          "status": "success",
+          "message": "No se encontraron registros."
+        },
+        "active_node_id": "vendor_list#1",
+        "intention_nodes": {
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "status": "paused",
+            "parent_id": null,
+            "process_id": "purchase_request",
+            "process_definition": {
+              "name": "Create Purchase Request",
+              "form": {
+                "sections": []
+              }
+            }
+          },
+          "vendor_list#1": {
+            "id": "vendor_list#1",
+            "status": "active",
+            "parent_id": "purchase_request#0",
+            "process_id": "vendor_list",
+            "process_definition": {
+              "name": "Vendor List",
+              "form": {
+                "sections": []
+              }
+            },
+            "form_state": {
+              "ready": true
+            }
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "reset_process": true,
+        "active_node_id": "purchase_request#0",
+        "intention_nodes": {
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "status": "active",
+            "parent_id": null,
+            "process_id": "purchase_request",
+            "process_definition": {
+              "name": "Create Purchase Request",
+              "form": {
+                "sections": []
+              }
+            }
+          },
+          "vendor_list#1": {
+            "id": "vendor_list#1",
+            "status": "completed",
+            "parent_id": "purchase_request#0",
+            "process_id": "vendor_list",
+            "process_definition": {
+              "name": "Vendor List"
+            },
+            "form_state": {
+              "ready": true
+            },
+            "error_detail": null
+          }
+        }
+      }
+    },
+    {
+      "description": "success with an immediate parent already terminal (completed) but an open grandparent further up -> walks past the terminal parent and resumes to the grandparent instead",
+      "input": {
+        "_parsed": {
+          "status": "success",
+          "message": "Listo"
+        },
+        "active_node_id": "get_item#2",
+        "intention_nodes": {
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "status": "paused",
+            "parent_id": null,
+            "process_id": "purchase_request",
+            "process_definition": {
+              "name": "Create Purchase Request"
+            }
+          },
+          "list_items#1": {
+            "id": "list_items#1",
+            "status": "completed",
+            "parent_id": "purchase_request#0",
+            "process_id": "list_items",
+            "process_definition": {
+              "name": "List Items"
+            }
+          },
+          "get_item#2": {
+            "id": "get_item#2",
+            "status": "active",
+            "parent_id": "list_items#1",
+            "process_id": "get_item",
+            "process_definition": {
+              "name": "Get Item",
+              "form": {
+                "sections": []
+              }
+            }
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "active_node_id": "purchase_request#0",
+        "intention_nodes": {
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "status": "active",
+            "parent_id": null,
+            "process_id": "purchase_request",
+            "process_definition": {
+              "name": "Create Purchase Request"
+            }
+          },
+          "list_items#1": {
+            "id": "list_items#1",
+            "status": "completed",
+            "parent_id": "purchase_request#0",
+            "process_id": "list_items",
+            "process_definition": {
+              "name": "List Items"
+            }
+          },
+          "get_item#2": {
+            "id": "get_item#2",
+            "status": "completed",
+            "parent_id": "list_items#1",
+            "process_id": "get_item",
+            "process_definition": {
+              "name": "Get Item"
+            },
+            "error_detail": null
+          }
+        }
+      }
+    },
+    {
+      "description": "REGRESSION: an abandoned ancestor is ALSO walked past, same as a completed one -- a user-cancelled node is a dead end, not a valid resume target",
+      "input": {
+        "_parsed": {
+          "status": "success",
+          "message": "Listo"
+        },
+        "active_node_id": "get_item#2",
+        "intention_nodes": {
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "status": "paused",
+            "parent_id": null,
+            "process_id": "purchase_request",
+            "process_definition": {
+              "name": "Create Purchase Request"
+            }
+          },
+          "list_items#1": {
+            "id": "list_items#1",
+            "status": "abandoned",
+            "parent_id": "purchase_request#0",
+            "process_id": "list_items",
+            "process_definition": {
+              "name": "List Items"
+            }
+          },
+          "get_item#2": {
+            "id": "get_item#2",
+            "status": "active",
+            "parent_id": "list_items#1",
+            "process_id": "get_item",
+            "process_definition": {
+              "name": "Get Item"
+            }
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "active_node_id": "purchase_request#0"
+      }
+    },
+    {
+      "description": "success where other paused nodes exist elsewhere in the graph, not on this node's own ancestor chain -> untouched entirely (process_definition included); only the completing node and the resumed parent are modified",
+      "input": {
+        "_parsed": {
+          "status": "success",
+          "message": "Listo"
+        },
+        "active_node_id": "vendor_list#3",
+        "intention_nodes": {
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "status": "paused",
+            "parent_id": null,
+            "process_id": "purchase_request",
+            "process_definition": {
+              "name": "Create Purchase Request",
+              "form": {
+                "sections": []
+              }
+            }
+          },
+          "goods_receipt#1": {
+            "id": "goods_receipt#1",
+            "status": "paused",
+            "parent_id": null,
+            "process_id": "goods_receipt",
+            "process_definition": {
+              "name": "Goods Receipt",
+              "form": {
+                "sections": []
+              }
+            }
+          },
+          "ap_invoice#2": {
+            "id": "ap_invoice#2",
+            "status": "paused",
+            "parent_id": null,
+            "process_id": "ap_invoice",
+            "process_definition": {
+              "name": "AP Invoice",
+              "form": {
+                "sections": []
+              }
+            }
+          },
+          "vendor_list#3": {
+            "id": "vendor_list#3",
+            "status": "active",
+            "parent_id": "purchase_request#0",
+            "process_id": "vendor_list",
+            "process_definition": {
+              "name": "Vendor List",
+              "form": {
+                "sections": []
+              }
+            }
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "active_node_id": "purchase_request#0",
+        "intention_nodes": {
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "status": "active",
+            "parent_id": null,
+            "process_id": "purchase_request",
+            "process_definition": {
+              "name": "Create Purchase Request",
+              "form": {
+                "sections": []
+              }
+            }
+          },
+          "goods_receipt#1": {
+            "id": "goods_receipt#1",
+            "status": "paused",
+            "parent_id": null,
+            "process_id": "goods_receipt",
+            "process_definition": {
+              "name": "Goods Receipt",
+              "form": {
+                "sections": []
+              }
+            }
+          },
+          "ap_invoice#2": {
+            "id": "ap_invoice#2",
+            "status": "paused",
+            "parent_id": null,
+            "process_id": "ap_invoice",
+            "process_definition": {
+              "name": "AP Invoice",
+              "form": {
+                "sections": []
+              }
+            }
+          },
+          "vendor_list#3": {
+            "id": "vendor_list#3",
+            "status": "completed",
+            "parent_id": "purchase_request#0",
+            "process_id": "vendor_list",
+            "process_definition": {
+              "name": "Vendor List"
+            },
+            "error_detail": null
+          }
+        }
+      }
+    },
+    {
+      "description": "success where the only ancestor is itself already completed and has no further parent -> nothing open anywhere in the chain, active_node_id resumes to null; the completed ancestor and any of the completing node's own descendants are left untouched",
+      "input": {
+        "_parsed": {
+          "status": "success",
+          "message": "Listo"
+        },
+        "active_node_id": "goods_receipt#1",
+        "intention_nodes": {
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "status": "completed",
+            "parent_id": null,
+            "process_id": "purchase_request",
+            "process_definition": {
+              "name": "Create Purchase Request"
+            }
+          },
+          "goods_receipt#1": {
+            "id": "goods_receipt#1",
+            "status": "active",
+            "parent_id": "purchase_request#0",
+            "process_id": "goods_receipt",
+            "process_definition": {
+              "name": "Goods Receipt",
+              "form": {
+                "sections": []
+              }
+            }
+          },
+          "ap_invoice#2": {
+            "id": "ap_invoice#2",
+            "status": "paused",
+            "parent_id": "goods_receipt#1",
+            "process_id": "ap_invoice",
+            "process_definition": {
+              "name": "AP Invoice",
+              "form": {
+                "sections": []
+              }
+            }
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "active_node_id": null,
+        "intention_nodes": {
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "status": "completed",
+            "parent_id": null,
+            "process_id": "purchase_request",
+            "process_definition": {
+              "name": "Create Purchase Request"
+            }
+          },
+          "goods_receipt#1": {
+            "id": "goods_receipt#1",
+            "status": "completed",
+            "parent_id": "purchase_request#0",
+            "process_id": "goods_receipt",
+            "process_definition": {
+              "name": "Goods Receipt"
+            },
+            "error_detail": null
+          },
+          "ap_invoice#2": {
+            "id": "ap_invoice#2",
+            "status": "paused",
+            "parent_id": "goods_receipt#1",
+            "process_id": "ap_invoice",
+            "process_definition": {
+              "name": "AP Invoice",
+              "form": {
+                "sections": []
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "error status -> flags needs_error_parse with a SAP_ERROR code, active_node_id untouched (no resume on error -- the node stays 'active', still mid-correction), node's own saved form_state.ready flips back to false so next turn's Agent: Find still sees an active, mid-form process; process_definition is left completely untouched -- the error branch never prunes, since the node stays 'active' and still needs its full schema for the retry",
+      "input": {
+        "_parsed": {
+          "status": "error",
+          "message": "El proveedor no existe"
+        },
+        "active_node_id": "purchase_request#0",
+        "intention_nodes": {
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "status": "active",
+            "parent_id": null,
+            "process_id": "purchase_request",
+            "process_definition": {
+              "name": "Create Purchase Request",
+              "form": {
+                "sections": []
+              }
+            },
+            "form_state": {
+              "ready": true,
+              "CardCode": "C1"
+            }
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "_needs_error_parse": true,
+        "error": "SAP_ERROR",
+        "error_message": "El proveedor no existe",
+        "active_node_id": "purchase_request#0",
+        "intention_nodes": {
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "status": "active",
+            "parent_id": null,
+            "process_id": "purchase_request",
+            "process_definition": {
+              "name": "Create Purchase Request",
+              "form": {
+                "sections": []
+              }
+            },
+            "form_state": {
+              "ready": false,
+              "CardCode": "C1"
+            },
+            "error_detail": "El proveedor no existe"
+          }
+        }
+      }
+    },
+    {
+      "description": "unparseable agent output -> treated as a genuine error rather than a silent success, same form_state.ready reset mirrored onto the node; error_detail is null since there's no real SAP message to mirror; process_definition untouched, same as any other error outcome",
+      "input": {
+        "_parsed": null,
+        "_parse_error": true,
+        "active_node_id": "p1#0",
+        "intention_nodes": {
+          "p1#0": {
+            "id": "p1#0",
+            "status": "active",
+            "process_id": "p1",
+            "process_definition": {
+              "name": "P1",
+              "form": {
+                "sections": []
+              }
+            },
+            "form_state": {
+              "ready": true
+            }
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "_needs_error_parse": true,
+        "error": "SAP_ERROR",
+        "active_node_id": "p1#0",
+        "intention_nodes": {
+          "p1#0": {
+            "id": "p1#0",
+            "status": "active",
+            "process_id": "p1",
+            "process_definition": {
+              "name": "P1",
+              "form": {
+                "sections": []
+              }
+            },
+            "form_state": {
+              "ready": false
+            },
+            "error_detail": null
+          }
+        }
+      }
+    },
+    {
+      "description": "active_node_id set but not found in intention_nodes -> defensive no-op, object unchanged, no crash, no bogus key created",
+      "input": {
+        "_parsed": {
+          "status": "error",
+          "message": "algo"
+        },
+        "active_node_id": "ghost#0",
+        "intention_nodes": {
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "status": "active",
+            "process_id": "purchase_request"
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "intention_nodes": {
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "status": "active",
+            "process_id": "purchase_request"
+          }
+        }
+      }
+    },
+    {
+      "description": "success with active_node_id set but not found in intention_nodes -> defensive no-op, no bogus key created; active_node_id resumes to null (a ghost id has no parent to walk from, so there's nothing valid to hand control back to)",
+      "input": {
+        "_parsed": {
+          "status": "success",
+          "message": "Listo"
+        },
+        "active_node_id": "ghost#0",
+        "intention_nodes": {
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "status": "active",
+            "process_id": "purchase_request"
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "active_node_id": null,
+        "intention_nodes": {
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "status": "active",
+            "process_id": "purchase_request"
+          }
+        }
+      }
+    },
+    {
+      "description": "CALL_FUNCTION success -> captures _sap_call_result structurally from intermediateSteps (Result: marker), independent of any intention_node (active_node_id stays null, auto-resume is a no-op)",
+      "input": {
+        "_parsed": {
+          "status": "success",
+          "message": "Done."
+        },
+        "sap_operation": "CALL_FUNCTION",
+        "active_node_id": null,
+        "intention_nodes": {},
+        "intermediateSteps": [
+          {
+            "observation": "[{\"response\": [{\"text\": \"preamble text\\nResult:\\n{\\\"value\\\": [{\\\"FileContnt\\\": \\\"aGVsbG8=\\\"}]}\"}]}]"
+          }
+        ]
+      },
+      "nodeResults": {},
+      "expected": {
+        "active_node_id": null,
+        "intention_nodes": {},
+        "message": "Done.",
+        "reset_process": true,
+        "_needs_error_parse": false,
+        "_sap_call_result": {
+          "value": [
+            {
+              "FileContnt": "aGVsbG8="
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "CALL_FUNCTION error -> no _sap_call_result key at all (only added on the success branch)",
+      "input": {
+        "_parsed": {
+          "status": "error",
+          "message": "SAP says no"
+        },
+        "sap_operation": "CALL_FUNCTION",
+        "active_node_id": null,
+        "intention_nodes": {},
+        "intermediateSteps": []
+      },
+      "nodeResults": {},
+      "expected": {
+        "_needs_error_parse": true,
+        "error": "SAP_ERROR",
+        "error_message": "SAP says no"
+      }
+    },
+    {
+      "description": "GET_SINGLE success on a document-eligible node -> form_state is structurally replaced with the fetched entity from intermediateSteps' \"Entity data:\" marker, not the pre-call submitted values",
+      "input": {
+        "_parsed": {
+          "status": "success",
+          "message": "A/R Invoice 10767 details:"
+        },
+        "sap_operation": "GET_SINGLE",
+        "active_node_id": "ar_invoice_get#0",
+        "intention_nodes": {
+          "ar_invoice_get#0": {
+            "id": "ar_invoice_get#0",
+            "status": "active",
+            "parent_id": null,
+            "process_id": "ar_invoice_get",
+            "process_definition": {
+              "name": "Get A/R Invoice",
+              "document_type": "invoice"
+            },
+            "form_state": {
+              "DocEntry": 45523
+            }
+          }
+        },
+        "intermediateSteps": [
+          {
+            "observation": "[{\"response\": [{\"text\": \"SAP OData Entity from Invoices/Invoices:\\n\\nKey values: {\\\"DocEntry\\\": 45523}\\n\\nEntity data:\\n{\\\"DocEntry\\\": 45523, \\\"CardName\\\": \\\"PIETROBONI ARMANDO ERNESTO\\\"}\"}]}]"
+          }
+        ]
+      },
+      "nodeResults": {},
+      "expected": {
+        "active_node_id": null,
+        "intention_nodes": {
+          "ar_invoice_get#0": {
+            "id": "ar_invoice_get#0",
+            "status": "completed",
+            "parent_id": null,
+            "process_id": "ar_invoice_get",
+            "process_definition": {
+              "name": "Get A/R Invoice",
+              "document_type": "invoice"
+            },
+            "form_state": {
+              "DocEntry": 45523,
+              "CardName": "PIETROBONI ARMANDO ERNESTO"
+            },
+            "error_detail": null
+          }
+        }
+      }
+    },
+    {
+      "description": "GET_QUERY success on a document-eligible node (a DocNum-based $filter lookup, since the schema's real key is DocEntry) -> form_state is structurally replaced with the first matched record from queryEntitySet's own \"Data:\" marker, ignoring its trailing \"Query parameters used:\" footer; confirmed live this is exactly what silently stayed blank before this fix",
+      "input": {
+        "_parsed": {
+          "status": "success",
+          "message": "A/R Invoice 10767 details:"
+        },
+        "sap_operation": "GET_QUERY",
+        "active_node_id": "ar_invoice_get#0",
+        "intention_nodes": {
+          "ar_invoice_get#0": {
+            "id": "ar_invoice_get#0",
+            "status": "active",
+            "parent_id": null,
+            "process_id": "ar_invoice_get",
+            "process_definition": {
+              "name": "Get A/R Invoice",
+              "document_type": "invoice"
+            },
+            "form_state": {
+              "DocNum": 10767
+            }
+          }
+        },
+        "intermediateSteps": [
+          {
+            "observation": "[{\"response\": [{\"text\": \"SAP OData Query Results for Invoices/Invoices:\\n\\nRecords found: 1\\n\\nData:\\n[\\n  {\\n    \\\"DocEntry\\\": 45523,\\n    \\\"CardName\\\": \\\"PIETROBONI ARMANDO ERNESTO\\\"\\n  }\\n]\\n\\nQuery parameters used:\\n$filter: DocNum eq 10767\"}]}]"
+          }
+        ]
+      },
+      "nodeResults": {},
+      "expected": {
+        "active_node_id": null,
+        "intention_nodes": {
+          "ar_invoice_get#0": {
+            "id": "ar_invoice_get#0",
+            "status": "completed",
+            "parent_id": null,
+            "process_id": "ar_invoice_get",
+            "process_definition": {
+              "name": "Get A/R Invoice",
+              "document_type": "invoice"
+            },
+            "form_state": {
+              "DocEntry": 45523,
+              "CardName": "PIETROBONI ARMANDO ERNESTO"
+            },
+            "error_detail": null
+          }
+        }
+      }
+    },
+    {
+      "description": "GET_QUERY success on a document-eligible node but zero records matched -> extractQueryFirstRecord finds no \"Data:\" marker at all, falls back to the pre-call form_state untouched rather than wiping it to null",
+      "input": {
+        "_parsed": {
+          "status": "success",
+          "message": "No A/R Invoice found."
+        },
+        "sap_operation": "GET_QUERY",
+        "active_node_id": "ar_invoice_get#0",
+        "intention_nodes": {
+          "ar_invoice_get#0": {
+            "id": "ar_invoice_get#0",
+            "status": "active",
+            "parent_id": null,
+            "process_id": "ar_invoice_get",
+            "process_definition": {
+              "name": "Get A/R Invoice",
+              "document_type": "invoice"
+            },
+            "form_state": {
+              "DocNum": 99999
+            }
+          }
+        },
+        "intermediateSteps": [
+          {
+            "observation": "[{\"response\": [{\"text\": \"SAP OData Query Results for Invoices/Invoices:\\n\\nNo data found matching the criteria.\"}]}]"
+          }
+        ]
+      },
+      "nodeResults": {},
+      "expected": {
+        "intention_nodes": {
+          "ar_invoice_get#0": {
+            "id": "ar_invoice_get#0",
+            "status": "completed",
+            "parent_id": null,
+            "process_id": "ar_invoice_get",
+            "process_definition": {
+              "name": "Get A/R Invoice",
+              "document_type": "invoice"
+            },
+            "form_state": {
+              "DocNum": 99999
+            },
+            "error_detail": null
+          }
+        }
+      }
+    },
+    {
+      "description": "GET_QUERY success on a NON-document-eligible node (no document_type declared) -> form_state stays exactly what was submitted, entity extraction never even attempted, same as today's behavior for a plain query like Vendor List",
+      "input": {
+        "_parsed": {
+          "status": "success",
+          "message": "3 vendors found."
+        },
+        "sap_operation": "GET_QUERY",
+        "active_node_id": "vendor_list#0",
+        "intention_nodes": {
+          "vendor_list#0": {
+            "id": "vendor_list#0",
+            "status": "active",
+            "parent_id": null,
+            "process_id": "vendor_list",
+            "process_definition": {
+              "name": "Vendor List"
+            },
+            "form_state": {
+              "GroupCode": 100
+            }
+          }
+        },
+        "intermediateSteps": [
+          {
+            "observation": "[{\"response\": [{\"text\": \"SAP OData Query Results for Invoices/Invoices:\\n\\nRecords found: 1\\n\\nData:\\n[\\n  {\\n    \\\"DocEntry\\\": 45523,\\n    \\\"CardName\\\": \\\"PIETROBONI ARMANDO ERNESTO\\\"\\n  }\\n]\\n\\nQuery parameters used:\\n$filter: DocNum eq 10767\"}]}]"
+          }
+        ]
+      },
+      "nodeResults": {},
+      "expected": {
+        "intention_nodes": {
+          "vendor_list#0": {
+            "id": "vendor_list#0",
+            "status": "completed",
+            "parent_id": null,
+            "process_id": "vendor_list",
+            "process_definition": {
+              "name": "Vendor List"
+            },
+            "form_state": {
+              "GroupCode": 100
+            },
+            "error_detail": null
+          }
+        }
+      }
+    }
+  ]
+}

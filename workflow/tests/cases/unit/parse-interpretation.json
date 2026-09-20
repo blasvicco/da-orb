@@ -1,0 +1,29 @@
+{
+  "node": "Parse Interpretation",
+  "cases": [
+    {
+      "description": "plain valid JSON output -> agent's message lifted directly",
+      "input": { "output": "{\"message\":\"La búsqueda tardó demasiado, intenta de nuevo.\"}", "language": "es" },
+      "nodeResults": {},
+      "expected": { "message": "La búsqueda tardó demasiado, intenta de nuevo." }
+    },
+    {
+      "description": "output wrapped in ```json code fences -> stripped and parsed",
+      "input": { "output": "```json\n{\"message\":\"There was a temporary issue, please try again.\"}\n```", "language": "en" },
+      "nodeResults": {},
+      "expected": { "message": "There was a temporary issue, please try again." }
+    },
+    {
+      "description": "unparseable agent output -> neutral localized fallback, never the raw errorText",
+      "input": { "output": "not json at all {{{", "errorText": "NullPointerException at line 42", "language": "es" },
+      "nodeResults": {},
+      "expected": { "message": "Algo salió mal. Intenta de nuevo o contacta soporte." }
+    },
+    {
+      "description": "missing output entirely (e.g. onError fallthrough) -> same graceful fallback, defaults to Spanish when language missing (same default as Classify & Store Error)",
+      "input": { "errorText": "NullPointerException at line 42" },
+      "nodeResults": {},
+      "expected": { "message": "Algo salió mal. Intenta de nuevo o contacta soporte." }
+    }
+  ]
+}

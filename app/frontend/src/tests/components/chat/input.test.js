@@ -101,23 +101,38 @@ describe('ChatInput attach menu wiring', () => {
     mockBucket.upload.mockResolvedValue({});
   });
 
-  it('forwards messages/sessionId/sessionState to AttachMenu', () => {
+  it('forwards messages/sessionId/sessionState/ensureSessionId to AttachMenu', () => {
     const messages = [{ text: 'hi', type: 'user' }];
     const sessionState = { intention_nodes: [] };
-    const wrapper = mount(ChatInput, { props: { messages, sessionId: 42, sessionState } });
+    const ensureSessionId = vi.fn();
+    const wrapper = mount(ChatInput, { props: { ensureSessionId, messages, sessionId: 42, sessionState } });
 
     const attachMenu = wrapper.findComponent({ name: 'AttachMenu' });
     expect(attachMenu.props('messages')).toEqual(messages);
     expect(attachMenu.props('sessionId')).toBe(42);
     expect(attachMenu.props('sessionState')).toEqual(sessionState);
+    expect(attachMenu.props('ensureSessionId')).toBe(ensureSessionId);
   });
 
-  it('re-emits resume/navigate from AttachMenu', async () => {
+  it('opens the bucket drawer via the dedicated toolbar button', async () => {
+    const wrapper = mount(ChatInput, { props: { sessionId: 42 } });
+
+    await wrapper.find('.orb-prompt-bucket-btn').trigger('click');
+
+    expect(wrapper.findComponent({ name: 'BucketTrigger' }).props('open')).toBe(true);
+  });
+
+  it('badges the bucket button with the total file count (uploaded + pending)', async () => {
+    mockBucket.files.mockResolvedValue([{ id: 1, name: 'a.csv', origin: 'user_upload', size: 5 }]);
+    const wrapper = mount(ChatInput, { props: { sessionId: 42 } });
+    await flushPromises();
+
+    expect(wrapper.findComponent({ name: 'ABadge' }).props('count')).toBe(1);
+  });
+
+  it('re-emits navigate from AttachMenu', async () => {
     const wrapper = mount(ChatInput);
     const attachMenu = wrapper.findComponent({ name: 'AttachMenu' });
-
-    await attachMenu.vm.$emit('resume');
-    expect(wrapper.emitted('resume')).toHaveLength(1);
 
     await attachMenu.vm.$emit('navigate', { id: 'n1#0', label: 'Search Items' });
     expect(wrapper.emitted('navigate')[0][0]).toEqual({ id: 'n1#0', label: 'Search Items' });
@@ -139,6 +154,29 @@ describe('ChatInput attach menu wiring', () => {
     await attachMenu.vm.$emit('file-deleted', 3);
 
     expect(wrapper.emitted('file-deleted')).toEqual([[3]]);
+  });
+
+  it('opens the native file picker when AttachMenu emits pick-files ("Add files" clicked)', async () => {
+    const wrapper = mount(ChatInput);
+    const clickSpy = vi.spyOn(wrapper.find('.orb-prompt-file-input').element, 'click');
+    const attachMenu = wrapper.findComponent({ name: 'AttachMenu' });
+
+    await attachMenu.vm.$emit('pick-files');
+
+    expect(clickSpy).toHaveBeenCalledOnce();
+  });
+
+  it('stages a file selected via the native picker exactly like a drag-and-drop, not the bucket drawer', async () => {
+    const file = new File(['a,b'], 'orders.csv', { type: 'text/csv' });
+    const wrapper = mount(ChatInput, { props: { sessionId: 42 } });
+    const input = wrapper.find('.orb-prompt-file-input');
+    Object.defineProperty(input.element, 'files', { value: [file] });
+
+    await input.trigger('change');
+
+    expect(wrapper.find('.orb-prompt-attachment-name').text()).toBe('orders.csv');
+    expect(mockBucket.upload).not.toHaveBeenCalled();
+    expect(wrapper.findComponent({ name: 'BucketTrigger' }).props('open')).toBe(false);
   });
 });
 

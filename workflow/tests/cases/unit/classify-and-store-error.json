@@ -1,0 +1,66 @@
+{
+  "node": "Classify & Store Error",
+  "cases": [
+    {
+      "description": "rate limit message -> RATE_LIMIT, Spanish default",
+      "input": { "error": { "message": "Rate limit exceeded, tokens per min" }, "language": "es" },
+      "nodeResults": {},
+      "expected": {
+        "error": "RATE_LIMIT",
+        "message": "La búsqueda devolvió demasiados datos. Intenta con un criterio más específico."
+      }
+    },
+    {
+      "description": "404 in raw error text -> NOT_FOUND",
+      "input": { "error": "request failed with 404", "language": "en" },
+      "nodeResults": {},
+      "expected": { "error": "NOT_FOUND", "message": "The process definition could not be loaded. Please try again." }
+    },
+    {
+      "description": "unauthorized error, no intention_nodes/parent to resume to -> AUTH_ERROR resumes to null (same result as the old unconditional clear, but now via the resume walk, and reset_process is forced through so Django's resettable merge actually applies the null)",
+      "input": { "error": "401 unauthorized", "language": "en", "active_node_id": "purchase_request#0" },
+      "nodeResults": {},
+      "expected": { "error": "AUTH_ERROR", "active_node_id": null, "reset_process": true }
+    },
+    {
+      "description": "REGRESSION: unauthorized error with a paused parent -> auto-resumes: active_node_id switches to the parent, and the parent's own status flips back to 'active' (it was interrupted by this now-abandoned node in the first place)",
+      "input": {
+        "error": "401 unauthorized",
+        "language": "en",
+        "active_node_id": "vendor_create#1",
+        "intention_nodes": {
+          "purchase_request#0": { "id": "purchase_request#0", "status": "paused", "parent_id": null },
+          "vendor_create#1": { "id": "vendor_create#1", "status": "active", "parent_id": "purchase_request#0" }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "error": "AUTH_ERROR",
+        "active_node_id": "purchase_request#0",
+        "reset_process": true,
+        "intention_nodes": {
+          "purchase_request#0": { "id": "purchase_request#0", "status": "active", "parent_id": null },
+          "vendor_create#1": { "id": "vendor_create#1", "status": "active", "parent_id": "purchase_request#0" }
+        }
+      }
+    },
+    {
+      "description": "unrecognized error text, non-expert -> no message decided here, routed downstream for the agent to interpret instead of a content-free generic fallback",
+      "input": { "error": "something bizarre happened", "language": "en", "expertise_level": 2 },
+      "nodeResults": {},
+      "expected": { "error": "UNKNOWN_ERROR", "message": null, "errorText": "something bizarre happened", "needs_interpretation": true }
+    },
+    {
+      "description": "unrecognized error text, expert -> raw text surfaces directly, no interpretation needed",
+      "input": { "error": "something bizarre happened", "language": "en", "expertise_level": 3 },
+      "nodeResults": {},
+      "expected": { "error": "UNKNOWN_ERROR", "message": "something bizarre happened", "needs_interpretation": false }
+    },
+    {
+      "description": "a caller-supplied known code (ALL_CAPS) with its own error_message is preserved as-is, not reclassified or overwritten by the generic table",
+      "input": { "error": "NO_MATCH", "error_message": "No logré entender tu mensaje", "language": "es" },
+      "nodeResults": {},
+      "expected": { "error": "NO_MATCH", "message": "No logré entender tu mensaje" }
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "node": "Merge File Extractions",
+  "cases": [
+    {
+      "description": "single file, successful extraction -> extracted_files matches the id to its result by the result's own bucket_file_id field, original payload fields preserved",
+      "input": {},
+      "inputItems": [
+        { "bucket_file_id": 101, "extracted_content": "col1,col2\\n1,2", "error": null }
+      ],
+      "nodeResults": {
+        "Execute Workflow Trigger": { "message": "hola", "bucket_file_ids": [101] }
+      },
+      "expected": {
+        "message": "hola",
+        "extracted_files": [
+          { "bucket_file_id": 101, "extracted_content": "col1,col2\\n1,2", "error": null }
+        ]
+      }
+    },
+    {
+      "description": "multiple files, mixed success/failure -> each result matches its own id via the bucket_file_id field",
+      "input": {},
+      "inputItems": [
+        { "bucket_file_id": 101, "extracted_content": "content-1", "error": null },
+        { "bucket_file_id": 102, "extracted_content": null, "error": "UNSUPPORTED_MIME_TYPE" }
+      ],
+      "nodeResults": {
+        "Execute Workflow Trigger": { "message": "hola", "bucket_file_ids": [101, 102] }
+      },
+      "expected": {
+        "extracted_files": [
+          { "bucket_file_id": 101, "extracted_content": "content-1", "error": null },
+          { "bucket_file_id": 102, "extracted_content": null, "error": "UNSUPPORTED_MIME_TYPE" }
+        ]
+      }
+    },
+    {
+      "description": "REGRESSION: results arrive out of order relative to bucket_file_ids -> still matched correctly by id, not by array position (this is the exact shape of the real production bug: Route by Mime Type's branches return CSV/PDF results in a different order than the files were originally split in)",
+      "input": {},
+      "inputItems": [
+        { "bucket_file_id": 102, "extracted_content": "second-file-content", "error": null },
+        { "bucket_file_id": 101, "extracted_content": "first-file-content", "error": null }
+      ],
+      "nodeResults": {
+        "Execute Workflow Trigger": { "message": "hola", "bucket_file_ids": [101, 102] }
+      },
+      "expected": {
+        "extracted_files": [
+          { "bucket_file_id": 101, "extracted_content": "first-file-content", "error": null },
+          { "bucket_file_id": 102, "extracted_content": "second-file-content", "error": null }
+        ]
+      }
+    },
+    {
+      "description": "a result carrying its bucket_file_id but missing extracted_content/error entirely -> defaults both to null rather than undefined",
+      "input": {},
+      "inputItems": [
+        { "bucket_file_id": 101 }
+      ],
+      "nodeResults": {
+        "Execute Workflow Trigger": { "message": "hola", "bucket_file_ids": [101] }
+      },
+      "expected": {
+        "extracted_files": [
+          { "bucket_file_id": 101, "extracted_content": null, "error": null }
+        ]
+      }
+    },
+    {
+      "description": "REGRESSION: a bucket_file_id with genuinely no matching result at all (e.g. it was silently dropped upstream) -> surfaces as its own distinct error code, not a silent null indistinguishable from 'nothing extracted'",
+      "input": {},
+      "inputItems": [
+        { "bucket_file_id": 101, "extracted_content": "only-this-one-made-it", "error": null }
+      ],
+      "nodeResults": {
+        "Execute Workflow Trigger": { "message": "hola", "bucket_file_ids": [101, 102] }
+      },
+      "expected": {
+        "extracted_files": [
+          { "bucket_file_id": 101, "extracted_content": "only-this-one-made-it", "error": null },
+          { "bucket_file_id": 102, "extracted_content": null, "error": "MISSING_EXTRACTION_RESULT" }
+        ]
+      }
+    }
+  ]
+}

@@ -72,6 +72,7 @@ export default {
   },
   admin: {
     tabs: {
+      documentTemplates: 'Document Templates',
       seats: 'Seats',
       usage: 'Usage',
     },
@@ -90,6 +91,26 @@ export default {
       statusRevoked: 'Revoked',
       title: 'Seat Management',
       username: 'Username',
+    },
+    documentTemplates: {
+      businessPartnerRef: 'Business Partner Code (optional)',
+      createdOn: 'Uploaded on',
+      default: 'Default',
+      documentType: 'Document Type',
+      editTitle: 'Edit Template',
+      file: 'Template File (.rpt)',
+      invalidSampleData: 'Sample data must be valid JSON (an array of row objects).',
+      language: 'Language (optional)',
+      languageAny: 'Any',
+      name: 'Name',
+      preview: 'Preview',
+      previewHint: 'Sample data (JSON array of row objects) to render this template against:',
+      previewTitle: 'Preview Template',
+      renderPreview: 'Render Preview',
+      setDefault: 'Set as default',
+      title: 'Document Templates',
+      upload: 'Upload Template',
+      uploadTitle: 'Upload Template',
     },
     usage: {
       mostActiveUsers: 'Most Active Users (Messages)',
@@ -382,9 +403,8 @@ export default {
     intentionGraph: {
       contextSwitch: 'Context switched — now in **{label}**.',
       empty: 'No intentions yet — start a process to see it here.',
+      errorDetail: 'Error detail',
       navigateConfirm: 'Load the "{label}" intent context?',
-      resume: 'Resume',
-      resumeReply: 'Yes',
       status: {
         abandoned: 'Abandoned',
         active: 'Active',
@@ -411,6 +431,9 @@ export default {
       title: 'File Bucket',
       upload: 'Upload',
       useAsContext: 'Use as context',
+    },
+    documentChip: {
+      download: 'Download',
     },
     welcome: {
       greeting: 'Welcome back, {name}!',

@@ -1,0 +1,18 @@
+{
+  "identities": [
+    {
+      "name": "da-orb",
+      "credentials": [
+        {
+          "accessKey": "da_orb_seaweedfs",
+          "secretKey": "da_orb_seaweedfs_secret"
+        }
+      ],
+      "actions": [
+        "Admin",
+        "Read",
+        "Write"
+      ]
+    }
+  ]
+}

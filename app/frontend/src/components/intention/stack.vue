@@ -35,7 +35,7 @@
     },
   });
 
-  const emit = defineEmits(['navigate', 'resume', 'switch-panel', 'update:open']);
+  const emit = defineEmits(['navigate', 'switch-panel', 'update:open']);
 
   const { t } = useI18n();
 
@@ -58,36 +58,42 @@
     paused: '#fa8c16',
   };
 
-  const handleResume = () => {
-    emit('update:open', false);
-    emit('resume');
-  };
-
   const handleNavigate = (node) => {
     emit('update:open', false);
     emit('navigate', { id: node.id, label: node.label });
   };
 
-  // Tracks which node's confirm popup is currently open — only one at a time,
-  // and clicking a different label while one is open just moves it there.
-  const confirmingId = ref(null);
+  // Tracks which node's overlay (navigate-confirm or error popover) is open —
+  // only one at a time, across both kinds, so opening one always closes the other.
+  const openOverlay = ref(null);
+
+  const isNavigateOpen = (node) => openOverlay.value?.kind === 'navigate' && openOverlay.value?.id === node.id;
+  const isErrorOpen = (node) => openOverlay.value?.kind === 'error' && openOverlay.value?.id === node.id;
 
   const onLabelClick = (node) => {
     if (node.status === 'active') return;
-    confirmingId.value = node.id;
+    openOverlay.value = { id: node.id, kind: 'navigate' };
   };
 
   const onConfirmNavigate = (node) => {
-    confirmingId.value = null;
+    openOverlay.value = null;
     handleNavigate(node);
   };
 
   const onCancelNavigate = () => {
-    confirmingId.value = null;
+    openOverlay.value = null;
   };
 
   const onConfirmOpenChange = (open) => {
-    if (!open) confirmingId.value = null;
+    if (!open) openOverlay.value = null;
+  };
+
+  const onErrorIconClick = (node) => {
+    openOverlay.value = { id: node.id, kind: 'error' };
+  };
+
+  const onErrorOpenChange = (open) => {
+    if (!open) openOverlay.value = null;
   };
 </script>
 
@@ -130,7 +136,36 @@
       <template #titleRender="node">
         <div class="orb-intention-node">
           <div class="orb-intention-node-heading">
-            <a-tooltip :title="t(`chat.intentionGraph.status.${node.status}`)">
+            <a-popover
+              v-if="node.status === 'failed' && node.errorDetail"
+              :open="isErrorOpen(node)"
+              trigger="click"
+              @openChange="onErrorOpenChange"
+            >
+              <template #title>
+                {{ t('chat.intentionGraph.errorDetail') }}
+              </template>
+              <template #content>
+                <div class="orb-intention-error-popover">
+                  <div class="orb-intention-error-popover-label">
+                    {{ node.label }}
+                  </div>
+                  <div class="orb-intention-error-popover-detail">
+                    {{ node.errorDetail }}
+                  </div>
+                </div>
+              </template>
+              <component
+                :is="STATUS_ICON[node.status]"
+                class="orb-intention-node-status orb-intention-node-status--clickable"
+                :style="{ color: STATUS_COLOR[node.status] }"
+                @click="onErrorIconClick(node)"
+              />
+            </a-popover>
+            <a-tooltip
+              v-else
+              :title="t(`chat.intentionGraph.status.${node.status}`)"
+            >
               <component
                 :is="STATUS_ICON[node.status]"
                 class="orb-intention-node-status"
@@ -138,7 +173,7 @@
               />
             </a-tooltip>
             <a-popconfirm
-              :open="confirmingId === node.id"
+              :open="isNavigateOpen(node)"
               :title="t('chat.intentionGraph.navigateConfirm', { label: node.label })"
               :ok-text="t('commons.yes')"
               :cancel-text="t('commons.no')"
@@ -152,16 +187,6 @@
                 @click="onLabelClick(node)"
               >{{ node.label }}</span>
             </a-popconfirm>
-          </div>
-          <div class="orb-intention-stack-actions">
-            <a-button
-              v-if="node.resumable"
-              size="small"
-              type="primary"
-              @click="handleResume"
-            >
-              {{ t('chat.intentionGraph.resume') }}
-            </a-button>
           </div>
         </div>
       </template>

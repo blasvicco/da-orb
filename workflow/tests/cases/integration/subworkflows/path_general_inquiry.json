@@ -1,0 +1,24 @@
+{
+  "path": "general_inquiry",
+  "target_workflow": "general-inquiry.json",
+  "cases": [
+    {
+      "description": "successful answer -> message extracted from the agent's JSON output",
+      "input": { "message": "que hace este sistema", "language": "es", "group_name": "g1", "session_id": "s1" },
+      "pins": {
+        "Agent: Context & Conversation": { "output": "{\"message\":\"Aquí tienes tu respuesta\"}" },
+        "Execute Workflow: Response": { "delivered": true }
+      },
+      "assert": { "node": "Lift Message", "fields": { "message": "Aquí tienes tu respuesta" } }
+    },
+    {
+      "description": "agent/tool failure -> classified via the real shared Error Parser (not pinned), Response pinned only to avoid a live Django call in this test",
+      "input": { "message": "que hace este sistema", "language": "es", "group_name": "g1", "session_id": "s1" },
+      "pins": {
+        "Agent: Context & Conversation": { "__error__": { "error": { "message": "Rate limit exceeded, tokens per min" } } },
+        "Execute Workflow: Response": { "delivered": true }
+      },
+      "assert": { "node": "Execute Workflow: Error Parser", "fields": { "error": "RATE_LIMIT" } }
+    }
+  ]
+}

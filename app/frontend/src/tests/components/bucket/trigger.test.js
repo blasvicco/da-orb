@@ -104,6 +104,41 @@ describe('BucketTrigger', () => {
     expect(mockBucket.files).toHaveBeenCalledTimes(2);
   });
 
+  it('ensures a real session id before uploading, then auto-emits use-as-context, when selecting a file before any session exists', async () => {
+    mockBucket.upload.mockResolvedValue({ id: 1, name: 'draft.csv', origin: 'user_upload', size: 3 });
+    mockBucket.files.mockResolvedValue([makeFile({ id: 1, name: 'draft.csv' })]);
+    const ensureSessionId = vi.fn().mockResolvedValue(99);
+    const wrapper = mount(BucketTrigger, { props: { ensureSessionId, open: true, sessionId: null } });
+    await flushPromises();
+
+    const file = new File(['a,b'], 'draft.csv', { type: 'text/csv' });
+    const input = body().find('.orb-bucket-file-input');
+    Object.defineProperty(input.element, 'files', { value: [file] });
+    await input.trigger('change');
+    await flushPromises();
+
+    expect(ensureSessionId).toHaveBeenCalled();
+    expect(mockBucket.upload).toHaveBeenCalledWith(99, file);
+    expect(body().find('.orb-bucket-item--pending').exists()).toBe(false);
+    expect(wrapper.emitted('use-as-context')).toEqual([[{ id: 1, name: 'draft.csv' }]]);
+  });
+
+  it('does not call ensureSessionId when a session already exists', async () => {
+    mockBucket.upload.mockResolvedValue({ id: 1, name: 'orders.csv', origin: 'user_upload', size: 3 });
+    const ensureSessionId = vi.fn().mockResolvedValue(99);
+    mount(BucketTrigger, { props: { ensureSessionId, open: true, sessionId: 42 } });
+    await flushPromises();
+
+    const file = new File(['a,b'], 'orders.csv', { type: 'text/csv' });
+    const input = body().find('.orb-bucket-file-input');
+    Object.defineProperty(input.element, 'files', { value: [file] });
+    await input.trigger('change');
+    await flushPromises();
+
+    expect(ensureSessionId).not.toHaveBeenCalled();
+    expect(mockBucket.upload).toHaveBeenCalledWith(42, file);
+  });
+
   it('stages a selected file instead of uploading when there is no session yet', async () => {
     mount(BucketTrigger, { props: { open: true, sessionId: null } });
     await flushPromises();

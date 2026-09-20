@@ -2,6 +2,7 @@
   import { marked } from 'marked';
   import { DesktopOutlined } from '@antdv-next/icons';
 
+  import DocumentChip from '@/components/chat/document-chip.vue';
   import Processes from '@/components/chat/processes.vue';
 
   import '@/components/chat/bubble.css';
@@ -48,6 +49,10 @@
         :processes="msg.processes"
         variant="agent"
         @select="$emit('process-select', $event)"
+      />
+      <DocumentChip
+        v-if="msg.attachment"
+        :attachment="msg.attachment"
       />
       <span class="orb-msg-time orb-time-agent">{{ msg.time }}</span>
     </div>

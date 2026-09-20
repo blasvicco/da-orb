@@ -20,6 +20,7 @@ from web_socket.helpers.n8n import (
 	N8nQueueState,
 	N8nSessionState,
 )
+from web_socket.serializers import SActiveNodeSwitch, SMessageSend
 from .abstract import CAbstract
 
 _logger = logging.getLogger(__name__)
@@ -36,9 +37,9 @@ _MSG_QUEUED = "chat.system.queued"
 
 
 @database_sync_to_async
-def _create_session(connection_key, language, org, username):
+def _create_session(connection_key, org, username):
 	return MChatSession.objects.create(
-		connection_key=connection_key, language=language, org=org, username=username
+		connection_key=connection_key, org=org, username=username
 	)
 
 
@@ -47,6 +48,7 @@ def _load_session(connection_key, org_id, session_id, username):
 	try:
 		return MChatSession.objects.get(
 			connection_key=connection_key,
+			deleted_on__isnull=True,
 			id=session_id,
 			org_id=org_id,
 			username=username,
@@ -158,8 +160,9 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 			self.group_name,
 			{"payload": payload, "type": "broadcast"},
 		)
-		# Persist all message types except transient system/status notices
-		if self.chat_session and msg_type not in ("system", "status"):
+		# Persist everything shown in the chat history — only "status" is a purely
+		# ephemeral typing-indicator ping that never becomes a bubble in the first place.
+		if self.chat_session and msg_type != "status":
 			try:
 				await _save_message(
 					self.chat_session, msg_type, text, extra, payload["time"]
@@ -178,18 +181,38 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 		# to target instead of silently deferring until the first message is sent.
 		if self.chat_session is not None:
 			return
-		language = "es"
-		if hasattr(self.user, "session") and self.user.session:
-			language = getattr(self.user.session, "language", "es")
 		self.chat_session = await _create_session(
 			connection_key=self.connection_key,
-			language=language,
 			org=self.organization,
 			username=self.user.username,
 		)
+		await self._rekey_group()
 		await self.send_json(
 			{"type": "session.created", "session_id": self.chat_session.id}
 		)
+
+	async def _rekey_group(self):
+		"""Migrate this connection to the deterministic, session-id-keyed group name
+		now that a real session exists. A brand-new chat's group name (used before any
+		session_id exists) is a random per-connection token; without this, a reconnect
+		that later resumes this same session — e.g. the user switches to another chat
+		and back before the reply arrives — computes the deterministic session-id name
+		instead, never the original token. The in-flight reply's n8n callback would then
+		broadcast into a group with no members (silently dropping the live update until
+		a hard refresh), and its n8n_state/n8n_queue Redis keys would stay split across
+		the two group names instead of serializing through the same lock/state bucket."""
+		old_group_name = self.group_name
+		self._resume_session_id = self.chat_session.id
+		new_group_name = self.get_group_name()
+		if new_group_name == old_group_name:
+			return
+		await self.channel_layer.group_add(new_group_name, self.channel_name)
+		await self.channel_layer.group_discard(old_group_name, self.channel_name)
+		self.group_name = new_group_name
+		await self.n8n_state.close()
+		await self.n8n_queue.close()
+		self.n8n_state = N8nSessionState(group_name=new_group_name)
+		self.n8n_queue = N8nQueueState(group_name=new_group_name)
 
 	async def session_ensure(self, content):  # pylint: disable=unused-argument
 		"""WS entry point: create the session ahead of a real message. Lets a file
@@ -197,19 +220,91 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 		away, instead of the message that follows carrying no bucket_file_ids."""
 		await self._ensure_session()
 
+	async def active_node_switch(self, content):
+		"""WS entry point: switch the active Intention Graph node immediately, triggered
+		by the user clicking a node in the sidebar and confirming the context switch.
+		Resolved directly against Redis here — parks whatever was active, activates the
+		target — with no n8n round-trip. n8n never needs to know how or why the active
+		node changed; it only ever sees the result, already resolved, on whatever message
+		comes next. Mirrors what Resolve Override (intent-manager.json) did before this
+		moved out of n8n entirely.
+
+		The announcement bubble the frontend shows for this switch is broadcast from here
+		(as a "system" message) rather than pushed straight into the frontend's local message
+		list, so it round-trips through _broadcast() and gets persisted like every other
+		visible bubble — otherwise reopening the session for review loses all record of
+		when/where the user jumped between intention-graph nodes."""
+		serializer = SActiveNodeSwitch(data=content)
+		if not serializer.is_valid():
+			_logger.warning(
+				"active_node_switch: rejected malformed payload: %s", serializer.errors
+			)
+			return
+		target_id = serializer.validated_data["active_node_id"]
+		if not target_id:
+			return
+		current = await self.n8n_state.load()
+		nodes = current.get("intention_nodes") or {}
+		target = nodes.get(target_id)
+		if not target or target_id == current.get("active_node_id"):
+			# Unknown/stale id, or already the active node — nothing to switch.
+			return
+		updated_nodes = dict(nodes)
+		old_active_id = current.get("active_node_id")
+		if (
+			old_active_id
+			and old_active_id in updated_nodes
+			and updated_nodes[old_active_id].get("status") == "active"
+		):
+			# Only an actually-active node gets parked — a completed/failed node that
+			# active_node_id happens to still point at (e.g. Compute Execution Outcome
+			# deliberately leaves it there post-success) must not be relabeled "paused";
+			# that would corrupt its terminal status for no reason.
+			updated_nodes[old_active_id] = {
+				**updated_nodes[old_active_id],
+				"status": "paused",
+			}
+		# Only a genuinely resumable node (failed/paused, per UC-6) gets reactivated to
+		# "active" — a completed/abandoned node stays exactly as it is; active_node_id
+		# still moves to it so context questions ("why did this...", general_inquiry) can
+		# reference it, but its own status is never disturbed. Without this guard, a
+		# process_definition pruned down to {name} on completion (see
+		# register-intention-node.json / sap-inquiry-execution.json) could get routed back
+		# into form-filling with nothing to fill from.
+		target_status = target.get("status")
+		new_target_status = (
+			"active" if target_status in ("failed", "paused") else target_status
+		)
+		updated_nodes[target_id] = {**target, "status": new_target_status}
+		await self.n8n_state.save(
+			active_node_id=target_id,
+			intention_nodes=updated_nodes,
+			last_bot_message=current.get("last_bot_message"),
+		)
+		text = serializer.validated_data["text"]
+		if text:
+			await self._broadcast(text, "system")
+
 	async def message_send(self, content):
 		"""Handle message sent by user"""
-		message_text = content.get("message")
+		serializer = SMessageSend(data=content)
+		if not serializer.is_valid():
+			_logger.warning(
+				"message_send: rejected malformed payload: %s", serializer.errors
+			)
+			return
+		validated = serializer.validated_data
+		message_text = validated["message"].strip()
 		resolved_text = self._resolve_process_selection(message_text)
-		# One-shot: set by the frontend only on the turn right after the user clicks a
-		# node in the Intention Graph — not persisted here, n8n turns it into the
-		# session-persisted parent_override_id once it abandons the current active node.
-		active_node_override = content.get("active_node_override")
 		# One-shot references to bucket files attached as context for this turn —
 		# explicitly picked via "Use as context", and/or files dropped onto the
 		# composer and uploaded alongside this message. Forwarded to n8n as-is,
 		# never resolved/embedded here (see upload_and_file_bucket.md §5).
-		bucket_file_ids = content.get("bucket_file_ids") or []
+		bucket_file_ids = validated["bucket_file_ids"]
+		# The frontend's current UI locale, sent on every message — never defaulted here,
+		# the user can switch it mid-conversation and every turn must reflect exactly
+		# what they had selected when they hit send.
+		language = validated["language"]
 
 		# Lazily create the DB session on the first message to avoid empty orphan
 		# records — may already exist here if session_ensure() ran earlier this
@@ -240,17 +335,15 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 				await self._broadcast(_MSG_BATCH_TOO_LARGE, "alert")
 				return
 
-		expertise_level = content.get("expertise_level", 2)
-		if expertise_level not in (1, 2, 3):
-			expertise_level = 2
+		expertise_level = validated["expertise_level"]
 
 		if await self.n8n_queue.try_start():
 			asyncio.create_task(
 				self._fire_n8n(
 					resolved_text,
-					active_node_override=active_node_override,
 					bucket_file_ids=bucket_file_ids,
 					expertise_level=expertise_level,
+					language=language,
 				)
 			)
 		else:
@@ -265,10 +358,10 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 			)()
 			await self.n8n_queue.set_pending(
 				{
-					"active_node_override": active_node_override,
 					"bucket_file_ids": bucket_file_ids,
 					"expertise_level": expertise_level,
 					"group_name": self.group_name,
+					"language": language,
 					"message": resolved_text,
 					"organization": organization_dict,
 					"session_id": self.chat_session.id if self.chat_session else None,
@@ -277,12 +370,13 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 			)
 			await self._broadcast(_MSG_QUEUED, "status")
 
-	async def _fire_n8n(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+	async def _fire_n8n(  # pylint: disable=too-many-arguments
 		self,
 		message_text,
-		active_node_override=None,
+		*,
 		bucket_file_ids=None,
-		expertise_level=2,
+		expertise_level,
+		language=None,
 		max_retries=5,
 		retry_delay=30,
 	):
@@ -294,10 +388,10 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 		for attempt in range(max_retries):
 			try:
 				await self.n8n_client.fire(
-					active_node_override=active_node_override,
 					bucket_file_ids=bucket_file_ids,
 					expertise_level=expertise_level,
 					group_name=self.group_name,
+					language=language,
 					message=message_text,
 					organization=self.organization,
 					session_id=self.chat_session.id if self.chat_session else None,
@@ -332,9 +426,9 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 			asyncio.create_task(
 				self._fire_n8n(
 					pending["message"],
-					active_node_override=pending.get("active_node_override"),
 					bucket_file_ids=pending.get("bucket_file_ids") or [],
-					expertise_level=pending.get("expertise_level", 2),
+					expertise_level=pending["expertise_level"],
+					language=pending.get("language"),
 				)
 			)
 		else:

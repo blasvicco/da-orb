@@ -1,0 +1,107 @@
+{
+  "node": "Record Execution Result",
+  "cases": [
+    {
+      "description": "success (no error) -> _record_result carries the completed status and the query's own result message plus the synthetic node's own form_state, real intention_nodes/active_node_id restored. Used unmodified for GET or CREATE alike.",
+      "input": {
+        "message": "| Code | Name |\n|---|---|\n| V1 | Acme |",
+        "process_definition": { "api": { "method": "GET" } },
+        "active_node_id": "batch#purchase/vendor_list.json",
+        "intention_nodes": {
+          "batch#purchase/vendor_list.json": { "id": "batch#purchase/vendor_list.json", "status": "completed", "form_state": { "CardName": "Flete" } }
+        },
+        "_original_intention_nodes": {},
+        "_original_active_node_id": null
+      },
+      "nodeResults": {},
+      "expected": {
+        "intention_nodes": {},
+        "active_node_id": null,
+        "error": null,
+        "error_message": null,
+        "_record_result": { "form_state": { "CardName": "Flete" }, "status": "completed", "message": "| Code | Name |\n|---|---|\n| V1 | Acme |", "error_detail": null }
+      }
+    },
+    {
+      "description": "a CREATE record success -> same mechanism, form_state carries the submitted record's own field values",
+      "input": {
+        "message": "Solicitud creada.",
+        "process_definition": { "api": { "method": "POST" } },
+        "active_node_id": "batch#purchase/purch_request.json",
+        "intention_nodes": {
+          "batch#purchase/purch_request.json": { "id": "batch#purchase/purch_request.json", "status": "completed", "form_state": { "CardCode": "V10000" } }
+        },
+        "_original_intention_nodes": {},
+        "_original_active_node_id": null
+      },
+      "nodeResults": {},
+      "expected": {
+        "_record_result": { "form_state": { "CardCode": "V10000" }, "status": "completed", "message": "Solicitud creada.", "error_detail": null }
+      }
+    },
+    {
+      "description": "graceful SAP_ERROR -> one failed entry, not a whole-batch abort -- still restores the real intention_nodes/active_node_id from before the synthetic call; error_detail carries the real SAP message forward so it survives to the persisted node (previously dropped here, the root cause of a failed batch record never being retrievable later)",
+      "input": {
+        "message": "El proveedor no existe",
+        "error": "SAP_ERROR",
+        "process_definition": { "api": { "method": "GET" } },
+        "active_node_id": "batch#purchase/vendor_list.json",
+        "intention_nodes": {
+          "batch#purchase/vendor_list.json": { "id": "batch#purchase/vendor_list.json", "status": "active", "form_state": { "CardCode": "C001", "ready": false } }
+        },
+        "_original_intention_nodes": { "pr#0": { "id": "pr#0", "status": "paused" } },
+        "_original_active_node_id": "pr#0"
+      },
+      "nodeResults": {},
+      "expected": {
+        "intention_nodes": { "pr#0": { "id": "pr#0", "status": "paused" } },
+        "active_node_id": "pr#0",
+        "error": null,
+        "error_message": null,
+        "_record_result": { "form_state": { "CardCode": "C001", "ready": false }, "status": "failed", "message": "El proveedor no existe", "error_detail": "El proveedor no existe" }
+      }
+    },
+    {
+      "description": "a genuine hard failure (not SAP_ERROR) -> tagged via _hard_failure instead of producing a normal _record_result -- folds in what used to be a separate Has Hard Failure? IF node, since branching the main per-record edge and reconverging it downstream was confirmed live to break Group Results By Intent's own aggregation",
+      "input": {
+        "message": "Rate limit exceeded, tokens per min",
+        "error": "RATE_LIMIT",
+        "error_message": "Rate limit exceeded, tokens per min",
+        "active_node_id": "batch#purchase/purch_request.json",
+        "intention_nodes": { "batch#purchase/purch_request.json": { "id": "batch#purchase/purch_request.json", "status": "active" } },
+        "_original_intention_nodes": {},
+        "_original_active_node_id": null
+      },
+      "nodeResults": {},
+      "expected": {
+        "intention_nodes": {},
+        "active_node_id": null,
+        "_hard_failure": { "error": "RATE_LIMIT", "error_message": "Rate limit exceeded, tokens per min" }
+      }
+    },
+    {
+      "description": "a _skip_execution marker (never went through a real SAP/LLM call -- short-circuited inside sap-inquiry-execution.json itself) -> passes through untouched, no _record_result, no _hard_failure, just its own intent identity restored like any other item",
+      "input": {
+        "path": "bogus/x.json",
+        "process_name": "Unknown",
+        "process_definition": null,
+        "error": "NOT_FOUND",
+        "error_message": "No se encontró la definición del proceso.",
+        "_skip_execution": true,
+        "active_node_id": "batch#bogus/x.json",
+        "intention_nodes": { "batch#bogus/x.json": { "id": "batch#bogus/x.json" } },
+        "_original_intention_nodes": {},
+        "_original_active_node_id": null
+      },
+      "nodeResults": {},
+      "expected": {
+        "path": "bogus/x.json",
+        "process_name": "Unknown",
+        "error": "NOT_FOUND",
+        "error_message": "No se encontró la definición del proceso.",
+        "intention_nodes": {},
+        "active_node_id": null
+      }
+    }
+  ]
+}

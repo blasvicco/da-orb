@@ -1,0 +1,755 @@
+{
+  "path": "batch_processing",
+  "target_workflow": "batch-processing.json",
+  "cases": [
+    {
+      "description": "single already-resolved create record -> Fan Out Intents (merged 2026-08-15 with what used to be a separate Fan Out All Records node)/Execute Workflow: SAP Inquiry Execution (mode: each, pinned here) calls the real sap-inquiry-execution.json sub-workflow once, result aggregates into the summary message. No agent of any kind runs inside this file anymore -- process_definition/items already arrived fully resolved from Context Update.",
+      "input": {
+        "group_name": "g1",
+        "session_id": "s1",
+        "language": "es",
+        "intents": [
+          {
+            "path": "purchase/purch_request.json",
+            "process_name": "Purchase Request",
+            "process_definition": {
+              "id": "purchase_request"
+            },
+            "error": null,
+            "error_message": null,
+            "items": [
+              {
+                "CardCode": "V1"
+              }
+            ]
+          }
+        ]
+      },
+      "pins": {
+        "Status: Batch Processing": {
+          "status_text": "stub"
+        },
+        "Execute Workflow: SAP Inquiry Execution": {
+          "path": "purchase/purch_request.json",
+          "process_definition": {
+            "id": "purchase_request"
+          },
+          "message": "ok",
+          "error": null,
+          "active_node_id": "batch#purchase/purch_request.json",
+          "intention_nodes": {
+            "batch#purchase/purch_request.json": {
+              "id": "batch#purchase/purch_request.json",
+              "form_state": {
+                "CardCode": "V1"
+              }
+            }
+          },
+          "_original_intention_nodes": {},
+          "_original_active_node_id": null,
+          "process_name": "Purchase Request"
+        },
+        "Execute Workflow: Response": {
+          "delivered": true
+        }
+      },
+      "assert": {
+        "node": "Compose Batch Summary",
+        "fields": {
+          "message": "**Ejecuci\u00f3n por lotes completada**\n- Purchase Request: 1 creadas, 0 fallidas"
+        }
+      }
+    },
+    {
+      "description": "an intent that already failed schema/extraction resolution (error set upstream by Context Update) -> Fan Out Intents (merged 2026-08-15 with what used to be a separate Fan Out All Records node) keeps it as a zero-record marker, skipping execution entirely, summarized as unresolved -- Execute Workflow: SAP Inquiry Execution is deliberately left unpinned here -- the real node's own Needs Real Execution? guard short-circuits a _skip_execution marker before any real LLM/SAP call, so nothing costly actually runs",
+      "input": {
+        "language": "es",
+        "intents": [
+          {
+            "path": "bogus/x.json",
+            "process_name": "Unknown",
+            "process_definition": null,
+            "error": "NOT_FOUND",
+            "error_message": "No se encontr\u00f3 la definici\u00f3n del proceso.",
+            "items": []
+          }
+        ]
+      },
+      "pins": {
+        "Status: Batch Processing": {
+          "status_text": "stub"
+        },
+        "Execute Workflow: Response": {
+          "delivered": true
+        }
+      },
+      "assert": {
+        "node": "Compose Batch Summary",
+        "fields": {
+          "message": "**Ejecuci\u00f3n por lotes completada**\n- Unknown: no se pudo resolver (No se encontr\u00f3 la definici\u00f3n del proceso.)"
+        }
+      }
+    },
+    {
+      "description": "mixed batch of 2 distinct processes, one resolved+executed, one failed resolution -- both appear in the summary (uniform pin can only match ONE intent by path -- both this intent's real record AND the unresolved intent's marker pass through the same pinned node and get the same static output, so both land in the Purchase Request bucket here; a real unpinned run correctly keeps them separate, per Tier 1's Group Results By Intent tests and the live E2E test)",
+      "input": {
+        "language": "es",
+        "intents": [
+          {
+            "path": "purchase/purch_request.json",
+            "process_name": "Purchase Request",
+            "process_definition": {
+              "id": "purchase_request"
+            },
+            "error": null,
+            "error_message": null,
+            "items": [
+              {
+                "CardCode": "V1"
+              }
+            ]
+          },
+          {
+            "path": "bogus/x.json",
+            "process_name": "Unknown",
+            "process_definition": null,
+            "error": "NOT_FOUND",
+            "error_message": "No se encontr\u00f3 la definici\u00f3n del proceso.",
+            "items": []
+          }
+        ]
+      },
+      "pins": {
+        "Status: Batch Processing": {
+          "status_text": "stub"
+        },
+        "Execute Workflow: SAP Inquiry Execution": {
+          "path": "purchase/purch_request.json",
+          "process_definition": {
+            "id": "purchase_request"
+          },
+          "message": "ok",
+          "error": null,
+          "active_node_id": "batch#purchase/purch_request.json",
+          "intention_nodes": {
+            "batch#purchase/purch_request.json": {
+              "id": "batch#purchase/purch_request.json",
+              "form_state": {
+                "CardCode": "V1"
+              }
+            }
+          },
+          "_original_intention_nodes": {},
+          "_original_active_node_id": null,
+          "process_name": "Purchase Request"
+        },
+        "Execute Workflow: Response": {
+          "delivered": true
+        }
+      },
+      "assert": {
+        "node": "Compose Batch Summary",
+        "fields": {
+          "message": "**Ejecuci\u00f3n por lotes completada**\n- Purchase Request: 2 creadas, 0 fallidas"
+        }
+      }
+    },
+    {
+      "description": "sap-inquiry-execution.json returns a hard failure (not SAP_ERROR -- its own agent/tool crash, already classified by the shared Error Parser inside it) -> Has Hard Failure? aborts the whole turn immediately via Execute Workflow: Error Parser (Agent Failure), does not continue looping over remaining records/intents",
+      "input": {
+        "language": "es",
+        "intents": [
+          {
+            "path": "purchase/purch_request.json",
+            "process_name": "Purchase Request",
+            "process_definition": {
+              "id": "purchase_request"
+            },
+            "error": null,
+            "error_message": null,
+            "items": [
+              {
+                "CardCode": "V1"
+              }
+            ]
+          }
+        ]
+      },
+      "pins": {
+        "Status: Batch Processing": {
+          "status_text": "stub"
+        },
+        "Execute Workflow: SAP Inquiry Execution": {
+          "message": "Rate limit exceeded, tokens per min",
+          "error": "RATE_LIMIT",
+          "_original_intention_nodes": {},
+          "_original_active_node_id": null
+        },
+        "Execute Workflow: Response": {
+          "delivered": true
+        }
+      },
+      "assert": {
+        "node": "Execute Workflow: Error Parser (Agent Failure)",
+        "fields": {
+          "error": "RATE_LIMIT"
+        }
+      }
+    },
+    {
+      "description": "GET-only intent (list vendors) -> no more Is GET Process? branch -- this record runs through the exact same flat Fan Out Intents (merged 2026-08-15 with what used to be a separate Fan Out All Records node)/Prepare SAP Inquiry Call/Execute Workflow: SAP Inquiry Execution mechanism as any create record; the query's own result message is embedded in the summary instead of a created/failed count (Compose Batch Summary's own GET-vs-create phrasing choice, not an execution-path difference)",
+      "input": {
+        "language": "es",
+        "intents": [
+          {
+            "path": "purchase/vendor_list.json",
+            "process_name": "List Vendors",
+            "process_definition": {
+              "api": {
+                "service": "BusinessPartnerService",
+                "method": "GET"
+              },
+              "query": {
+                "filters": [
+                  {
+                    "id": "CardName",
+                    "sap_field": "CardName",
+                    "type": "string",
+                    "operator": [
+                      "contains"
+                    ]
+                  }
+                ]
+              }
+            },
+            "error": null,
+            "error_message": null,
+            "items": [
+              {
+                "CardName": "Flete",
+                "CardName_operator": "contains"
+              }
+            ]
+          }
+        ]
+      },
+      "pins": {
+        "Status: Batch Processing": {
+          "status_text": "stub"
+        },
+        "Execute Workflow: SAP Inquiry Execution": {
+          "path": "purchase/vendor_list.json",
+          "process_definition": {
+            "api": {
+              "method": "GET"
+            }
+          },
+          "message": "| Code | Name |\n|---|---|\n| V1 | Acme |",
+          "error": null,
+          "active_node_id": "batch#purchase/vendor_list.json",
+          "intention_nodes": {
+            "batch#purchase/vendor_list.json": {
+              "id": "batch#purchase/vendor_list.json",
+              "form_state": {
+                "CardName": "Flete",
+                "CardName_operator": "contains"
+              }
+            }
+          },
+          "_original_intention_nodes": {},
+          "_original_active_node_id": null,
+          "process_name": "List Vendors"
+        },
+        "Execute Workflow: Response": {
+          "delivered": true
+        }
+      },
+      "assert": {
+        "node": "Compose Batch Summary",
+        "fields": {
+          "message": "**Ejecuci\u00f3n por lotes completada**\n- List Vendors:\n| Code | Name |\n|---|---|\n| V1 | Acme |"
+        }
+      }
+    },
+    {
+      "description": "mixed create + GET batch (the literal 'create a PR + list vendors' shape) -> both branches run through the SAME flat pipeline, calling the SAME sub-workflow -- proves batch-processing.json genuinely has zero GET/POST branching of its own left, since one uniform pin on Execute Workflow: SAP Inquiry Execution serves both records correctly (the summary's own create-vs-GET phrasing comes from each intent's own process_definition, not from a different execution path) (uniform pin can only match ONE intent by path -- pinned to the create intent, so only its own line reflects real execution; the GET intent legitimately falls back to its own no-result default since its real record never matches the pin, a known Tier 2 fixture limit, not a code bug -- Tier 1/live E2E cover true multi-intent correctness)",
+      "input": {
+        "language": "es",
+        "intents": [
+          {
+            "path": "purchase/purch_request.json",
+            "process_name": "Purchase Request",
+            "process_definition": {
+              "id": "purchase_request"
+            },
+            "error": null,
+            "error_message": null,
+            "items": [
+              {
+                "CardCode": "V1"
+              }
+            ]
+          },
+          {
+            "path": "purchase/vendor_list.json",
+            "process_name": "List Vendors",
+            "process_definition": {
+              "api": {
+                "service": "BusinessPartnerService",
+                "method": "GET"
+              },
+              "query": {
+                "filters": []
+              }
+            },
+            "error": null,
+            "error_message": null,
+            "items": [
+              {}
+            ]
+          }
+        ]
+      },
+      "pins": {
+        "Status: Batch Processing": {
+          "status_text": "stub"
+        },
+        "Execute Workflow: SAP Inquiry Execution": {
+          "message": "ok",
+          "error": null,
+          "active_node_id": "batch#shared",
+          "intention_nodes": {
+            "batch#shared": {
+              "id": "batch#shared",
+              "form_state": {}
+            }
+          },
+          "_original_intention_nodes": {},
+          "_original_active_node_id": null,
+          "path": "purchase/purch_request.json",
+          "process_name": "Purchase Request",
+          "process_definition": {
+            "id": "purchase_request"
+          }
+        },
+        "Execute Workflow: Response": {
+          "delivered": true
+        }
+      },
+      "assert": {
+        "node": "Compose Batch Summary",
+        "fields": {
+          "message": "**Ejecuci\u00f3n por lotes completada**\n- Purchase Request: 2 creadas, 0 fallidas"
+        }
+      }
+    },
+    {
+      "description": "sap-inquiry-execution.json returns a graceful SAP_ERROR for a GET record -> Has Hard Failure? treats it as this one record's own failure, NOT a whole-batch abort -- reaches Compose Batch Summary with the query recorded as failed, same tolerance an ordinary failed create record already gets",
+      "input": {
+        "language": "es",
+        "intents": [
+          {
+            "path": "purchase/vendor_list.json",
+            "process_name": "List Vendors",
+            "process_definition": {
+              "api": {
+                "service": "S",
+                "method": "GET"
+              },
+              "query": {
+                "filters": []
+              }
+            },
+            "error": null,
+            "error_message": null,
+            "items": [
+              {}
+            ]
+          }
+        ]
+      },
+      "pins": {
+        "Status: Batch Processing": {
+          "status_text": "stub"
+        },
+        "Execute Workflow: SAP Inquiry Execution": {
+          "path": "purchase/vendor_list.json",
+          "process_definition": {
+            "api": {
+              "method": "GET"
+            }
+          },
+          "message": "El proveedor no existe",
+          "error": "SAP_ERROR",
+          "active_node_id": "batch#purchase/vendor_list.json",
+          "intention_nodes": {
+            "batch#purchase/vendor_list.json": {
+              "id": "batch#purchase/vendor_list.json",
+              "form_state": {}
+            }
+          },
+          "_original_intention_nodes": {},
+          "_original_active_node_id": null,
+          "process_name": "List Vendors"
+        },
+        "Execute Workflow: Response": {
+          "delivered": true
+        }
+      },
+      "assert": {
+        "node": "Compose Batch Summary",
+        "fields": {
+          "message": "**Ejecuci\u00f3n por lotes completada**\n- List Vendors:\nEl proveedor no existe"
+        }
+      }
+    },
+    {
+      "description": "a create intent with 2 pre-resolved records -> each record becomes its own Intention Graph node, not one shared node per intent -- a failed record can be clicked and corrected on its own without touching one that already succeeded (uniform pin -- both records get the same SAP Inquiry Execution outcome here, per-record status branching is already covered at Tier 1 by Record Execution Result's own unit tests; this level's job is proving N records mint N distinct nodes)",
+      "input": {
+        "language": "es",
+        "intents": [
+          {
+            "path": "purchase/purch_request.json",
+            "process_name": "Purchase Request",
+            "process_definition": {
+              "id": "purchase_request"
+            },
+            "error": null,
+            "error_message": null,
+            "items": [
+              {
+                "CardCode": "V10000"
+              },
+              {
+                "CardCode": "V20000"
+              }
+            ]
+          }
+        ]
+      },
+      "pins": {
+        "Status: Batch Processing": {
+          "status_text": "stub"
+        },
+        "Execute Workflow: SAP Inquiry Execution": {
+          "path": "purchase/purch_request.json",
+          "process_definition": {
+            "id": "purchase_request"
+          },
+          "message": "ok",
+          "error": null,
+          "active_node_id": "batch#purchase/purch_request.json",
+          "intention_nodes": {
+            "batch#purchase/purch_request.json": {
+              "id": "batch#purchase/purch_request.json",
+              "form_state": {
+                "CardCode": "V10000"
+              }
+            }
+          },
+          "_original_intention_nodes": {},
+          "_original_active_node_id": null,
+          "process_name": "Purchase Request"
+        },
+        "Execute Workflow: Response": {
+          "delivered": true
+        }
+      },
+      "assert": {
+        "node": "Resolve Final State",
+        "fields": {
+          "active_node_id": null,
+          "intention_nodes": {
+            "purchase_request#0": {
+              "id": "purchase_request#0",
+              "parent_id": null,
+              "process_id": "purchase_request",
+              "process_definition": {
+                "name": null
+              },
+              "form_state": {
+                "CardCode": "V10000"
+              },
+              "status": "completed",
+              "error_detail": null
+            },
+            "purchase_request#1": {
+              "id": "purchase_request#1",
+              "parent_id": null,
+              "process_id": "purchase_request",
+              "process_definition": {
+                "name": null
+              },
+              "form_state": {
+                "CardCode": "V10000"
+              },
+              "status": "completed",
+              "error_detail": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "a GET intent registers its own node too, carrying the extracted filter values as form_state (populated upstream by Context Update, not by anything in this file) so a failed query can be corrected the same way a failed create can",
+      "input": {
+        "language": "es",
+        "intents": [
+          {
+            "path": "purchase/vendor_list.json",
+            "process_name": "List Vendors",
+            "process_definition": {
+              "id": "vendor_list",
+              "api": {
+                "service": "S",
+                "method": "GET"
+              },
+              "query": {
+                "filters": [
+                  {
+                    "id": "CardName",
+                    "sap_field": "CardName",
+                    "type": "string",
+                    "operator": [
+                      "contains"
+                    ]
+                  }
+                ]
+              }
+            },
+            "error": null,
+            "error_message": null,
+            "items": [
+              {
+                "CardName": "Flete",
+                "CardName_operator": "contains"
+              }
+            ]
+          }
+        ]
+      },
+      "pins": {
+        "Status: Batch Processing": {
+          "status_text": "stub"
+        },
+        "Execute Workflow: SAP Inquiry Execution": {
+          "path": "purchase/vendor_list.json",
+          "process_definition": {
+            "id": "vendor_list",
+            "api": {
+              "service": "S",
+              "method": "GET"
+            },
+            "query": {
+              "filters": [
+                {
+                  "id": "CardName",
+                  "sap_field": "CardName",
+                  "type": "string",
+                  "operator": [
+                    "contains"
+                  ]
+                }
+              ]
+            }
+          },
+          "message": "El proveedor no existe",
+          "error": "SAP_ERROR",
+          "active_node_id": "batch#purchase/vendor_list.json",
+          "intention_nodes": {
+            "batch#purchase/vendor_list.json": {
+              "id": "batch#purchase/vendor_list.json",
+              "form_state": {
+                "CardName": "Flete",
+                "CardName_operator": "contains",
+                "ready": false
+              }
+            }
+          },
+          "_original_intention_nodes": {},
+          "_original_active_node_id": null,
+          "process_name": "List Vendors"
+        },
+        "Execute Workflow: Response": {
+          "delivered": true
+        }
+      },
+      "assert": {
+        "node": "Resolve Final State",
+        "fields": {
+          "active_node_id": null,
+          "intention_nodes": {
+            "vendor_list#0": {
+              "id": "vendor_list#0",
+              "parent_id": null,
+              "process_id": "vendor_list",
+              "process_definition": {
+                "id": "vendor_list",
+                "api": {
+                  "service": "S",
+                  "method": "GET"
+                },
+                "query": {
+                  "filters": [
+                    {
+                      "id": "CardName",
+                      "sap_field": "CardName",
+                      "type": "string",
+                      "operator": [
+                        "contains"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "form_state": {
+                "CardName": "Flete",
+                "CardName_operator": "contains",
+                "ready": false
+              },
+              "status": "failed",
+              "error_detail": "El proveedor no existe"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "batch triggered while another process was active -> Intent Manager already parked it (new_process_parent_id set) -- every new node this turn parents to it. Per the 2026-08-15 convention change (Compute Execution Outcome no longer auto-resumes on completion, Park Current Intent handles parenting by reading active_node_id directly), the parent is NOT auto-resumed here either -- it stays exactly 'paused', recoverable via the sidebar (UC-6), and active_node_id stays null",
+      "input": {
+        "language": "es",
+        "active_node_id": null,
+        "new_process_parent_id": "purchase_request#0",
+        "intention_nodes": {
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "status": "paused"
+          }
+        },
+        "intents": [
+          {
+            "path": "warehouse/goods_receipt.json",
+            "process_name": "Goods Receipt",
+            "process_definition": {
+              "id": "goods_receipt"
+            },
+            "error": null,
+            "error_message": null,
+            "items": [
+              {
+                "Warehouse": "01"
+              }
+            ]
+          }
+        ]
+      },
+      "pins": {
+        "Status: Batch Processing": {
+          "status_text": "stub"
+        },
+        "Execute Workflow: SAP Inquiry Execution": {
+          "path": "warehouse/goods_receipt.json",
+          "process_definition": {
+            "id": "goods_receipt"
+          },
+          "message": "ok",
+          "error": null,
+          "active_node_id": "batch#warehouse/goods_receipt.json",
+          "intention_nodes": {
+            "purchase_request#0": {
+              "id": "purchase_request#0",
+              "status": "paused"
+            },
+            "batch#warehouse/goods_receipt.json": {
+              "id": "batch#warehouse/goods_receipt.json",
+              "form_state": {
+                "Warehouse": "01"
+              }
+            }
+          },
+          "_original_intention_nodes": {
+            "purchase_request#0": {
+              "id": "purchase_request#0",
+              "status": "paused"
+            }
+          },
+          "_original_active_node_id": null,
+          "process_name": "Goods Receipt",
+          "new_process_parent_id": "purchase_request#0"
+        },
+        "Execute Workflow: Response": {
+          "delivered": true
+        }
+      },
+      "assert": {
+        "node": "Resolve Final State",
+        "fields": {
+          "active_node_id": null,
+          "intention_nodes": {
+            "purchase_request#0": {
+              "id": "purchase_request#0",
+              "status": "paused"
+            },
+            "goods_receipt#1": {
+              "id": "goods_receipt#1",
+              "parent_id": "purchase_request#0",
+              "process_id": "goods_receipt",
+              "process_definition": {
+                "name": null
+              },
+              "form_state": {
+                "Warehouse": "01"
+              },
+              "status": "completed",
+              "error_detail": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "every intent fails schema/extraction resolution -> nothing to register, nothing executes, and the parked parent stays exactly as Park Current Intent left it (no auto-resume, matches the no-records-at-all case exactly)",
+      "input": {
+        "language": "es",
+        "active_node_id": null,
+        "new_process_parent_id": "purchase_request#0",
+        "intention_nodes": {
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "status": "paused"
+          }
+        },
+        "intents": [
+          {
+            "path": "bogus/x.json",
+            "process_name": "Unknown",
+            "process_definition": null,
+            "error": "NOT_FOUND",
+            "error_message": "No se encontr\u00f3 la definici\u00f3n del proceso.",
+            "items": []
+          }
+        ]
+      },
+      "pins": {
+        "Status: Batch Processing": {
+          "status_text": "stub"
+        },
+        "Execute Workflow: Response": {
+          "delivered": true
+        }
+      },
+      "assert": {
+        "node": "Resolve Final State",
+        "fields": {
+          "active_node_id": null,
+          "intention_nodes": {
+            "purchase_request#0": {
+              "id": "purchase_request#0",
+              "status": "paused"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

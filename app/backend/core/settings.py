@@ -207,8 +207,8 @@ N8N_CALLBACK_SECRET = CONFIG.get("N8N_CALLBACK_SECRET", "")
 
 # Object storage — driver selected by STORAGE_DRIVER (see core/modules/storage/driver/),
 # same pluggable-driver pattern as CFG_DRIVER/core/modules/configuration/driver/.
-# "aws_s3" (prod) talks to real AWS S3; "minio" (dev) extends it, only overriding the
-# client to point at STORAGE_ENDPOINT_URL, which "aws_s3" itself never reads.
+# "aws_s3" (prod) talks to real AWS S3; "seaweedfs" (dev) extends it, only overriding
+# the client to point at STORAGE_ENDPOINT_URL, which "aws_s3" itself never reads.
 STORAGE_DRIVER = CONFIG.get("STORAGE_DRIVER", "aws_s3")
 STORAGE_ACCESS_KEY = CONFIG.get("STORAGE_ACCESS_KEY", "")
 STORAGE_BUCKET_NAME = CONFIG.get("STORAGE_BUCKET_NAME", "")
@@ -218,6 +218,16 @@ STORAGE_SECRET_KEY = CONFIG.get("STORAGE_SECRET_KEY", "")
 BUCKET_MAX_FILE_SIZE_MB = int(CONFIG.get("BUCKET_MAX_FILE_SIZE_MB", 25))
 BUCKET_MAX_BATCH_SIZE_MB = int(CONFIG.get("BUCKET_MAX_BATCH_SIZE_MB", 20))
 
+# Document rendering — driver selected by REPORT_RENDER_DRIVER (see core/modules/report/driver/).
+# "rpt_rs" shells out to the orb-report-render binary (built from app/renderer, vendored into
+# the backend image by its Rust build stage) — see docs/plans/document_generation_and_templates.md.
+REPORT_RENDER_DRIVER = CONFIG.get("REPORT_RENDER_DRIVER", "rpt_rs")
+REPORT_RENDER_BINARY = CONFIG.get(
+	"REPORT_RENDER_BINARY", "/usr/local/bin/orb-report-render"
+)
+REPORT_TEMPLATE_DIR = os.path.join(BASE_DIR, "core", "templates", "documents")
+TEMPLATE_MAX_FILE_SIZE_MB = int(CONFIG.get("TEMPLATE_MAX_FILE_SIZE_MB", 10))
+
 # Redis — shared by CHANNEL_LAYERS below and the n8n helpers (web_socket/helpers/n8n/),
 # which read these as settings.REDIS_HOST/REDIS_PORT rather than settings.CONFIG directly.
 REDIS_HOST = CONFIG.get("REDIS_HOST", "localhost")
@@ -226,6 +236,16 @@ REDIS_PORT = int(CONFIG.get("REDIS_PORT", 6379))
 # n8n helper TTLs (web_socket/helpers/n8n/queue.py, state.py)
 N8N_INFLIGHT_TTL_SECONDS = int(CONFIG.get("N8N_INFLIGHT_TTL_SECONDS", 300))
 FORM_STATE_TTL_SECONDS = int(CONFIG.get("FORM_STATE_TTL_SECONDS", 86400))
+
+# n8n's own REST API (executions endpoint), used by web_socket/helpers/n8n/usage.py to
+# walk a finished execution tree and compute token usage — distinct from N8nClient's
+# webhook URL (web_socket/helpers/n8n/client.py), which only ever sends messages to n8n,
+# never reads anything back from it.
+N8N_API_KEY = CONFIG.get("N8N_API_KEY", "")
+N8N_API_BASE_URL = CONFIG.get(
+	"N8N_API_BASE_URL",
+	f"{CONFIG.get('N8N_PROTOCOL', 'http')}://{CONFIG.get('N8N_HOST', 'localhost')}:{CONFIG.get('N8N_PORT', 5678)}/api/v1",
+)
 
 # Channel settings
 CHANNEL_LAYERS = {
