@@ -97,7 +97,7 @@
       },
       "nodeResults": {},
       "expected": {
-        "chatInput": "Call sap_query_entity_set with these parameters.\n\nSERVICE: S\nCONNECTION: {}\nPRE-BUILT FILTERS (apply as-is, already valid OData v2 -- already includes this process's mandatory default_filters, ANDed in): substringof('acme', tolower(CardName))\nDEFAULT SELECT: [\"A\"]\nTOP: 20\nSKIP: omit\nORDERBY: omit\n\nUSER REQUESTED FIELDS: \"default\"\nIf the user specified fields, use this label->sap_field map to resolve them:\n[]\nIf default or none specified, use DEFAULT SELECT above.\n\nOData v2 FILTER SYNTAX RULES (SAP B1S):\n- String contains: substringof('value', FieldName) -- NEVER use FieldName contains 'value'\n- String equals: FieldName eq 'value'\n- Number equals: FieldName eq 123\n- Multiple OR: (substringof('a', F) or substringof('b', F))\n- AND: expr1 and expr2\nThe pre-built filters above already follow this syntax. Pass them to the filter parameter verbatim.\n\nRAW QUERY DEFINITION (authoritative source the filters above were derived from -- cross-check it: if its default_filters or filters declare a constraint not already reflected in PRE-BUILT FILTERS above, you MUST still AND it in yourself before calling the tool):\n{\"filters\":[{\"id\":\"CardName\",\"sap_field\":\"CardName\",\"type\":\"string\",\"operator\":\"contains\"}],\"select\":[\"A\"]}\n\nRULES:\n- Omit any parameter that is null, empty, or undefined.\n- Never pass null values to any parameter.\n- Use default select unless user explicitly requested specific fields.\n- Render results as a Markdown table using schema labels as column headers, UNLESS the user explicitly asked for JSON/raw format (see OUTPUT below) -- in that case render a fenced ```json code block instead.\n\nSuccess: {\"status\": \"success\", \"message\": \"<Markdown table in es>\", \"form_state\": null, \"processes\": null}\nNo records: {\"status\": \"success\", \"message\": \"<no records message in es>\", \"form_state\": null, \"processes\": null}\nError: {\"status\": \"error\", \"message\": \"<user-friendly Markdown in es>\", \"form_state\": null, \"processes\": null}"
+        "chatInput": "Call sap_query_entity_set with these parameters.\n\nSERVICE: S\nCONNECTION: {}\nPRE-BUILT FILTERS (apply as-is, already valid OData v2 -- already includes this process's mandatory default_filters, ANDed in): substringof('Acme', CardName)\nDEFAULT SELECT: [\"A\"]\nTOP: 20\nSKIP: omit\nORDERBY: omit\n\nUSER REQUESTED FIELDS: \"default\"\nIf the user specified fields, use this label->sap_field map to resolve them:\n[]\nIf default or none specified, use DEFAULT SELECT above.\n\nOData v2 FILTER SYNTAX RULES (SAP B1S):\n- String contains: substringof('value', FieldName) -- NEVER use FieldName contains 'value'\n- String equals: FieldName eq 'value'\n- Number equals: FieldName eq 123\n- Multiple OR: (substringof('a', F) or substringof('b', F))\n- AND: expr1 and expr2\nThe pre-built filters above already follow this syntax. Pass them to the filter parameter verbatim.\n\nRAW QUERY DEFINITION (authoritative source the filters above were derived from -- cross-check it: if its default_filters or filters declare a constraint not already reflected in PRE-BUILT FILTERS above, you MUST still AND it in yourself before calling the tool):\n{\"filters\":[{\"id\":\"CardName\",\"sap_field\":\"CardName\",\"type\":\"string\",\"operator\":\"contains\"}],\"select\":[\"A\"]}\n\nRULES:\n- Omit any parameter that is null, empty, or undefined.\n- Never pass null values to any parameter.\n- Use default select unless user explicitly requested specific fields.\n- Render results as a Markdown table using schema labels as column headers, UNLESS the user explicitly asked for JSON/raw format (see OUTPUT below) -- in that case render a fenced ```json code block instead.\n\nSuccess: {\"status\": \"success\", \"message\": \"<Markdown table in es>\", \"form_state\": null, \"processes\": null}\nNo records: {\"status\": \"success\", \"message\": \"<no records message in es>\", \"form_state\": null, \"processes\": null}\nError: {\"status\": \"error\", \"message\": \"<user-friendly Markdown in es>\", \"form_state\": null, \"processes\": null}"
       }
     },
     {
@@ -140,7 +140,7 @@
       },
       "nodeResults": {},
       "expected": {
-        "chatInput": "Call sap_query_entity_set with these parameters.\n\nSERVICE: S\nCONNECTION: {}\nPRE-BUILT FILTERS (apply as-is, already valid OData v2 -- already includes this process's mandatory default_filters, ANDed in): not startswith(tolower(CardName), 'nousar')\nDEFAULT SELECT: [\"A\"]\nTOP: 20\nSKIP: omit\nORDERBY: omit\n\nUSER REQUESTED FIELDS: \"default\"\nIf the user specified fields, use this label->sap_field map to resolve them:\n[]\nIf default or none specified, use DEFAULT SELECT above.\n\nOData v2 FILTER SYNTAX RULES (SAP B1S):\n- String contains: substringof('value', FieldName) -- NEVER use FieldName contains 'value'\n- String equals: FieldName eq 'value'\n- Number equals: FieldName eq 123\n- Multiple OR: (substringof('a', F) or substringof('b', F))\n- AND: expr1 and expr2\nThe pre-built filters above already follow this syntax. Pass them to the filter parameter verbatim.\n\nRAW QUERY DEFINITION (authoritative source the filters above were derived from -- cross-check it: if its default_filters or filters declare a constraint not already reflected in PRE-BUILT FILTERS above, you MUST still AND it in yourself before calling the tool):\n{\"filters\":[{\"id\":\"CardName\",\"sap_field\":\"CardName\",\"type\":\"string\",\"operator\":[\"contains\",\"not_startswith\"]}],\"select\":[\"A\"]}\n\nRULES:\n- Omit any parameter that is null, empty, or undefined.\n- Never pass null values to any parameter.\n- Use default select unless user explicitly requested specific fields.\n- Render results as a Markdown table using schema labels as column headers, UNLESS the user explicitly asked for JSON/raw format (see OUTPUT below) -- in that case render a fenced ```json code block instead.\n\nSuccess: {\"status\": \"success\", \"message\": \"<Markdown table in es>\", \"form_state\": null, \"processes\": null}\nNo records: {\"status\": \"success\", \"message\": \"<no records message in es>\", \"form_state\": null, \"processes\": null}\nError: {\"status\": \"error\", \"message\": \"<user-friendly Markdown in es>\", \"form_state\": null, \"processes\": null}"
+        "chatInput": "Call sap_query_entity_set with these parameters.\n\nSERVICE: S\nCONNECTION: {}\nPRE-BUILT FILTERS (apply as-is, already valid OData v2 -- already includes this process's mandatory default_filters, ANDed in): not startswith(CardName, 'NOUSAR')\nDEFAULT SELECT: [\"A\"]\nTOP: 20\nSKIP: omit\nORDERBY: omit\n\nUSER REQUESTED FIELDS: \"default\"\nIf the user specified fields, use this label->sap_field map to resolve them:\n[]\nIf default or none specified, use DEFAULT SELECT above.\n\nOData v2 FILTER SYNTAX RULES (SAP B1S):\n- String contains: substringof('value', FieldName) -- NEVER use FieldName contains 'value'\n- String equals: FieldName eq 'value'\n- Number equals: FieldName eq 123\n- Multiple OR: (substringof('a', F) or substringof('b', F))\n- AND: expr1 and expr2\nThe pre-built filters above already follow this syntax. Pass them to the filter parameter verbatim.\n\nRAW QUERY DEFINITION (authoritative source the filters above were derived from -- cross-check it: if its default_filters or filters declare a constraint not already reflected in PRE-BUILT FILTERS above, you MUST still AND it in yourself before calling the tool):\n{\"filters\":[{\"id\":\"CardName\",\"sap_field\":\"CardName\",\"type\":\"string\",\"operator\":[\"contains\",\"not_startswith\"]}],\"select\":[\"A\"]}\n\nRULES:\n- Omit any parameter that is null, empty, or undefined.\n- Never pass null values to any parameter.\n- Use default select unless user explicitly requested specific fields.\n- Render results as a Markdown table using schema labels as column headers, UNLESS the user explicitly asked for JSON/raw format (see OUTPUT below) -- in that case render a fenced ```json code block instead.\n\nSuccess: {\"status\": \"success\", \"message\": \"<Markdown table in es>\", \"form_state\": null, \"processes\": null}\nNo records: {\"status\": \"success\", \"message\": \"<no records message in es>\", \"form_state\": null, \"processes\": null}\nError: {\"status\": \"error\", \"message\": \"<user-friendly Markdown in es>\", \"form_state\": null, \"processes\": null}"
       }
     },
     {
@@ -183,7 +183,7 @@
       },
       "nodeResults": {},
       "expected": {
-        "chatInput": "Call sap_query_entity_set with these parameters.\n\nSERVICE: S\nCONNECTION: {}\nPRE-BUILT FILTERS (apply as-is, already valid OData v2 -- already includes this process's mandatory default_filters, ANDed in): (not substringof('no usar', tolower(CardName)) and not substringof('test', tolower(CardName)))\nDEFAULT SELECT: [\"A\"]\nTOP: 20\nSKIP: omit\nORDERBY: omit\n\nUSER REQUESTED FIELDS: \"default\"\nIf the user specified fields, use this label->sap_field map to resolve them:\n[]\nIf default or none specified, use DEFAULT SELECT above.\n\nOData v2 FILTER SYNTAX RULES (SAP B1S):\n- String contains: substringof('value', FieldName) -- NEVER use FieldName contains 'value'\n- String equals: FieldName eq 'value'\n- Number equals: FieldName eq 123\n- Multiple OR: (substringof('a', F) or substringof('b', F))\n- AND: expr1 and expr2\nThe pre-built filters above already follow this syntax. Pass them to the filter parameter verbatim.\n\nRAW QUERY DEFINITION (authoritative source the filters above were derived from -- cross-check it: if its default_filters or filters declare a constraint not already reflected in PRE-BUILT FILTERS above, you MUST still AND it in yourself before calling the tool):\n{\"filters\":[{\"id\":\"CardName\",\"sap_field\":\"CardName\",\"type\":\"string\",\"operator\":[\"contains\",\"not_contains\"]}],\"select\":[\"A\"]}\n\nRULES:\n- Omit any parameter that is null, empty, or undefined.\n- Never pass null values to any parameter.\n- Use default select unless user explicitly requested specific fields.\n- Render results as a Markdown table using schema labels as column headers, UNLESS the user explicitly asked for JSON/raw format (see OUTPUT below) -- in that case render a fenced ```json code block instead.\n\nSuccess: {\"status\": \"success\", \"message\": \"<Markdown table in es>\", \"form_state\": null, \"processes\": null}\nNo records: {\"status\": \"success\", \"message\": \"<no records message in es>\", \"form_state\": null, \"processes\": null}\nError: {\"status\": \"error\", \"message\": \"<user-friendly Markdown in es>\", \"form_state\": null, \"processes\": null}"
+        "chatInput": "Call sap_query_entity_set with these parameters.\n\nSERVICE: S\nCONNECTION: {}\nPRE-BUILT FILTERS (apply as-is, already valid OData v2 -- already includes this process's mandatory default_filters, ANDed in): (not substringof('NO USAR', CardName) and not substringof('TEST', CardName))\nDEFAULT SELECT: [\"A\"]\nTOP: 20\nSKIP: omit\nORDERBY: omit\n\nUSER REQUESTED FIELDS: \"default\"\nIf the user specified fields, use this label->sap_field map to resolve them:\n[]\nIf default or none specified, use DEFAULT SELECT above.\n\nOData v2 FILTER SYNTAX RULES (SAP B1S):\n- String contains: substringof('value', FieldName) -- NEVER use FieldName contains 'value'\n- String equals: FieldName eq 'value'\n- Number equals: FieldName eq 123\n- Multiple OR: (substringof('a', F) or substringof('b', F))\n- AND: expr1 and expr2\nThe pre-built filters above already follow this syntax. Pass them to the filter parameter verbatim.\n\nRAW QUERY DEFINITION (authoritative source the filters above were derived from -- cross-check it: if its default_filters or filters declare a constraint not already reflected in PRE-BUILT FILTERS above, you MUST still AND it in yourself before calling the tool):\n{\"filters\":[{\"id\":\"CardName\",\"sap_field\":\"CardName\",\"type\":\"string\",\"operator\":[\"contains\",\"not_contains\"]}],\"select\":[\"A\"]}\n\nRULES:\n- Omit any parameter that is null, empty, or undefined.\n- Never pass null values to any parameter.\n- Use default select unless user explicitly requested specific fields.\n- Render results as a Markdown table using schema labels as column headers, UNLESS the user explicitly asked for JSON/raw format (see OUTPUT below) -- in that case render a fenced ```json code block instead.\n\nSuccess: {\"status\": \"success\", \"message\": \"<Markdown table in es>\", \"form_state\": null, \"processes\": null}\nNo records: {\"status\": \"success\", \"message\": \"<no records message in es>\", \"form_state\": null, \"processes\": null}\nError: {\"status\": \"error\", \"message\": \"<user-friendly Markdown in es>\", \"form_state\": null, \"processes\": null}"
       }
     },
     {
@@ -225,7 +225,7 @@
       },
       "nodeResults": {},
       "expected": {
-        "chatInput": "Call sap_query_entity_set with these parameters.\n\nSERVICE: S\nCONNECTION: {}\nPRE-BUILT FILTERS (apply as-is, already valid OData v2 -- already includes this process's mandatory default_filters, ANDed in): startswith(tolower(CardName), 'acme')\nDEFAULT SELECT: [\"A\"]\nTOP: 20\nSKIP: omit\nORDERBY: omit\n\nUSER REQUESTED FIELDS: \"default\"\nIf the user specified fields, use this label->sap_field map to resolve them:\n[]\nIf default or none specified, use DEFAULT SELECT above.\n\nOData v2 FILTER SYNTAX RULES (SAP B1S):\n- String contains: substringof('value', FieldName) -- NEVER use FieldName contains 'value'\n- String equals: FieldName eq 'value'\n- Number equals: FieldName eq 123\n- Multiple OR: (substringof('a', F) or substringof('b', F))\n- AND: expr1 and expr2\nThe pre-built filters above already follow this syntax. Pass them to the filter parameter verbatim.\n\nRAW QUERY DEFINITION (authoritative source the filters above were derived from -- cross-check it: if its default_filters or filters declare a constraint not already reflected in PRE-BUILT FILTERS above, you MUST still AND it in yourself before calling the tool):\n{\"filters\":[{\"id\":\"CardName\",\"sap_field\":\"CardName\",\"type\":\"string\",\"operator\":[\"startswith\",\"not_startswith\"]}],\"select\":[\"A\"]}\n\nRULES:\n- Omit any parameter that is null, empty, or undefined.\n- Never pass null values to any parameter.\n- Use default select unless user explicitly requested specific fields.\n- Render results as a Markdown table using schema labels as column headers, UNLESS the user explicitly asked for JSON/raw format (see OUTPUT below) -- in that case render a fenced ```json code block instead.\n\nSuccess: {\"status\": \"success\", \"message\": \"<Markdown table in es>\", \"form_state\": null, \"processes\": null}\nNo records: {\"status\": \"success\", \"message\": \"<no records message in es>\", \"form_state\": null, \"processes\": null}\nError: {\"status\": \"error\", \"message\": \"<user-friendly Markdown in es>\", \"form_state\": null, \"processes\": null}"
+        "chatInput": "Call sap_query_entity_set with these parameters.\n\nSERVICE: S\nCONNECTION: {}\nPRE-BUILT FILTERS (apply as-is, already valid OData v2 -- already includes this process's mandatory default_filters, ANDed in): startswith(CardName, 'Acme')\nDEFAULT SELECT: [\"A\"]\nTOP: 20\nSKIP: omit\nORDERBY: omit\n\nUSER REQUESTED FIELDS: \"default\"\nIf the user specified fields, use this label->sap_field map to resolve them:\n[]\nIf default or none specified, use DEFAULT SELECT above.\n\nOData v2 FILTER SYNTAX RULES (SAP B1S):\n- String contains: substringof('value', FieldName) -- NEVER use FieldName contains 'value'\n- String equals: FieldName eq 'value'\n- Number equals: FieldName eq 123\n- Multiple OR: (substringof('a', F) or substringof('b', F))\n- AND: expr1 and expr2\nThe pre-built filters above already follow this syntax. Pass them to the filter parameter verbatim.\n\nRAW QUERY DEFINITION (authoritative source the filters above were derived from -- cross-check it: if its default_filters or filters declare a constraint not already reflected in PRE-BUILT FILTERS above, you MUST still AND it in yourself before calling the tool):\n{\"filters\":[{\"id\":\"CardName\",\"sap_field\":\"CardName\",\"type\":\"string\",\"operator\":[\"startswith\",\"not_startswith\"]}],\"select\":[\"A\"]}\n\nRULES:\n- Omit any parameter that is null, empty, or undefined.\n- Never pass null values to any parameter.\n- Use default select unless user explicitly requested specific fields.\n- Render results as a Markdown table using schema labels as column headers, UNLESS the user explicitly asked for JSON/raw format (see OUTPUT below) -- in that case render a fenced ```json code block instead.\n\nSuccess: {\"status\": \"success\", \"message\": \"<Markdown table in es>\", \"form_state\": null, \"processes\": null}\nNo records: {\"status\": \"success\", \"message\": \"<no records message in es>\", \"form_state\": null, \"processes\": null}\nError: {\"status\": \"error\", \"message\": \"<user-friendly Markdown in es>\", \"form_state\": null, \"processes\": null}"
       }
     },
     {
@@ -367,7 +367,310 @@
       },
       "nodeResults": {},
       "expected": {
-        "chatInput": "Call sap_query_entity_set with these parameters.\n\nSERVICE: S\nCONNECTION: {}\nPRE-BUILT FILTERS (apply as-is, already valid OData v2 -- already includes this process's mandatory default_filters, ANDed in): CardType eq 'cSupplier' and (substringof('acme', tolower(CardName)) or tolower(Currency) eq 'ars')\nDEFAULT SELECT: [\"A\"]\nTOP: 20\nSKIP: omit\nORDERBY: omit\n\nUSER REQUESTED FIELDS: \"default\"\nIf the user specified fields, use this label->sap_field map to resolve them:\n[]\nIf default or none specified, use DEFAULT SELECT above.\n\nOData v2 FILTER SYNTAX RULES (SAP B1S):\n- String contains: substringof('value', FieldName) -- NEVER use FieldName contains 'value'\n- String equals: FieldName eq 'value'\n- Number equals: FieldName eq 123\n- Multiple OR: (substringof('a', F) or substringof('b', F))\n- AND: expr1 and expr2\nThe pre-built filters above already follow this syntax. Pass them to the filter parameter verbatim.\n\nRAW QUERY DEFINITION (authoritative source the filters above were derived from -- cross-check it: if its default_filters or filters declare a constraint not already reflected in PRE-BUILT FILTERS above, you MUST still AND it in yourself before calling the tool):\n{\"default_filters\":[{\"sap_field\":\"CardType\",\"operator\":\"eq\",\"value\":\"cSupplier\"}],\"filters\":[{\"id\":\"CardName\",\"sap_field\":\"CardName\",\"type\":\"string\",\"operator\":[\"contains\"]},{\"id\":\"Currency\",\"sap_field\":\"Currency\",\"type\":\"string\",\"operator\":[\"eq\"]}],\"select\":[\"A\"]}\n\nRULES:\n- Omit any parameter that is null, empty, or undefined.\n- Never pass null values to any parameter.\n- Use default select unless user explicitly requested specific fields.\n- Render results as a Markdown table using schema labels as column headers, UNLESS the user explicitly asked for JSON/raw format (see OUTPUT below) -- in that case render a fenced ```json code block instead.\n\nSuccess: {\"status\": \"success\", \"message\": \"<Markdown table in es>\", \"form_state\": null, \"processes\": null}\nNo records: {\"status\": \"success\", \"message\": \"<no records message in es>\", \"form_state\": null, \"processes\": null}\nError: {\"status\": \"error\", \"message\": \"<user-friendly Markdown in es>\", \"form_state\": null, \"processes\": null}"
+        "chatInput": "Call sap_query_entity_set with these parameters.\n\nSERVICE: S\nCONNECTION: {}\nPRE-BUILT FILTERS (apply as-is, already valid OData v2 -- already includes this process's mandatory default_filters, ANDed in): CardType eq 'cSupplier' and (substringof('Acme', CardName) or Currency eq 'ARS')\nDEFAULT SELECT: [\"A\"]\nTOP: 20\nSKIP: omit\nORDERBY: omit\n\nUSER REQUESTED FIELDS: \"default\"\nIf the user specified fields, use this label->sap_field map to resolve them:\n[]\nIf default or none specified, use DEFAULT SELECT above.\n\nOData v2 FILTER SYNTAX RULES (SAP B1S):\n- String contains: substringof('value', FieldName) -- NEVER use FieldName contains 'value'\n- String equals: FieldName eq 'value'\n- Number equals: FieldName eq 123\n- Multiple OR: (substringof('a', F) or substringof('b', F))\n- AND: expr1 and expr2\nThe pre-built filters above already follow this syntax. Pass them to the filter parameter verbatim.\n\nRAW QUERY DEFINITION (authoritative source the filters above were derived from -- cross-check it: if its default_filters or filters declare a constraint not already reflected in PRE-BUILT FILTERS above, you MUST still AND it in yourself before calling the tool):\n{\"default_filters\":[{\"sap_field\":\"CardType\",\"operator\":\"eq\",\"value\":\"cSupplier\"}],\"filters\":[{\"id\":\"CardName\",\"sap_field\":\"CardName\",\"type\":\"string\",\"operator\":[\"contains\"]},{\"id\":\"Currency\",\"sap_field\":\"Currency\",\"type\":\"string\",\"operator\":[\"eq\"]}],\"select\":[\"A\"]}\n\nRULES:\n- Omit any parameter that is null, empty, or undefined.\n- Never pass null values to any parameter.\n- Use default select unless user explicitly requested specific fields.\n- Render results as a Markdown table using schema labels as column headers, UNLESS the user explicitly asked for JSON/raw format (see OUTPUT below) -- in that case render a fenced ```json code block instead.\n\nSuccess: {\"status\": \"success\", \"message\": \"<Markdown table in es>\", \"form_state\": null, \"processes\": null}\nNo records: {\"status\": \"success\", \"message\": \"<no records message in es>\", \"form_state\": null, \"processes\": null}\nError: {\"status\": \"error\", \"message\": \"<user-friendly Markdown in es>\", \"form_state\": null, \"processes\": null}"
+      }
+    },
+    {
+      "description": "GET_QUERY, resolve field fast path -> a numeric-typed (integer) resolve field given an already-numeric value builds the filter directly, no RESOLVABLE FIELDS section, byte-identical to a non-resolve numeric filter -- covers both 'number' and the real schema catalog's 'integer' type label",
+      "input": {
+        "language": "es",
+        "sap_operation": "GET_QUERY",
+        "sap_service": "S",
+        "sap_connection": {},
+        "active_node_id": "n1#0",
+        "intention_nodes": {
+          "n1#0": {
+            "process_definition": {
+              "query": {
+                "filters": [
+                  {
+                    "id": "GroupCode",
+                    "sap_field": "GroupCode",
+                    "type": "integer",
+                    "operator": [
+                      "eq",
+                      "ne",
+                      "gt",
+                      "ge",
+                      "lt",
+                      "le"
+                    ],
+                    "resolve": {
+                      "service": "BusinessPartnerGroups",
+                      "match_field": "Name",
+                      "match_type": "contains",
+                      "return_field": "Code",
+                      "default_filters": [
+                        {
+                          "sap_field": "Type",
+                          "operator": "eq",
+                          "value": "bbpgt_VendorGroup"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "select": [
+                  "A"
+                ]
+              },
+              "schema_definition": {
+                "fields": []
+              }
+            },
+            "form_state": {
+              "GroupCode": 100
+            }
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "chatInput": "Call sap_query_entity_set with these parameters.\n\nSERVICE: S\nCONNECTION: {}\nPRE-BUILT FILTERS (apply as-is, already valid OData v2 -- already includes this process's mandatory default_filters, ANDed in): GroupCode eq 100\nDEFAULT SELECT: [\"A\"]\nTOP: 20\nSKIP: omit\nORDERBY: omit\n\nUSER REQUESTED FIELDS: \"default\"\nIf the user specified fields, use this label->sap_field map to resolve them:\n[]\nIf default or none specified, use DEFAULT SELECT above.\n\nOData v2 FILTER SYNTAX RULES (SAP B1S):\n- String contains: substringof('value', FieldName) -- NEVER use FieldName contains 'value'\n- String equals: FieldName eq 'value'\n- Number equals: FieldName eq 123\n- Multiple OR: (substringof('a', F) or substringof('b', F))\n- AND: expr1 and expr2\nThe pre-built filters above already follow this syntax. Pass them to the filter parameter verbatim.\n\nRAW QUERY DEFINITION (authoritative source the filters above were derived from -- cross-check it: if its default_filters or filters declare a constraint not already reflected in PRE-BUILT FILTERS above, you MUST still AND it in yourself before calling the tool): Only perform a lookup when explicitly told to via a RESOLVABLE FIELDS section above -- a resolve key appearing in this raw JSON dump alone is not an instruction to look anything up.\n{\"filters\":[{\"id\":\"GroupCode\",\"sap_field\":\"GroupCode\",\"type\":\"integer\",\"operator\":[\"eq\",\"ne\",\"gt\",\"ge\",\"lt\",\"le\"],\"resolve\":{\"service\":\"BusinessPartnerGroups\",\"match_field\":\"Name\",\"match_type\":\"contains\",\"return_field\":\"Code\",\"default_filters\":[{\"sap_field\":\"Type\",\"operator\":\"eq\",\"value\":\"bbpgt_VendorGroup\"}]}}],\"select\":[\"A\"]}\n\nRULES:\n- Omit any parameter that is null, empty, or undefined.\n- Never pass null values to any parameter.\n- Use default select unless user explicitly requested specific fields.\n- Render results as a Markdown table using schema labels as column headers, UNLESS the user explicitly asked for JSON/raw format (see OUTPUT below) -- in that case render a fenced ```json code block instead.\n\nSuccess: {\"status\": \"success\", \"message\": \"<Markdown table in es>\", \"form_state\": null, \"processes\": null}\nNo records: {\"status\": \"success\", \"message\": \"<no records message in es>\", \"form_state\": null, \"processes\": null}\nError: {\"status\": \"error\", \"message\": \"<user-friendly Markdown in es>\", \"form_state\": null, \"processes\": null}"
+      }
+    },
+    {
+      "description": "GET_QUERY, resolve field fast-path miss -> the same integer-typed resolve field given a non-numeric (name-like) value is excluded from PRE-BUILT FILTERS and surfaced in a RESOLVABLE FIELDS block with its resolve metadata instead",
+      "input": {
+        "language": "es",
+        "sap_operation": "GET_QUERY",
+        "sap_service": "S",
+        "sap_connection": {},
+        "active_node_id": "n1#0",
+        "intention_nodes": {
+          "n1#0": {
+            "process_definition": {
+              "query": {
+                "filters": [
+                  {
+                    "id": "GroupCode",
+                    "sap_field": "GroupCode",
+                    "type": "integer",
+                    "operator": [
+                      "eq",
+                      "ne",
+                      "gt",
+                      "ge",
+                      "lt",
+                      "le"
+                    ],
+                    "resolve": {
+                      "service": "BusinessPartnerGroups",
+                      "match_field": "Name",
+                      "match_type": "contains",
+                      "return_field": "Code",
+                      "default_filters": [
+                        {
+                          "sap_field": "Type",
+                          "operator": "eq",
+                          "value": "bbpgt_VendorGroup"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "select": [
+                  "A"
+                ]
+              },
+              "schema_definition": {
+                "fields": [
+                  {
+                    "label": "Grupo",
+                    "sap_field": "GroupCode"
+                  }
+                ]
+              }
+            },
+            "form_state": {
+              "GroupCode": "no productivos"
+            }
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "chatInput": "Call sap_query_entity_set with these parameters.\n\nSERVICE: S\nCONNECTION: {}\nPRE-BUILT FILTERS (apply as-is, already valid OData v2 -- already includes this process's mandatory default_filters, ANDed in): none\nRESOLVABLE FIELDS (each value below may be a human-readable name instead of the actual SAP code -- for each field, first judge whether its given value already looks like a valid code/id for a field of that type. If so, build \"<sap_field> <operator> <value>\" yourself per the OData v2 FILTER SYNTAX RULES below and AND it into the final filter alongside PRE-BUILT FILTERS -- no lookup needed. If instead it looks like a human-readable name, first call sap_query_entity_set against the field's resolve.service, filtering resolve.match_field resolve.match_type <value> (ANDing in resolve.default_filters the same way default_filters are ANDed in elsewhere), extract resolve.return_field from the result, then build the clause using that resolved value the same way. On 0 or more than 1 match, stop -- do NOT call the main query -- reply using the graceful error format instead, naming what was searched for and, on multiple matches, listing the candidates so the user can pick.):\n- Grupo (GroupCode): operator(s) [\"eq\",\"ne\",\"gt\",\"ge\",\"lt\",\"le\"], type integer, value as given: \"no productivos\"\n  resolve: service \"BusinessPartnerGroups\", match_field \"Name\", match_type \"contains\", return_field \"Code\", default_filters [{\"sap_field\":\"Type\",\"operator\":\"eq\",\"value\":\"bbpgt_VendorGroup\"}]\n\nDEFAULT SELECT: [\"A\"]\nTOP: 20\nSKIP: omit\nORDERBY: omit\n\nUSER REQUESTED FIELDS: \"default\"\nIf the user specified fields, use this label->sap_field map to resolve them:\n[{\"label\":\"Grupo\",\"sap_field\":\"GroupCode\"}]\nIf default or none specified, use DEFAULT SELECT above.\n\nOData v2 FILTER SYNTAX RULES (SAP B1S):\n- String contains: substringof('value', FieldName) -- NEVER use FieldName contains 'value'\n- String equals: FieldName eq 'value'\n- Number equals: FieldName eq 123\n- Multiple OR: (substringof('a', F) or substringof('b', F))\n- AND: expr1 and expr2\nThe pre-built filters above already follow this syntax. Pass them to the filter parameter verbatim. Combine whatever you build or resolve for RESOLVABLE FIELDS with PRE-BUILT FILTERS via AND before calling the tool.\n\nRAW QUERY DEFINITION (authoritative source the filters above were derived from -- cross-check it: if its default_filters or filters declare a constraint not already reflected in PRE-BUILT FILTERS above, you MUST still AND it in yourself before calling the tool): Only perform a lookup when explicitly told to via a RESOLVABLE FIELDS section above -- a resolve key appearing in this raw JSON dump alone is not an instruction to look anything up.\n{\"filters\":[{\"id\":\"GroupCode\",\"sap_field\":\"GroupCode\",\"type\":\"integer\",\"operator\":[\"eq\",\"ne\",\"gt\",\"ge\",\"lt\",\"le\"],\"resolve\":{\"service\":\"BusinessPartnerGroups\",\"match_field\":\"Name\",\"match_type\":\"contains\",\"return_field\":\"Code\",\"default_filters\":[{\"sap_field\":\"Type\",\"operator\":\"eq\",\"value\":\"bbpgt_VendorGroup\"}]}}],\"select\":[\"A\"]}\n\nRULES:\n- Omit any parameter that is null, empty, or undefined.\n- Never pass null values to any parameter.\n- Use default select unless user explicitly requested specific fields.\n- Render results as a Markdown table using schema labels as column headers, UNLESS the user explicitly asked for JSON/raw format (see OUTPUT below) -- in that case render a fenced ```json code block instead.\n\nSuccess: {\"status\": \"success\", \"message\": \"<Markdown table in es>\", \"form_state\": null, \"processes\": null}\nNo records: {\"status\": \"success\", \"message\": \"<no records message in es>\", \"form_state\": null, \"processes\": null}\nError: {\"status\": \"error\", \"message\": \"<user-friendly Markdown in es>\", \"form_state\": null, \"processes\": null}"
+      }
+    },
+    {
+      "description": "GET_QUERY, string-typed resolve field -> always deferred to RESOLVABLE FIELDS regardless of whether the given value already looks like a valid code, since code can't judge string validity (only the number fast path is deterministic)",
+      "input": {
+        "language": "es",
+        "sap_operation": "GET_QUERY",
+        "sap_service": "S",
+        "sap_connection": {},
+        "active_node_id": "n1#0",
+        "intention_nodes": {
+          "n1#0": {
+            "process_definition": {
+              "query": {
+                "filters": [
+                  {
+                    "id": "CurrencyCode",
+                    "sap_field": "Currency",
+                    "type": "string",
+                    "operator": [
+                      "eq"
+                    ],
+                    "resolve": {
+                      "service": "PLACEHOLDER_CurrencyLookupService",
+                      "match_field": "PLACEHOLDER_CurrencyMatchField",
+                      "match_type": "contains",
+                      "return_field": "PLACEHOLDER_CurrencyReturnField",
+                      "default_filters": []
+                    }
+                  }
+                ],
+                "select": [
+                  "A"
+                ]
+              },
+              "schema_definition": {
+                "fields": []
+              }
+            },
+            "form_state": {
+              "CurrencyCode": "ARS"
+            }
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "chatInput": "Call sap_query_entity_set with these parameters.\n\nSERVICE: S\nCONNECTION: {}\nPRE-BUILT FILTERS (apply as-is, already valid OData v2 -- already includes this process's mandatory default_filters, ANDed in): none\nRESOLVABLE FIELDS (each value below may be a human-readable name instead of the actual SAP code -- for each field, first judge whether its given value already looks like a valid code/id for a field of that type. If so, build \"<sap_field> <operator> <value>\" yourself per the OData v2 FILTER SYNTAX RULES below and AND it into the final filter alongside PRE-BUILT FILTERS -- no lookup needed. If instead it looks like a human-readable name, first call sap_query_entity_set against the field's resolve.service, filtering resolve.match_field resolve.match_type <value> (ANDing in resolve.default_filters the same way default_filters are ANDed in elsewhere), extract resolve.return_field from the result, then build the clause using that resolved value the same way. On 0 or more than 1 match, stop -- do NOT call the main query -- reply using the graceful error format instead, naming what was searched for and, on multiple matches, listing the candidates so the user can pick.):\n- CurrencyCode (Currency): operator(s) [\"eq\"], type string, value as given: \"ARS\"\n  resolve: service \"PLACEHOLDER_CurrencyLookupService\", match_field \"PLACEHOLDER_CurrencyMatchField\", match_type \"contains\", return_field \"PLACEHOLDER_CurrencyReturnField\", default_filters []\n\nDEFAULT SELECT: [\"A\"]\nTOP: 20\nSKIP: omit\nORDERBY: omit\n\nUSER REQUESTED FIELDS: \"default\"\nIf the user specified fields, use this label->sap_field map to resolve them:\n[]\nIf default or none specified, use DEFAULT SELECT above.\n\nOData v2 FILTER SYNTAX RULES (SAP B1S):\n- String contains: substringof('value', FieldName) -- NEVER use FieldName contains 'value'\n- String equals: FieldName eq 'value'\n- Number equals: FieldName eq 123\n- Multiple OR: (substringof('a', F) or substringof('b', F))\n- AND: expr1 and expr2\nThe pre-built filters above already follow this syntax. Pass them to the filter parameter verbatim. Combine whatever you build or resolve for RESOLVABLE FIELDS with PRE-BUILT FILTERS via AND before calling the tool.\n\nRAW QUERY DEFINITION (authoritative source the filters above were derived from -- cross-check it: if its default_filters or filters declare a constraint not already reflected in PRE-BUILT FILTERS above, you MUST still AND it in yourself before calling the tool): Only perform a lookup when explicitly told to via a RESOLVABLE FIELDS section above -- a resolve key appearing in this raw JSON dump alone is not an instruction to look anything up.\n{\"filters\":[{\"id\":\"CurrencyCode\",\"sap_field\":\"Currency\",\"type\":\"string\",\"operator\":[\"eq\"],\"resolve\":{\"service\":\"PLACEHOLDER_CurrencyLookupService\",\"match_field\":\"PLACEHOLDER_CurrencyMatchField\",\"match_type\":\"contains\",\"return_field\":\"PLACEHOLDER_CurrencyReturnField\",\"default_filters\":[]}}],\"select\":[\"A\"]}\n\nRULES:\n- Omit any parameter that is null, empty, or undefined.\n- Never pass null values to any parameter.\n- Use default select unless user explicitly requested specific fields.\n- Render results as a Markdown table using schema labels as column headers, UNLESS the user explicitly asked for JSON/raw format (see OUTPUT below) -- in that case render a fenced ```json code block instead.\n\nSuccess: {\"status\": \"success\", \"message\": \"<Markdown table in es>\", \"form_state\": null, \"processes\": null}\nNo records: {\"status\": \"success\", \"message\": \"<no records message in es>\", \"form_state\": null, \"processes\": null}\nError: {\"status\": \"error\", \"message\": \"<user-friendly Markdown in es>\", \"form_state\": null, \"processes\": null}"
+      }
+    },
+    {
+      "description": "GET_QUERY, resolve field mixed with an ordinary filter and a default_filter -> only the resolvable field is deferred to RESOLVABLE FIELDS; the ordinary filter and default_filter still build into PRE-BUILT FILTERS exactly as today, ANDed together",
+      "input": {
+        "language": "es",
+        "sap_operation": "GET_QUERY",
+        "sap_service": "S",
+        "sap_connection": {},
+        "active_node_id": "n1#0",
+        "intention_nodes": {
+          "n1#0": {
+            "process_definition": {
+              "query": {
+                "default_filters": [
+                  {
+                    "sap_field": "CardType",
+                    "operator": "eq",
+                    "value": "cSupplier"
+                  }
+                ],
+                "filters": [
+                  {
+                    "id": "CardName",
+                    "sap_field": "CardName",
+                    "type": "string",
+                    "operator": [
+                      "contains"
+                    ]
+                  },
+                  {
+                    "id": "GroupCode",
+                    "sap_field": "GroupCode",
+                    "type": "integer",
+                    "operator": [
+                      "eq",
+                      "ne",
+                      "gt",
+                      "ge",
+                      "lt",
+                      "le"
+                    ],
+                    "resolve": {
+                      "service": "BusinessPartnerGroups",
+                      "match_field": "Name",
+                      "match_type": "contains",
+                      "return_field": "Code",
+                      "default_filters": [
+                        {
+                          "sap_field": "Type",
+                          "operator": "eq",
+                          "value": "bbpgt_VendorGroup"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "select": [
+                  "A"
+                ]
+              },
+              "schema_definition": {
+                "fields": []
+              }
+            },
+            "form_state": {
+              "CardName": "Acme",
+              "GroupCode": "no productivos"
+            }
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "chatInput": "Call sap_query_entity_set with these parameters.\n\nSERVICE: S\nCONNECTION: {}\nPRE-BUILT FILTERS (apply as-is, already valid OData v2 -- already includes this process's mandatory default_filters, ANDed in): CardType eq 'cSupplier' and substringof('Acme', CardName)\nRESOLVABLE FIELDS (each value below may be a human-readable name instead of the actual SAP code -- for each field, first judge whether its given value already looks like a valid code/id for a field of that type. If so, build \"<sap_field> <operator> <value>\" yourself per the OData v2 FILTER SYNTAX RULES below and AND it into the final filter alongside PRE-BUILT FILTERS -- no lookup needed. If instead it looks like a human-readable name, first call sap_query_entity_set against the field's resolve.service, filtering resolve.match_field resolve.match_type <value> (ANDing in resolve.default_filters the same way default_filters are ANDed in elsewhere), extract resolve.return_field from the result, then build the clause using that resolved value the same way. On 0 or more than 1 match, stop -- do NOT call the main query -- reply using the graceful error format instead, naming what was searched for and, on multiple matches, listing the candidates so the user can pick.):\n- GroupCode (GroupCode): operator(s) [\"eq\",\"ne\",\"gt\",\"ge\",\"lt\",\"le\"], type integer, value as given: \"no productivos\"\n  resolve: service \"BusinessPartnerGroups\", match_field \"Name\", match_type \"contains\", return_field \"Code\", default_filters [{\"sap_field\":\"Type\",\"operator\":\"eq\",\"value\":\"bbpgt_VendorGroup\"}]\n\nDEFAULT SELECT: [\"A\"]\nTOP: 20\nSKIP: omit\nORDERBY: omit\n\nUSER REQUESTED FIELDS: \"default\"\nIf the user specified fields, use this label->sap_field map to resolve them:\n[]\nIf default or none specified, use DEFAULT SELECT above.\n\nOData v2 FILTER SYNTAX RULES (SAP B1S):\n- String contains: substringof('value', FieldName) -- NEVER use FieldName contains 'value'\n- String equals: FieldName eq 'value'\n- Number equals: FieldName eq 123\n- Multiple OR: (substringof('a', F) or substringof('b', F))\n- AND: expr1 and expr2\nThe pre-built filters above already follow this syntax. Pass them to the filter parameter verbatim. Combine whatever you build or resolve for RESOLVABLE FIELDS with PRE-BUILT FILTERS via AND before calling the tool.\n\nRAW QUERY DEFINITION (authoritative source the filters above were derived from -- cross-check it: if its default_filters or filters declare a constraint not already reflected in PRE-BUILT FILTERS above, you MUST still AND it in yourself before calling the tool): Only perform a lookup when explicitly told to via a RESOLVABLE FIELDS section above -- a resolve key appearing in this raw JSON dump alone is not an instruction to look anything up.\n{\"default_filters\":[{\"sap_field\":\"CardType\",\"operator\":\"eq\",\"value\":\"cSupplier\"}],\"filters\":[{\"id\":\"CardName\",\"sap_field\":\"CardName\",\"type\":\"string\",\"operator\":[\"contains\"]},{\"id\":\"GroupCode\",\"sap_field\":\"GroupCode\",\"type\":\"integer\",\"operator\":[\"eq\",\"ne\",\"gt\",\"ge\",\"lt\",\"le\"],\"resolve\":{\"service\":\"BusinessPartnerGroups\",\"match_field\":\"Name\",\"match_type\":\"contains\",\"return_field\":\"Code\",\"default_filters\":[{\"sap_field\":\"Type\",\"operator\":\"eq\",\"value\":\"bbpgt_VendorGroup\"}]}}],\"select\":[\"A\"]}\n\nRULES:\n- Omit any parameter that is null, empty, or undefined.\n- Never pass null values to any parameter.\n- Use default select unless user explicitly requested specific fields.\n- Render results as a Markdown table using schema labels as column headers, UNLESS the user explicitly asked for JSON/raw format (see OUTPUT below) -- in that case render a fenced ```json code block instead.\n\nSuccess: {\"status\": \"success\", \"message\": \"<Markdown table in es>\", \"form_state\": null, \"processes\": null}\nNo records: {\"status\": \"success\", \"message\": \"<no records message in es>\", \"form_state\": null, \"processes\": null}\nError: {\"status\": \"error\", \"message\": \"<user-friendly Markdown in es>\", \"form_state\": null, \"processes\": null}"
+      }
+    },
+    {
+      "description": "GET_QUERY, resolve field declared but absent from form_state -> behaves exactly as today: the field is simply omitted, no RESOLVABLE FIELDS section appears (distinct from 'present but needs judgment')",
+      "input": {
+        "language": "es",
+        "sap_operation": "GET_QUERY",
+        "sap_service": "S",
+        "sap_connection": {},
+        "active_node_id": "n1#0",
+        "intention_nodes": {
+          "n1#0": {
+            "process_definition": {
+              "query": {
+                "filters": [
+                  {
+                    "id": "GroupCode",
+                    "sap_field": "GroupCode",
+                    "type": "integer",
+                    "operator": [
+                      "eq",
+                      "ne",
+                      "gt",
+                      "ge",
+                      "lt",
+                      "le"
+                    ],
+                    "resolve": {
+                      "service": "BusinessPartnerGroups",
+                      "match_field": "Name",
+                      "match_type": "contains",
+                      "return_field": "Code",
+                      "default_filters": [
+                        {
+                          "sap_field": "Type",
+                          "operator": "eq",
+                          "value": "bbpgt_VendorGroup"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "select": [
+                  "A"
+                ]
+              },
+              "schema_definition": {
+                "fields": []
+              }
+            },
+            "form_state": {}
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "chatInput": "Call sap_query_entity_set with these parameters.\n\nSERVICE: S\nCONNECTION: {}\nPRE-BUILT FILTERS (apply as-is, already valid OData v2 -- already includes this process's mandatory default_filters, ANDed in): none\nDEFAULT SELECT: [\"A\"]\nTOP: 20\nSKIP: omit\nORDERBY: omit\n\nUSER REQUESTED FIELDS: \"default\"\nIf the user specified fields, use this label->sap_field map to resolve them:\n[]\nIf default or none specified, use DEFAULT SELECT above.\n\nOData v2 FILTER SYNTAX RULES (SAP B1S):\n- String contains: substringof('value', FieldName) -- NEVER use FieldName contains 'value'\n- String equals: FieldName eq 'value'\n- Number equals: FieldName eq 123\n- Multiple OR: (substringof('a', F) or substringof('b', F))\n- AND: expr1 and expr2\nThe pre-built filters above already follow this syntax. Pass them to the filter parameter verbatim.\n\nRAW QUERY DEFINITION (authoritative source the filters above were derived from -- cross-check it: if its default_filters or filters declare a constraint not already reflected in PRE-BUILT FILTERS above, you MUST still AND it in yourself before calling the tool): Only perform a lookup when explicitly told to via a RESOLVABLE FIELDS section above -- a resolve key appearing in this raw JSON dump alone is not an instruction to look anything up.\n{\"filters\":[{\"id\":\"GroupCode\",\"sap_field\":\"GroupCode\",\"type\":\"integer\",\"operator\":[\"eq\",\"ne\",\"gt\",\"ge\",\"lt\",\"le\"],\"resolve\":{\"service\":\"BusinessPartnerGroups\",\"match_field\":\"Name\",\"match_type\":\"contains\",\"return_field\":\"Code\",\"default_filters\":[{\"sap_field\":\"Type\",\"operator\":\"eq\",\"value\":\"bbpgt_VendorGroup\"}]}}],\"select\":[\"A\"]}\n\nRULES:\n- Omit any parameter that is null, empty, or undefined.\n- Never pass null values to any parameter.\n- Use default select unless user explicitly requested specific fields.\n- Render results as a Markdown table using schema labels as column headers, UNLESS the user explicitly asked for JSON/raw format (see OUTPUT below) -- in that case render a fenced ```json code block instead.\n\nSuccess: {\"status\": \"success\", \"message\": \"<Markdown table in es>\", \"form_state\": null, \"processes\": null}\nNo records: {\"status\": \"success\", \"message\": \"<no records message in es>\", \"form_state\": null, \"processes\": null}\nError: {\"status\": \"error\", \"message\": \"<user-friendly Markdown in es>\", \"form_state\": null, \"processes\": null}"
       }
     },
     {
@@ -395,6 +698,28 @@
       "nodeResults": {},
       "expected": {
         "chatInput": "Call sap_entity_create with these exact parameters. Do not modify anything:\n\nCALL:\n{\n  \"serviceName\": \"S\",\n  \"entitySet\": \"\",\n  \"data\": {\"A\":1},\n  \"connection\": {}\n}\n\n## SUCCESS MESSAGE TEMPLATE\nOperation completed successfully.\n(No output_parsing spec available -- fill any {placeholder} in the template with the matching value from the SAP response body.)\n\n## FIELD REFERENCE (use only to interpret an error below -- sap_field is the exact name SAP's error text will reference)\n[]\n\nReturn ONLY one of these JSON objects (no markdown, no extra text):\nSuccess: {\"status\": \"success\", \"message\": \"<formatted success message in es>\", \"form_state\": null, \"processes\": null}\nError:   {\"status\": \"error\", \"message\": \"<in es: explain what went wrong using the actual SAP error text -- if, and only if, that error text clearly names one of the fields in FIELD REFERENCE (by its sap_field name or an unambiguous match), name it using that field's label and invite the user to provide or correct it using that field's own 'ask' question; otherwise relay the SAP error's essential meaning in plain language without guessing which field caused it>\", \"form_state\": null, \"processes\": null}"
+      }
+    },
+    {
+      "description": "CALL_FUNCTION -> builds the sap_call_function call spec straight from sap_call_config, ignoring intention_nodes/active_node_id (a one-off helper call, not tied to any registered process)",
+      "input": {
+        "language": "es",
+        "sap_operation": "CALL_FUNCTION",
+        "sap_connection": {},
+        "active_node_id": null,
+        "intention_nodes": {},
+        "sap_call_config": {
+          "service_name": "SQLQueries",
+          "function_name": "List",
+          "entity_key": "GetInvoiceQR",
+          "params": {
+            "DocEntry": 45501
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "chatInput": "Call sap_call_function with these exact parameters, unmodified:\n\nCALL:\n{\n  \"serviceName\": \"SQLQueries\",\n  \"functionName\": \"List\",\n  \"entityKey\": \"GetInvoiceQR\",\n  \"parameters\": {\"DocEntry\":45501},\n  \"connection\": {}\n}\n\nSuccess: {\"status\": \"success\", \"message\": \"Done.\", \"form_state\": null, \"processes\": null}\nError: {\"status\": \"error\", \"message\": \"<user-friendly Markdown in es>\", \"form_state\": null, \"processes\": null}"
       }
     }
   ]

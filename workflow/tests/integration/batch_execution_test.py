@@ -48,7 +48,7 @@ MOCKS_DIR = Path(__file__).parent.parent / 'mocks'
 ORBOT_WORKFLOW_ID = 'A4tWYpCiZA0EQgCE'
 CHAT_WEBHOOK_PATH = 'chat'
 SUMMARY_MARKERS = ('Ejecución por lotes completada', 'Batch execution completed')
-API_BASE = 'http://da-sapot-n8n-main:5678/api/v1'
+API_BASE = 'http://da-orb-n8n-main:5678/api/v1'
 
 
 def django_login():

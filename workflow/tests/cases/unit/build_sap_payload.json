@@ -377,6 +377,41 @@
           "token": "tok123"
         }
       }
+    },
+    {
+      "description": "CALL_FUNCTION operation is preserved verbatim from the caller (generate-document.json's Build QR Call Payload), never re-derived from a registered process_definition.api.method -- active_node_id is null here (no process this call is tied to), so the GET/POST branch below is correctly skipped entirely",
+      "input": {},
+      "nodeResults": {
+        "Status Text: Submitting": {
+          "organization": {
+            "integration": {
+              "auth_driver": "b1s",
+              "base_url": "https://sap.example.com"
+            }
+          },
+          "session": {
+            "user": {
+              "username": "u",
+              "password": "p"
+            },
+            "database": "TESTDB"
+          },
+          "active_node_id": null,
+          "intention_nodes": {},
+          "sap_operation": "CALL_FUNCTION"
+        }
+      },
+      "expected": {
+        "sap_operation": "CALL_FUNCTION",
+        "sap_service": "",
+        "sap_connection": {
+          "authDriver": "b1s",
+          "baseUrl": "https://sap.example.com",
+          "username": "u",
+          "password": "p",
+          "companyDB": "TESTDB"
+        }
+      }
     }
   ]
 }

@@ -12,3 +12,11 @@ class BaseViewSet(viewsets.ModelViewSet):  # pylint: disable=too-many-ancestors
 
 	permission_classes = [BasePermission]
 	serializer_class = BaseSerializer
+
+	def get_queryset(self):
+		"""Return the configured queryset, excluding soft-deleted rows when the model supports it."""
+		queryset = super().get_queryset()
+		field_names = {field.name for field in queryset.model._meta.get_fields()}
+		if "deleted_on" in field_names:
+			queryset = queryset.filter(deleted_on__isnull=True)
+		return queryset

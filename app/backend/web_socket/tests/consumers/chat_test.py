@@ -9,6 +9,7 @@ import pytest
 from allure import step
 from asgiref.sync import async_to_sync
 from django.db import IntegrityError
+from django.utils import timezone
 
 # App imports
 from drf_api.models import MChatMessage, MChatSession, MOrganization
@@ -75,26 +76,38 @@ def test_create_session_persists_connection_key():
 	"payload",
 	[
 		{
+			"deleted": False,
 			"description": "matching connection_key returns the session",
 			"found": True,
 			"lookup_connection_key": "TESTDB",
 			"row_connection_key": "TESTDB",
 		},
 		{
+			"deleted": False,
 			"description": "mismatched connection_key returns None",
 			"found": False,
 			"lookup_connection_key": "OTHERDB",
 			"row_connection_key": "TESTDB",
 		},
+		{
+			"deleted": True,
+			"description": "soft-deleted session returns None, matching connection_key otherwise",
+			"found": False,
+			"lookup_connection_key": "TESTDB",
+			"row_connection_key": "TESTDB",
+		},
 	],
 )
 def test_load_session_scoped_by_connection_key(payload):
-	"""Test _load_session only returns a row when the connection_key matches"""
+	"""Test _load_session only returns a row when the connection_key matches and it is not soft-deleted"""
 
 	with step(f"Arrange: {payload['description']}."):
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key=payload["row_connection_key"], org=org, username="bob"
+			connection_key=payload["row_connection_key"],
+			deleted_on=timezone.now() if payload["deleted"] else None,
+			org=org,
+			username="bob",
 		)
 
 	with step("Act: Call _load_session."):

@@ -2,32 +2,40 @@
   "name": "Orbot v14 - Schema Resolution",
   "nodes": [
     {
-      "parameters": {
-        "inputSource": "passthrough"
-      },
+      "id": "bed21298-2df7-4079-b98e-dc4700963f24",
+      "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
         752,
         6208
       ],
-      "id": "bed21298-2df7-4079-b98e-dc4700963f24",
-      "name": "Execute Workflow Trigger"
+      "parameters": {
+        "inputSource": "passthrough"
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// Computes the 3-tier lookup paths (database override -> org override -> standard) from\n// the caller's raw process path -- moved in here once Batch Processing became this\n// sub-workflow's 2nd real caller, duplicating the exact same derivation SAP: Process Form\n// Filling already did before calling this workflow.\nconst base = $json;\nconst ref = base.github_tag || 'main';\nconst orgSlug = base.organization?.slug || '';\nconst companyDB = base.session?.database || '';\nconst pathSegs = (base.path || '').split('/');\nconst filename = pathSegs[pathSegs.length - 1];\nconst module = base.module || pathSegs[pathSegs.length - 2] || '';\nconst pathPrefix = pathSegs[0] || '';\nreturn [{ json: {\n  ...base,\n  standard_path: base.path,\n  org_standard_path: `${pathPrefix}/${orgSlug}/standard/${module}/${filename}`,\n  database_path: `${pathPrefix}/${orgSlug}/${companyDB}/${module}/${filename}`,\n  github_ref: ref,\n  github_api_base: `https://api.github.com/repos/${base.github_owner}/${base.github_repo}/contents`,\n} }];"
-      },
+      "id": "98c78bc3-d84e-4180-86ba-9b8895082a0b",
+      "name": "Compute Schema Paths",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         944,
         6208
       ],
-      "id": "98c78bc3-d84e-4180-86ba-9b8895082a0b",
-      "name": "Compute Schema Paths"
+      "parameters": {
+        "jsCode": "// Computes the 3-tier lookup paths (database override -> org override -> standard) from\n// the caller's raw process path -- moved in here once Batch Processing became this\n// sub-workflow's 2nd real caller, duplicating the exact same derivation SAP: Process Form\n// Filling already did before calling this workflow.\nconst base = $json;\nconst ref = base.github_tag || 'main';\nconst orgSlug = base.organization?.slug || '';\nconst companyDB = base.session?.database || '';\nconst pathSegs = (base.path || '').split('/');\nconst filename = pathSegs[pathSegs.length - 1];\nconst module = base.module || pathSegs[pathSegs.length - 2] || '';\nconst pathPrefix = pathSegs[0] || '';\nreturn [{ json: {\n  ...base,\n  standard_path: base.path,\n  org_standard_path: `${pathPrefix}/${orgSlug}/standard/${module}/${filename}`,\n  database_path: `${pathPrefix}/${orgSlug}/${companyDB}/${module}/${filename}`,\n  github_ref: ref,\n  github_api_base: `https://api.github.com/repos/${base.github_owner}/${base.github_repo}/contents`,\n} }];"
+      }
     },
     {
+      "id": "e61a2fd1-66b3-469f-ac5b-1313af8b457c",
+      "name": "Fetch DB Override",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1152,
+        6208
+      ],
       "parameters": {
         "url": "={{ $json.github_api_base + '/' + $json.database_path + '?ref=' + $json.github_ref }}",
         "authentication": "genericCredentialType",
@@ -51,22 +59,22 @@
           }
         }
       },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1152,
-        6208
-      ],
-      "id": "e61a2fd1-66b3-469f-ac5b-1313af8b457c",
-      "name": "Fetch DB Override",
       "credentials": {
         "httpBearerAuth": {
-          "id": "aMreKFdog181uSUL",
+          "id": "bKIJZ2uvj0O40uyi",
           "name": "GitHub MCP"
         }
       }
     },
     {
+      "id": "5a498dfd-5aa8-47b4-8ac5-ba567d26555c",
+      "name": "Has DB Override?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1344,
+        6208
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -89,17 +97,17 @@
           "combinator": "and"
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        1344,
-        6208
-      ],
-      "id": "5a498dfd-5aa8-47b4-8ac5-ba567d26555c",
-      "name": "Has DB Override?"
+      }
     },
     {
+      "id": "17cfdac1-d7b1-48e2-8399-306009a8b157",
+      "name": "Fetch Org Override",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1616,
+        6336
+      ],
       "parameters": {
         "url": "={{ $('Compute Schema Paths').first().json.github_api_base + '/' + $('Compute Schema Paths').first().json.org_standard_path + '?ref=' + ($('Compute Schema Paths').first().json.github_ref || 'main') }}",
         "authentication": "genericCredentialType",
@@ -123,22 +131,22 @@
           }
         }
       },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1616,
-        6336
-      ],
-      "id": "17cfdac1-d7b1-48e2-8399-306009a8b157",
-      "name": "Fetch Org Override",
       "credentials": {
         "httpBearerAuth": {
-          "id": "aMreKFdog181uSUL",
+          "id": "bKIJZ2uvj0O40uyi",
           "name": "GitHub MCP"
         }
       }
     },
     {
+      "id": "2970c71d-4b5f-4a7b-b41c-79e4e218590b",
+      "name": "Has Org Override?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1840,
+        6336
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -161,17 +169,17 @@
           "combinator": "and"
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        1840,
-        6336
-      ],
-      "id": "2970c71d-4b5f-4a7b-b41c-79e4e218590b",
-      "name": "Has Org Override?"
+      }
     },
     {
+      "id": "d47dc2c4-ad20-4d9a-b1cd-63b823236310",
+      "name": "Fetch Standard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2064,
+        6416
+      ],
       "parameters": {
         "url": "={{ $('Compute Schema Paths').first().json.github_api_base + '/' + $('Compute Schema Paths').first().json.standard_path + '?ref=' + ($('Compute Schema Paths').first().json.github_ref || 'main') }}",
         "authentication": "genericCredentialType",
@@ -195,35 +203,35 @@
           }
         }
       },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2064,
-        6416
-      ],
-      "id": "d47dc2c4-ad20-4d9a-b1cd-63b823236310",
-      "name": "Fetch Standard",
       "credentials": {
         "httpBearerAuth": {
-          "id": "aMreKFdog181uSUL",
+          "id": "bKIJZ2uvj0O40uyi",
           "name": "GitHub MCP"
         }
       }
     },
     {
-      "parameters": {
-        "jsCode": "const fileData = $json;\nconst original = $('Compute Schema Paths').first().json;\nconst statusCode = fileData.statusCode;\nif (fileData.error || (statusCode && statusCode >= 400)) {\n  return [{ json: { process_definition: null, error: 'NOT_FOUND', error_message: 'No se encontró la definición del proceso.', schema_fetch_url: null } }];\n}\nconst rawContent = (fileData.body || fileData).content;\nlet processDefinition;\ntry {\n  const decoded = Buffer.from(rawContent.replace(/\\n/g, ''), 'base64').toString('utf-8');\n  processDefinition = JSON.parse(decoded);\n} catch (e) {\n  return [{ json: { process_definition: null, error: 'NOT_FOUND', error_message: 'Error al parsear la definición del proceso.', schema_fetch_url: null } }];\n}\nconst filePath = (fileData.body || fileData).path || '';\nconst fileDir = filePath ? filePath.substring(0, filePath.lastIndexOf('/')) : '';\nconst schemaSlug = processDefinition.schema || '';\nconst schemaFetchUrl = (fileDir && schemaSlug && original.github_api_base)\n  ? `${original.github_api_base}/${fileDir}/${schemaSlug}.json?ref=${original.github_ref || 'main'}`\n  : null;\nreturn [{ json: { process_definition: processDefinition, error: null, error_message: null, schema_fetch_url: schemaFetchUrl } }];"
-      },
+      "id": "60b5e803-693f-49a6-a3bb-1cf5f0f4de66",
+      "name": "Decode Process Definition",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         2320,
         6192
       ],
-      "id": "60b5e803-693f-49a6-a3bb-1cf5f0f4de66",
-      "name": "Decode Process Definition"
+      "parameters": {
+        "jsCode": "const fileData = $json;\nconst original = $('Compute Schema Paths').first().json;\nconst statusCode = fileData.statusCode;\nif (fileData.error || (statusCode && statusCode >= 400)) {\n  return [{ json: { process_definition: null, error: 'NOT_FOUND', error_message: 'No se encontr\u00f3 la definici\u00f3n del proceso.', schema_fetch_url: null } }];\n}\nconst rawContent = (fileData.body || fileData).content;\nlet processDefinition;\ntry {\n  const decoded = Buffer.from(rawContent.replace(/\\n/g, ''), 'base64').toString('utf-8');\n  processDefinition = JSON.parse(decoded);\n} catch (e) {\n  return [{ json: { process_definition: null, error: 'NOT_FOUND', error_message: 'Error al parsear la definici\u00f3n del proceso.', schema_fetch_url: null } }];\n}\nconst filePath = (fileData.body || fileData).path || '';\nconst fileDir = filePath ? filePath.substring(0, filePath.lastIndexOf('/')) : '';\nconst schemaSlug = processDefinition.schema || '';\nconst schemaFetchUrl = (fileDir && schemaSlug && original.github_api_base)\n  ? `${original.github_api_base}/${fileDir}/${schemaSlug}.json?ref=${original.github_ref || 'main'}`\n  : null;\nreturn [{ json: { process_definition: processDefinition, error: null, error_message: null, schema_fetch_url: schemaFetchUrl } }];"
+      }
     },
     {
+      "id": "fce3c2bf-c16e-4ac5-a22e-4b927809af14",
+      "name": "Fetch Schema",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2512,
+        6192
+      ],
       "parameters": {
         "url": "={{ $json.schema_fetch_url }}",
         "authentication": "genericCredentialType",
@@ -247,33 +255,25 @@
           }
         }
       },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2512,
-        6192
-      ],
-      "id": "fce3c2bf-c16e-4ac5-a22e-4b927809af14",
-      "name": "Fetch Schema",
       "credentials": {
         "httpBearerAuth": {
-          "id": "aMreKFdog181uSUL",
+          "id": "bKIJZ2uvj0O40uyi",
           "name": "GitHub MCP"
         }
       }
     },
     {
-      "parameters": {
-        "jsCode": "const fileData = $json;\nconst prevData = $('Decode Process Definition').first().json;\n// Always spread the original trigger input forward, same convention every agent\n// sub-workflow's own Recover State node already follows -- makes this sub-workflow's\n// output self-contained regardless of which of its (possibly multiple) callers invoked\n// it, instead of requiring the caller to guess which of its own ancestor nodes to merge\n// back with.\nconst original = $('Execute Workflow Trigger').first().json;\nif (!prevData.schema_fetch_url || fileData.error || (fileData.statusCode && fileData.statusCode >= 400)) {\n  return [{ json: { ...original, process_definition: prevData.process_definition, error: prevData.error, error_message: prevData.error_message } }];\n}\nconst rawContent = (fileData.body || fileData).content;\nlet schemaDefinition = null;\ntry {\n  const decoded = Buffer.from(rawContent.replace(/\\n/g, ''), 'base64').toString('utf-8');\n  schemaDefinition = JSON.parse(decoded);\n} catch (e) {\n  return [{ json: { ...original, process_definition: prevData.process_definition, error: prevData.error, error_message: prevData.error_message } }];\n}\nconst processDefinition = prevData.process_definition\n  ? { ...prevData.process_definition, schema_definition: schemaDefinition }\n  : prevData.process_definition;\nreturn [{ json: { ...original, process_definition: processDefinition, error: null, error_message: null } }];"
-      },
+      "id": "84a453a7-74a1-4782-ab6a-c2f4dc4d5a9f",
+      "name": "Decode & Set Schema",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         2720,
         6192
       ],
-      "id": "84a453a7-74a1-4782-ab6a-c2f4dc4d5a9f",
-      "name": "Decode & Set Schema"
+      "parameters": {
+        "jsCode": "const fileData = $json;\nconst prevData = $('Decode Process Definition').first().json;\n// Always spread the original trigger input forward, same convention every agent\n// sub-workflow's own Recover State node already follows -- makes this sub-workflow's\n// output self-contained regardless of which of its (possibly multiple) callers invoked\n// it, instead of requiring the caller to guess which of its own ancestor nodes to merge\n// back with.\nconst original = $('Execute Workflow Trigger').first().json;\nif (!prevData.schema_fetch_url || fileData.error || (fileData.statusCode && fileData.statusCode >= 400)) {\n  return [{ json: { ...original, process_definition: prevData.process_definition, error: prevData.error, error_message: prevData.error_message } }];\n}\nconst rawContent = (fileData.body || fileData).content;\nlet schemaDefinition = null;\ntry {\n  const decoded = Buffer.from(rawContent.replace(/\\n/g, ''), 'base64').toString('utf-8');\n  schemaDefinition = JSON.parse(decoded);\n} catch (e) {\n  return [{ json: { ...original, process_definition: prevData.process_definition, error: prevData.error, error_message: prevData.error_message } }];\n}\nconst processDefinition = prevData.process_definition\n  ? { ...prevData.process_definition, schema_definition: schemaDefinition }\n  : prevData.process_definition;\nreturn [{ json: { ...original, process_definition: processDefinition, error: null, error_message: null } }];"
+      }
     }
   ],
   "connections": {
@@ -392,7 +392,6 @@
     }
   },
   "settings": {
-    "executionOrder": "v1",
-    "binaryMode": "separate"
+    "executionOrder": "v1"
   }
 }

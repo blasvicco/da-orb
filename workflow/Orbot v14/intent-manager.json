@@ -2,19 +2,27 @@
   "name": "Orbot v14 - Intent Manager",
   "nodes": [
     {
-      "parameters": {
-        "inputSource": "passthrough"
-      },
+      "id": "3b3d71cd-66e2-474f-b34e-b342eeebdae3",
+      "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
         -240,
         -16
       ],
-      "id": "3b3d71cd-66e2-474f-b34e-b342eeebdae3",
-      "name": "Execute Workflow Trigger"
+      "parameters": {
+        "inputSource": "passthrough"
+      }
     },
     {
+      "id": "38273850-1e9a-4bd8-acd5-19e8fe1cfae5",
+      "name": "Already Delivered?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -16,
+        -16
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -38,17 +46,17 @@
           "combinator": "and"
         },
         "options": {}
-      },
+      }
+    },
+    {
+      "id": "ad9db0c9-1817-47c2-a6d9-6112fae97e0d",
+      "name": "Needs Park Before New?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -16,
-        -16
+        192,
+        192
       ],
-      "id": "38273850-1e9a-4bd8-acd5-19e8fe1cfae5",
-      "name": "Already Delivered?"
-    },
-    {
       "parameters": {
         "conditions": {
           "options": {
@@ -72,39 +80,31 @@
           "combinator": "and"
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        192,
-        192
-      ],
-      "id": "ad9db0c9-1817-47c2-a6d9-6112fae97e0d",
-      "name": "Needs Park Before New?"
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// Something is already active/completed and this is a genuinely new/different request --\n// this node now runs whenever there's an active_node_id at all (see Needs Park Before New?,\n// which used to gate on process_id -- that broke once a completed inquiry correctly nulls\n// process_id via reset_process, since the NEXT related side-query still needs active_node_id\n// as its parent). Only actually PAUSE a node that's still genuinely 'active' -- a node\n// already 'completed' just gets read for its id as the new node's parent, not relabeled\n// 'paused', which would misrepresent an already-answered inquiry as still waiting to be\n// resumed. No form_state snapshot needed here -- intention_nodes[id] is the only copy that\n// ever existed (kept current every turn by Compute Form Outcome/Compute Execution Outcome),\n// not a mirror of a root-level working copy.\nconst base = $json;\nconst nodes = base.intention_nodes || {};\nconst activeNode = nodes[base.active_node_id];\nconst shouldPause = Boolean(activeNode) && activeNode.status === 'active';\nconst intentionNodes = shouldPause\n  ? { ...nodes, [base.active_node_id]: { ...activeNode, status: 'paused' } }\n  : nodes;\n\n// The new intent's parent is the nearest still-open ancestor of whatever was active --\n// walking past any node already terminal (completed or abandoned) in that chain, not just\n// active_node_id itself. Without this, every side-query that finishes becomes the next\n// one's parent (List Vendors -> List Items -> Get Item -> List Items, nesting one level\n// deeper each time) instead of all fanning out as siblings under the paused node they\n// actually interrupted. Same TERMINAL_STATUSES/walk shape as Compute Execution Outcome\n// (sap-inquiry-execution.json), Compute Form Outcome (sap-process-form-filling.json),\n// Classify & Store Error (error-parser.json), and Resolve Final State\n// (batch-processing.json) -- keep all five in sync if this ever changes.\nconst TERMINAL_STATUSES = new Set(['completed', 'abandoned']);\nconst findOpenAncestor = (nodeId) => {\n  let current = nodeId;\n  while (current) {\n    const node = nodes[current];\n    if (!node) return null;\n    if (!TERMINAL_STATUSES.has(node.status)) return current;\n    current = node.parent_id;\n  }\n  return null;\n};\n\nreturn [{ json: {\n  ...base,\n  active_node_id: null,\n  // One-shot signal for Context Update's Initialize Process: the new node's parent, so the\n  // graph nests instead of flattening every interruption into a sibling root. null when\n  // nothing was active to park, or when the whole ancestor chain was already completed.\n  new_process_parent_id: findOpenAncestor(base.active_node_id),\n  intention_nodes: intentionNodes,\n} }];"
-      },
+      "id": "42133b10-167c-4476-b56f-3b629ab7f4ab",
+      "name": "Park Current Intent",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         432,
         48
       ],
-      "id": "42133b10-167c-4476-b56f-3b629ab7f4ab",
-      "name": "Park Current Intent"
+      "parameters": {
+        "jsCode": "// Something is already active/completed and this is a genuinely new/different request --\n// this node now runs whenever there's an active_node_id at all (see Needs Park Before New?,\n// which used to gate on process_id -- that broke once a completed inquiry correctly nulls\n// process_id via reset_process, since the NEXT related side-query still needs active_node_id\n// as its parent). Only actually PAUSE a node that's still genuinely 'active' -- a node\n// already 'completed' just gets read for its id as the new node's parent, not relabeled\n// 'paused', which would misrepresent an already-answered inquiry as still waiting to be\n// resumed. No form_state snapshot needed here -- intention_nodes[id] is the only copy that\n// ever existed (kept current every turn by Compute Form Outcome/Compute Execution Outcome),\n// not a mirror of a root-level working copy.\nconst base = $json;\nconst nodes = base.intention_nodes || {};\nconst activeNode = nodes[base.active_node_id];\nconst shouldPause = Boolean(activeNode) && activeNode.status === 'active';\nconst intentionNodes = shouldPause\n  ? { ...nodes, [base.active_node_id]: { ...activeNode, status: 'paused' } }\n  : nodes;\n\n// The new intent's parent is the nearest still-open ancestor of whatever was active --\n// walking past any node already terminal (completed or abandoned) in that chain, not just\n// active_node_id itself. Without this, every side-query that finishes becomes the next\n// one's parent (List Vendors -> List Items -> Get Item -> List Items, nesting one level\n// deeper each time) instead of all fanning out as siblings under the paused node they\n// actually interrupted. Same TERMINAL_STATUSES/walk shape as Compute Execution Outcome\n// (sap-inquiry-execution.json), Compute Form Outcome (sap-process-form-filling.json),\n// Classify & Store Error (error-parser.json), and Resolve Final State\n// (batch-processing.json) -- keep all five in sync if this ever changes.\nconst TERMINAL_STATUSES = new Set(['completed', 'abandoned']);\nconst findOpenAncestor = (nodeId) => {\n  let current = nodeId;\n  while (current) {\n    const node = nodes[current];\n    if (!node) return null;\n    if (!TERMINAL_STATUSES.has(node.status)) return current;\n    current = node.parent_id;\n  }\n  return null;\n};\n\nreturn [{ json: {\n  ...base,\n  active_node_id: null,\n  // One-shot signal for Context Update's Initialize Process: the new node's parent, so the\n  // graph nests instead of flattening every interruption into a sibling root. null when\n  // nothing was active to park, or when the whole ancestor chain was already completed.\n  new_process_parent_id: findOpenAncestor(base.active_node_id),\n  intention_nodes: intentionNodes,\n} }];"
+      }
     },
     {
-      "parameters": {},
+      "id": "1ea16af2-2dc3-46a0-b909-fac9d1061674",
+      "name": "Return Intent Manager Result",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
         1104,
         -32
       ],
-      "id": "1ea16af2-2dc3-46a0-b909-fac9d1061674",
-      "name": "Return Intent Manager Result"
+      "parameters": {}
     }
   ],
   "connections": {
@@ -168,7 +168,6 @@
     }
   },
   "settings": {
-    "executionOrder": "v1",
-    "binaryMode": "separate"
+    "executionOrder": "v1"
   }
 }

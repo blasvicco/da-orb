@@ -3,59 +3,205 @@
   "cases": [
     {
       "description": "general_inquiry -> general_inquiry",
-      "input": { "_parsed": { "status": "general_inquiry" } },
+      "input": {
+        "_parsed": {
+          "status": "general_inquiry"
+        }
+      },
       "nodeResults": {},
-      "expected": { "route_key": "general_inquiry", "_needs_error_parse": false }
+      "expected": {
+        "route_key": "general_inquiry",
+        "_needs_error_parse": false
+      }
     },
     {
       "description": "new_intent/match on a clean slate (no active process_id) -> sap_form_filling, the single-entry processes list spread onto the result",
-      "input": { "_parsed": { "status": "new_intent", "new_intent_status": "match", "processes": [{ "path": "purchase/purch_request.json", "process_name": "Purchase Request" }] } },
+      "input": {
+        "_parsed": {
+          "status": "new_intent",
+          "new_intent_status": "match",
+          "processes": [
+            {
+              "path": "purchase/purch_request.json",
+              "process_name": "Purchase Request"
+            }
+          ]
+        }
+      },
       "nodeResults": {},
-      "expected": { "route_key": "sap_form_filling", "processes": [{ "path": "purchase/purch_request.json", "process_name": "Purchase Request" }], "_needs_error_parse": false }
+      "expected": {
+        "route_key": "sap_form_filling",
+        "processes": [
+          {
+            "path": "purchase/purch_request.json",
+            "process_name": "Purchase Request"
+          }
+        ],
+        "_needs_error_parse": false
+      }
     },
     {
       "description": "new_intent/match while a process is already active -> still sap_form_filling directly; parking an active process before a new one starts is Intent Manager's unconditional pre-Router job now, not this node's concern",
-      "input": { "_parsed": { "status": "new_intent", "new_intent_status": "match", "processes": [{ "path": "purchase/purch_request.json", "process_name": "Purchase Request" }] }, "process_id": "other_process" },
+      "input": {
+        "_parsed": {
+          "status": "new_intent",
+          "new_intent_status": "match",
+          "processes": [
+            {
+              "path": "purchase/purch_request.json",
+              "process_name": "Purchase Request"
+            }
+          ]
+        },
+        "process_id": "other_process"
+      },
       "nodeResults": {},
-      "expected": { "route_key": "sap_form_filling", "_needs_error_parse": false }
+      "expected": {
+        "route_key": "sap_form_filling",
+        "_needs_error_parse": false
+      }
     },
     {
       "description": "REGRESSION: new_intent/match while a process is already active with real in-progress form_state -> the active process's form_state survives untouched, even though Agent: Find's own new_intent output contract includes a literal form_state: null -- Intent Manager (running right after this file) needs the real value intact to snapshot into the paused node when it parks it; a live test caught this actually wiping a user's in-progress purchase request the moment they asked an unrelated question",
       "input": {
-        "_parsed": { "status": "new_intent", "new_intent_status": "match", "message": null, "form_state": null, "processes": [{ "path": "inventory/item_group_list.json", "process_name": "List Item Groups" }] },
+        "_parsed": {
+          "status": "new_intent",
+          "new_intent_status": "match",
+          "message": null,
+          "form_state": null,
+          "processes": [
+            {
+              "path": "inventory/item_group_list.json",
+              "process_name": "List Item Groups"
+            }
+          ]
+        },
         "process_id": "purchase_request",
-        "form_state": { "DocDate": "2026-08-12", "items": [{ "ItemCode": "NP-0047", "Quantity": 1 }], "ready": false }
+        "form_state": {
+          "DocDate": "2026-08-12",
+          "items": [
+            {
+              "ItemCode": "NP-0047",
+              "Quantity": 1
+            }
+          ],
+          "ready": false
+        }
       },
       "nodeResults": {},
-      "expected": { "route_key": "sap_form_filling", "form_state": { "DocDate": "2026-08-12", "items": [{ "ItemCode": "NP-0047", "Quantity": 1 }], "ready": false } }
+      "expected": {
+        "route_key": "sap_form_filling",
+        "form_state": {
+          "DocDate": "2026-08-12",
+          "items": [
+            {
+              "ItemCode": "NP-0047",
+              "Quantity": 1
+            }
+          ],
+          "ready": false
+        }
+      }
     },
     {
       "description": "REGRESSION: new_intent/match with a real user message -> the real message survives untouched, even though Agent: Find's own new_intent/match output contract includes a literal message: null -- a live test traced this to the exact cause of every downstream node (Agent: Form's chatInput, in particular) seeing the user's message as null on a fresh match/batch classification",
       "input": {
-        "_parsed": { "status": "new_intent", "new_intent_status": "match", "message": null, "processes": [{ "path": "inventory/item_group_list.json", "process_name": "List Item Groups" }] },
+        "_parsed": {
+          "status": "new_intent",
+          "new_intent_status": "match",
+          "message": null,
+          "processes": [
+            {
+              "path": "inventory/item_group_list.json",
+              "process_name": "List Item Groups"
+            }
+          ]
+        },
         "message": "Podes listarme los provedorees que esten asociados al grupo codigo 100"
       },
       "nodeResults": {},
-      "expected": { "route_key": "sap_form_filling", "message": "Podes listarme los provedorees que esten asociados al grupo codigo 100" }
+      "expected": {
+        "route_key": "sap_form_filling",
+        "message": "Podes listarme los provedorees que esten asociados al grupo codigo 100"
+      }
+    },
+    {
+      "description": "new_intent/discover on a clean slate -> route_key sap_discovery, processes stays null (unlike match/batch, discover never carries a processes list -- nothing in the catalog matched)",
+      "input": {
+        "_parsed": {
+          "status": "new_intent",
+          "new_intent_status": "discover",
+          "message": null,
+          "processes": null
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "route_key": "sap_discovery",
+        "processes": null,
+        "_needs_error_parse": false
+      }
+    },
+    {
+      "description": "REGRESSION: new_intent/discover with a real user message -> the real message survives untouched, same fix as new_intent/match's own message-survival regression (case 4 above) -- discover's own output contract also carries a literal message: null",
+      "input": {
+        "_parsed": {
+          "status": "new_intent",
+          "new_intent_status": "discover",
+          "message": null,
+          "processes": null
+        },
+        "message": "Que proveedores nos proveen articulos del grupo Cables?"
+      },
+      "nodeResults": {},
+      "expected": {
+        "route_key": "sap_discovery",
+        "message": "Que proveedores nos proveen articulos del grupo Cables?"
+      }
     },
     {
       "description": "pending_reply against a genuinely active node -> sap_form_filling (pending_kind removed entirely 2026-08-13 -- status: pending_reply only ever meant form_fill once selection/batch_confirm/stack_resume were removed, so this no longer branches on pending_kind at all)",
       "input": {
-        "_parsed": { "status": "pending_reply" },
+        "_parsed": {
+          "status": "pending_reply"
+        },
         "active_node_id": "purchase_request#0",
-        "intention_nodes": { "purchase_request#0": { "id": "purchase_request#0", "status": "active", "parent_id": null } }
+        "intention_nodes": {
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "status": "active",
+            "parent_id": null
+          }
+        }
       },
       "nodeResults": {},
-      "expected": { "route_key": "sap_form_filling", "active_node_id": "purchase_request#0", "_needs_error_parse": false }
+      "expected": {
+        "route_key": "sap_form_filling",
+        "active_node_id": "purchase_request#0",
+        "_needs_error_parse": false
+      }
     },
     {
       "description": "REGRESSION: pending_reply against a node that's already completed (a stale/misclassified continuation -- Agent: Find is an LLM, not a guaranteed-correct state read) -> does NOT route to sap_form_filling; this is the actual fix for the crash a stale active_node_id used to cause deep inside SAP execution (Build Execution Prompt, GET_QUERY on a process_definition pruned to just {name}) -- caught here instead, at the decision to route at all. Resumes active_node_id to the nearest open ancestor and reactivates it.",
       "input": {
-        "_parsed": { "status": "pending_reply" },
+        "_parsed": {
+          "status": "pending_reply"
+        },
         "active_node_id": "list_items#1",
         "intention_nodes": {
-          "purchase_request#0": { "id": "purchase_request#0", "status": "paused", "parent_id": null },
-          "list_items#1": { "id": "list_items#1", "status": "completed", "parent_id": "purchase_request#0", "process_definition": { "name": "List Items" } }
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "status": "paused",
+            "parent_id": null
+          },
+          "list_items#1": {
+            "id": "list_items#1",
+            "status": "completed",
+            "parent_id": "purchase_request#0",
+            "process_definition": {
+              "name": "List Items"
+            }
+          }
         }
       },
       "nodeResults": {},
@@ -66,46 +212,133 @@
         "_needs_error_parse": true,
         "error": "NOT_FOUND",
         "intention_nodes": {
-          "purchase_request#0": { "id": "purchase_request#0", "status": "active", "parent_id": null },
-          "list_items#1": { "id": "list_items#1", "status": "completed", "parent_id": "purchase_request#0", "process_definition": { "name": "List Items" } }
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "status": "active",
+            "parent_id": null
+          },
+          "list_items#1": {
+            "id": "list_items#1",
+            "status": "completed",
+            "parent_id": "purchase_request#0",
+            "process_definition": {
+              "name": "List Items"
+            }
+          }
         }
       }
     },
     {
       "description": "pending_reply with no active_node_id/intention_nodes at all -> not a valid continuation target, resumes to null, no crash",
-      "input": { "_parsed": { "status": "pending_reply" } },
+      "input": {
+        "_parsed": {
+          "status": "pending_reply"
+        }
+      },
       "nodeResults": {},
-      "expected": { "route_key": null, "active_node_id": null, "reset_process": true, "_needs_error_parse": true, "error": "NOT_FOUND" }
+      "expected": {
+        "route_key": null,
+        "active_node_id": null,
+        "reset_process": true,
+        "_needs_error_parse": true,
+        "error": "NOT_FOUND"
+      }
     },
     {
       "description": "new_intent/batch on a clean slate -> batch_processing, the multi-entry processes list spread onto the result",
-      "input": { "_parsed": { "status": "new_intent", "new_intent_status": "batch", "processes": [{ "path": "purchase/purch_request.json", "process_name": "Purchase Request" }, { "path": "warehouse/goods_receipt.json", "process_name": "Goods Receipt" }] } },
+      "input": {
+        "_parsed": {
+          "status": "new_intent",
+          "new_intent_status": "batch",
+          "processes": [
+            {
+              "path": "purchase/purch_request.json",
+              "process_name": "Purchase Request"
+            },
+            {
+              "path": "warehouse/goods_receipt.json",
+              "process_name": "Goods Receipt"
+            }
+          ]
+        }
+      },
       "nodeResults": {},
-      "expected": { "route_key": "batch_processing", "processes": [{ "path": "purchase/purch_request.json", "process_name": "Purchase Request" }, { "path": "warehouse/goods_receipt.json", "process_name": "Goods Receipt" }], "_needs_error_parse": false }
+      "expected": {
+        "route_key": "batch_processing",
+        "processes": [
+          {
+            "path": "purchase/purch_request.json",
+            "process_name": "Purchase Request"
+          },
+          {
+            "path": "warehouse/goods_receipt.json",
+            "process_name": "Goods Receipt"
+          }
+        ],
+        "_needs_error_parse": false
+      }
     },
     {
       "description": "new_intent/batch while a process is already active -> still batch_processing directly, same reasoning as the match case above",
-      "input": { "_parsed": { "status": "new_intent", "new_intent_status": "batch" }, "process_id": "other_process" },
+      "input": {
+        "_parsed": {
+          "status": "new_intent",
+          "new_intent_status": "batch"
+        },
+        "process_id": "other_process"
+      },
       "nodeResults": {},
-      "expected": { "route_key": "batch_processing", "_needs_error_parse": false }
+      "expected": {
+        "route_key": "batch_processing",
+        "_needs_error_parse": false
+      }
     },
     {
       "description": "new_intent/no_match -> classified for delivery within this same file (route_key stays null; Intent Manager is never involved), with the agent's own composed message",
-      "input": { "_parsed": { "status": "new_intent", "new_intent_status": "no_match", "message": "No logré entender tu mensaje" } },
+      "input": {
+        "_parsed": {
+          "status": "new_intent",
+          "new_intent_status": "no_match",
+          "message": "No logré entender tu mensaje"
+        }
+      },
       "nodeResults": {},
-      "expected": { "route_key": null, "_needs_error_parse": true, "error": "NO_MATCH", "error_message": "No logré entender tu mensaje" }
+      "expected": {
+        "route_key": null,
+        "_needs_error_parse": true,
+        "error": "NO_MATCH",
+        "error_message": "No logré entender tu mensaje"
+      }
     },
     {
       "description": "new_intent/error -> classified for delivery within this same file, route_key stays null",
-      "input": { "_parsed": { "status": "new_intent", "new_intent_status": "error", "message": "algo salió mal" } },
+      "input": {
+        "_parsed": {
+          "status": "new_intent",
+          "new_intent_status": "error",
+          "message": "algo salió mal"
+        }
+      },
       "nodeResults": {},
-      "expected": { "route_key": null, "_needs_error_parse": true, "error": "AGENT_ERROR", "error_message": "algo salió mal" }
+      "expected": {
+        "route_key": null,
+        "_needs_error_parse": true,
+        "error": "AGENT_ERROR",
+        "error_message": "algo salió mal"
+      }
     },
     {
       "description": "unparseable agent output (_parse_error true) -> flagged as a PARSE_ERROR rather than silently routing nowhere, route_key stays null",
-      "input": { "_parsed": null, "_parse_error": true },
+      "input": {
+        "_parsed": null,
+        "_parse_error": true
+      },
       "nodeResults": {},
-      "expected": { "route_key": null, "_needs_error_parse": true, "error": "PARSE_ERROR" }
+      "expected": {
+        "route_key": null,
+        "_needs_error_parse": true,
+        "error": "PARSE_ERROR"
+      }
     }
   ]
 }

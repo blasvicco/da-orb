@@ -20,7 +20,7 @@ ssh -p $PORT $REMOTE \
 
 echo "=== Integration Tests: $WORKFLOW ==="
 ssh -p $PORT $REMOTE \
-  "/usr/local/bin/docker exec da-sapot-backend \
+  "/usr/local/bin/docker exec da-orb-backend \
      python3 /home/workflow/tests/integration/runner.py '/home/workflow/${WORKFLOW#workflow/}'"
 
 echo "=== Done ==="

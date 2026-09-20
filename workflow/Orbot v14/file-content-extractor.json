@@ -2,6 +2,14 @@
   "name": "Orbot v14 - File Content Extractor",
   "nodes": [
     {
+      "id": "9e9107e2-273b-4ad7-9fc7-ea82eff8aec2",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -400,
+        128
+      ],
       "parameters": {
         "workflowInputs": {
           "values": [
@@ -16,17 +24,17 @@
             }
           ]
         }
-      },
-      "type": "n8n-nodes-base.executeWorkflowTrigger",
-      "typeVersion": 1.1,
-      "position": [
-        -400,
-        128
-      ],
-      "id": "9e9107e2-273b-4ad7-9fc7-ea82eff8aec2",
-      "name": "When Executed by Another Workflow"
+      }
     },
     {
+      "id": "d5fa8de2-e826-4fd3-8031-5d626731f878",
+      "name": "Check Cache",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -208,
+        128
+      ],
       "parameters": {
         "url": "=http://blas.local/api/v1/bucket/extraction/",
         "sendQuery": true,
@@ -59,17 +67,17 @@
             }
           }
         }
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        -208,
-        128
-      ],
-      "id": "d5fa8de2-e826-4fd3-8031-5d626731f878",
-      "name": "Check Cache"
+      }
     },
     {
+      "id": "cf91b671-e262-4606-ac5d-24b58bee3c55",
+      "name": "Has Cached Content?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -16,
+        128
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -93,21 +101,21 @@
           "combinator": "and"
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        -16,
-        128
-      ],
-      "id": "cf91b671-e262-4606-ac5d-24b58bee3c55",
-      "name": "Has Cached Content?"
+      }
     },
     {
+      "id": "86f1b190-096f-4d2a-990a-c5859e09149d",
+      "name": "Execute Workflow: File Extraction Item",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        224,
+        256
+      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "pB4pFxtKgTBtziGw",
+          "value": "fp3eHbRLXoyZ3DsI",
           "mode": "id"
         },
         "workflowInputs": {
@@ -154,50 +162,42 @@
           "convertFieldsToString": false
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        224,
-        256
-      ],
-      "id": "86f1b190-096f-4d2a-990a-c5859e09149d",
-      "name": "Execute Workflow: File Extraction Item"
+      }
     },
     {
-      "parameters": {},
+      "id": "477edc5e-adc3-4151-9687-8fd01f1610ea",
+      "name": "Return Extraction Result",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
         848,
         128
       ],
-      "id": "477edc5e-adc3-4151-9687-8fd01f1610ea",
-      "name": "Return Extraction Result"
+      "parameters": {}
     },
     {
-      "parameters": {},
+      "id": "4d81a54c-9119-44cf-ac6e-f01164b97780",
+      "name": "Merge Cache Outcomes",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
       "position": [
         448,
         128
       ],
-      "id": "4d81a54c-9119-44cf-ac6e-f01164b97780",
-      "name": "Merge Cache Outcomes"
+      "parameters": {}
     },
     {
-      "parameters": {
-        "jsCode": "// The cache-miss path already has a correct bucket_file_id (it crossed the\n// Execute Workflow: File Extraction Item sub-workflow boundary and came back\n// self-tagged by that child's own Attach Bucket File ID) -- keep it as-is. Do NOT\n// blindly overwrite via itemMatching() here: pairedItem lineage is not reliable\n// across an Execute Workflow node boundary, and re-deriving it that way previously\n// mis-tagged every item with the same (wrong) id, silently dropping other files.\n// Only the cache-hit path (Check Cache's raw response, straight IF-branch, no\n// sub-workflow crossed) genuinely lacks the field, so itemMatching() is safe there.\nreturn $input.all().map((item, i) => ({\n  json: {\n    ...item.json,\n    bucket_file_id: item.json.bucket_file_id ?? $('When Executed by Another Workflow').itemMatching(i).json.bucket_file_id,\n  },\n}));"
-      },
+      "id": "4e7e931c-84c1-4de3-91b6-4e1951e08958",
+      "name": "Ensure Bucket File ID",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         640,
         128
       ],
-      "id": "4e7e931c-84c1-4de3-91b6-4e1951e08958",
-      "name": "Ensure Bucket File ID"
+      "parameters": {
+        "jsCode": "// The cache-miss path already has a correct bucket_file_id (it crossed the\n// Execute Workflow: File Extraction Item sub-workflow boundary and came back\n// self-tagged by that child's own Attach Bucket File ID) -- keep it as-is. Do NOT\n// blindly overwrite via itemMatching() here: pairedItem lineage is not reliable\n// across an Execute Workflow node boundary, and re-deriving it that way previously\n// mis-tagged every item with the same (wrong) id, silently dropping other files.\n// Only the cache-hit path (Check Cache's raw response, straight IF-branch, no\n// sub-workflow crossed) genuinely lacks the field, so itemMatching() is safe there.\nreturn $input.all().map((item, i) => ({\n  json: {\n    ...item.json,\n    bucket_file_id: item.json.bucket_file_id ?? $('When Executed by Another Workflow').itemMatching(i).json.bucket_file_id,\n  },\n}));"
+      }
     }
   ],
   "connections": {
@@ -276,7 +276,6 @@
     }
   },
   "settings": {
-    "executionOrder": "v1",
-    "binaryMode": "separate"
+    "executionOrder": "v1"
   }
 }

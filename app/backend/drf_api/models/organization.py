@@ -36,6 +36,10 @@ class MOrganization(MBase):
 	"""Organization model"""
 
 	integration = EncryptedJSONField(default=dict)
+	# Org-wide facts a document template's letterhead needs but SAP doesn't reliably expose
+	# (e.g. a website -- no OADM column at all -- or a company name SAP's own test-environment
+	# instance prefixes/suffixes unusably for print). Not a secret, unlike integration.
+	company_info = models.JSONField(blank=True, default=dict)
 	name = models.CharField(
 		blank=False,
 		db_index=True,

@@ -37,7 +37,7 @@ USERNAME = 'Evicco'
 PASSWORD = 'Az21'
 SPINE_WORKFLOW_ID = 'gl7Ax8b77WhVUTmw'
 CHAT_WEBHOOK_PATH = 'chat'
-API_BASE = 'http://da-sapot-n8n-main:5678/api/v1'
+API_BASE = 'http://da-orb-n8n-main:5678/api/v1'
 
 
 def django_login():

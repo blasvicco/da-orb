@@ -4,14 +4,14 @@ services:
       context: .
       dockerfile: ./hub/python/Dockerfile.local
     command: 'tail -f /dev/null'
-    container_name: da-sapot-backend
+    container_name: da-orb-backend
     depends_on:
       - redis
     env_file:
       - ./app/.env.common.dev
       - ./app/backend/.env.dev
     networks:
-      da_sapot_net:
+      da_orb_net:
         aliases:
           - blas.local
     ports:
@@ -26,7 +26,7 @@ services:
       context: .
       dockerfile: ./hub/node/Dockerfile.local
     command: 'tail -f /dev/null'
-    container_name: da-sapot-frontend
+    container_name: da-orb-frontend
     env_file:
       - ./app/.env.common.dev
       - ./app/frontend/.env.dev
@@ -40,54 +40,72 @@ services:
       context: .
       dockerfile: ./hub/github-mcp/Dockerfile
     command: [ "http", "--port", "3000" ]
-    container_name: da-sapot-github-mcp
+    container_name: da-orb-github-mcp
     env_file:
       - ./app/backend/.env.dev
     ports:
       - "3000:3000"
     networks:
-      da_sapot_net:
+      da_orb_net:
         aliases:
           - mcp.blas.local
 
-  minio:
-    container_name: da-sapot-minio
-    command: [ "server", "/data", "--console-address", ":9001" ]
+  seaweedfs:
+    container_name: da-orb-seaweedfs
+    command:
+      - server
+      - -dir=/data
+      - -s3
+      - -s3.config=/etc/seaweedfs/s3_config.json
     env_file:
       - ./app/backend/.env.dev
-    image: minio/minio:latest
+    healthcheck:
+      # No -f: any completed HTTP response (even the 403 an unauthenticated
+      # probe gets back from the auth-enabled gateway) means the S3 API is up.
+      test: [ "CMD", "curl", "-s", "-o", "/dev/null", "http://localhost:8333/" ]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    image: chrislusf/seaweedfs:latest
     networks:
-      da_sapot_net:
+      da_orb_net:
         aliases:
-          - minio.blas.local
+          - seaweedfs.blas.local
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "8333:8333"
+      - "9333:9333"
+      - "8888:8888"
     volumes:
-      - da_minio_data:/data
+      - da_seaweedfs_data:/data
+      - ./hub/seaweedfs/s3_config.json:/etc/seaweedfs/s3_config.json:ro
 
-  minio-init:
-    container_name: da-sapot-minio-init
+  seaweedfs-init:
+    container_name: da-orb-seaweedfs-init
+    # weed shell hangs indefinitely instead of failing fast against a master
+    # that isn't listening yet, so unlike the old mc-based init this can't
+    # retry-until-ready itself — it relies on seaweedfs's healthcheck above
+    # (via depends_on/service_healthy) to only start once the server is up.
+    # s3.bucket.create is idempotent, so rerunning this on every `up` is safe.
     entrypoint: [ "/bin/sh", "-c" ]
     command: >
       "
-        until mc alias set local $$STORAGE_ENDPOINT_URL $$STORAGE_ACCESS_KEY $$STORAGE_SECRET_KEY; do sleep 1; done &&
-        mc mb --ignore-existing local/$$STORAGE_BUCKET_NAME
+        echo s3.bucket.create -name=$$STORAGE_BUCKET_NAME | weed shell -master=seaweedfs.blas.local:9333
       "
     depends_on:
-      - minio
+      seaweedfs:
+        condition: service_healthy
     env_file:
       - ./app/backend/.env.dev
-    image: minio/mc:latest
+    image: chrislusf/seaweedfs:latest
     networks:
-      - da_sapot_net
+      - da_orb_net
 
   n8n-main:
     build:
       context: .
       dockerfile: ./hub/n8n/Dockerfile
     command: []
-    container_name: da-sapot-n8n-main
+    container_name: da-orb-n8n-main
     depends_on:
       postgres:
         condition: service_healthy
@@ -98,7 +116,7 @@ services:
     ports:
       - "5678:5678"
     networks:
-      da_sapot_net:
+      da_orb_net:
         aliases:
           - n8n.blas.local
 
@@ -107,7 +125,7 @@ services:
       context: .
       dockerfile: ./hub/n8n/Dockerfile
     command: [ "webhook" ]
-    container_name: da-sapot-n8n-webhook
+    container_name: da-orb-n8n-webhook
     depends_on:
       postgres:
         condition: service_healthy
@@ -116,7 +134,7 @@ services:
     ports:
       - "5679:5679"
     networks:
-      da_sapot_net:
+      da_orb_net:
         aliases:
           - n8n.blas.local
 
@@ -125,14 +143,14 @@ services:
       context: .
       dockerfile: ./hub/n8n/Dockerfile
     command: [ "worker" ]
-    container_name: da-sapot-n8n-worker
+    container_name: da-orb-n8n-worker
     depends_on:
       postgres:
         condition: service_healthy
     env_file:
       - ./app/backend/.env.dev
     networks:
-      - da_sapot_net
+      - da_orb_net
 
   postgres:
     build:
@@ -147,23 +165,23 @@ services:
       timeout: 10s
       retries: 120
     networks:
-      da_sapot_net:
+      da_orb_net:
         aliases:
           - db.blas.local
     ports:
       - "5432:5432"
     volumes:
       - ./hub/postgres/dumps:/home/dumps
-      - da_sapot_db:/var/lib/postgresql/data
+      - da_orb_db:/var/lib/postgresql/data
 
   redis:
     build:
       context: .
       dockerfile: ./hub/redis/Dockerfile
     command: redis-server --save "" --appendonly no
-    container_name: da-sapot-redis
+    container_name: da-orb-redis
     networks:
-      da_sapot_net:
+      da_orb_net:
         aliases:
           - redis.blas.local
     ports:
@@ -171,16 +189,12 @@ services:
     restart: unless-stopped
 
 networks:
-  da_sapot_net:
+  da_orb_net:
     driver: bridge
 
 volumes:
-  da_sapot_db:
-    external: true
-    name: da-sapot_da_sapot_db
+  da_orb_db:
   da_n8n_main_data:
-    external: true
-    name: da-sapot_da_n8n_main_data
-  da_minio_data:
+  da_seaweedfs_data:
 
 # daphne -b 0.0.0.0 -p 8000 core.asgi:application

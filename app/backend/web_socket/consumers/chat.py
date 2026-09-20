@@ -48,6 +48,7 @@ def _load_session(connection_key, org_id, session_id, username):
 	try:
 		return MChatSession.objects.get(
 			connection_key=connection_key,
+			deleted_on__isnull=True,
 			id=session_id,
 			org_id=org_id,
 			username=username,

@@ -48,7 +48,7 @@ PASSWORD = 'Az21'
 SPINE_WORKFLOW_ID = 'gl7Ax8b77WhVUTmw'
 FORM_FILLING_WORKFLOW_NAME = 'Orbot v14 - SAP Process Form Filling'
 CHAT_WEBHOOK_PATH = 'chat'
-API_BASE = 'http://da-sapot-n8n-main:5678/api/v1'
+API_BASE = 'http://da-orb-n8n-main:5678/api/v1'
 
 
 def django_login():

@@ -23,5 +23,11 @@
     >
       {{ $t('admin.tabs.usage') }}
     </router-link>
+    <router-link
+      to="/admin/document-templates"
+      :class="['orb-admin-tab', { 'orb-admin-tab-active': active === 'documentTemplates' }]"
+    >
+      {{ $t('admin.tabs.documentTemplates') }}
+    </router-link>
   </nav>
 </template>

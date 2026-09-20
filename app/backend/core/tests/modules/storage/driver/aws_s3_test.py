@@ -77,6 +77,42 @@ def test_delete_wraps_boto_errors(mocker, settings):
 			instance.delete("org/db/session/1/2_file.csv")
 
 
+def test_download(mocker, settings):
+	"""Test download() delegates to boto3's download_file and returns the local path"""
+
+	with step("Arrange: An Instance with a mocked boto3 client."):
+		_configure(settings)
+		mocker.patch("core.modules.storage.driver.aws_s3.boto3.client")
+		instance = Instance()
+
+	with step("Act: Call download"):
+		local_path = instance.download("org/db/session/1/2_file.csv")
+
+	with step(
+		"Assert: download_file called with the expected params, local path returned."
+	):
+		instance._client.download_file.assert_called_once_with(  # pylint: disable=protected-access
+			Bucket="test-bucket", Key="org/db/session/1/2_file.csv", Filename=local_path
+		)
+		assert local_path.endswith(".csv")
+
+
+def test_download_wraps_boto_errors(mocker, settings):
+	"""Test download() wraps a boto ClientError as StorageError"""
+
+	with step("Arrange: An Instance whose client raises a ClientError."):
+		_configure(settings)
+		mocker.patch("core.modules.storage.driver.aws_s3.boto3.client")
+		instance = Instance()
+		instance._client.download_file.side_effect = (  # pylint: disable=protected-access
+			_client_error()
+		)
+
+	with step("Act & Assert: StorageError is raised."):
+		with pytest.raises(StorageError, match="org/db/session/1/2_file.csv"):
+			instance.download("org/db/session/1/2_file.csv")
+
+
 def test_presigned_url(mocker, settings):
 	"""Test presigned_url() delegates to boto3's generate_presigned_url with the right params"""
 

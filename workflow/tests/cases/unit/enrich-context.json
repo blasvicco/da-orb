@@ -45,7 +45,7 @@
       "description": "sets the fixed GitHub owner/repo used to resolve process definitions",
       "input": { "body": { "message": "hi", "language": "es" } },
       "nodeResults": {},
-      "expected": { "github_owner": "blasvicco", "github_repo": "da-sapot-processes" }
+      "expected": { "github_owner": "blasvicco", "github_repo": "da-orb-processes" }
     }
   ]
 }

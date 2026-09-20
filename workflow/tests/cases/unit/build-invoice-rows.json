@@ -1,0 +1,392 @@
+{
+  "node": "Build Invoice Rows",
+  "cases": [
+    {
+      "description": "a source param resolves from the already-mapped headerRow, not raw form_state -- form_state only ever holds what the user supplied to look the record up (e.g. DocNum), never the entity's own DocEntry the way header_fields' mapping of the fetched entity does; confirmed live this is exactly what silently blanked every rendered row when dockey@ resolved null against form_state",
+      "input": {
+        "_target_form_state": { "DocNum": 10767, "DocEntry": 45523 },
+        "_target_document_mapping": {
+          "header_fields": { "DocEntry": "DocEntry" },
+          "params": { "dockey@": { "source": "DocEntry" } }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "_params": { "dockey@": 45523 },
+        "_rows": [{ "DocEntry": 45523 }]
+      }
+    },
+    {
+      "description": "no qr_source declared -> unchanged from today's behavior, no FileContnt key added even if _qr_value were somehow set",
+      "input": {
+        "_target_form_state": {},
+        "_target_document_mapping": {
+          "constants": { "CompnyName": "BVS SA" }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "_rows": [
+          { "CompnyName": "BVS SA" }
+        ]
+      }
+    },
+    {
+      "description": "qr_source declared and Merge QR Result produced a value -> written onto the header row under qr_source's own target_field, no SAP-field-name literal in this node",
+      "input": {
+        "_target_form_state": {},
+        "_target_document_mapping": {
+          "constants": { "CompnyName": "BVS SA" },
+          "qr_source": {
+            "sql_name": "GetInvoiceQR",
+            "key_param": "DocEntry",
+            "target_field": "FileContnt"
+          }
+        },
+        "_qr_value": "\\x68656c6c6f"
+      },
+      "nodeResults": {},
+      "expected": {
+        "_rows": [
+          { "CompnyName": "BVS SA", "FileContnt": "\\x68656c6c6f" }
+        ]
+      }
+    },
+    {
+      "description": "qr_source declared but Merge QR Result's fetch came back empty/null -> no FileContnt key added (rather than writing a null that would suppress the QR object)",
+      "input": {
+        "_target_form_state": {},
+        "_target_document_mapping": {
+          "constants": { "CompnyName": "BVS SA" },
+          "qr_source": {
+            "sql_name": "GetInvoiceQR",
+            "key_param": "DocEntry",
+            "target_field": "FileContnt"
+          }
+        },
+        "_qr_value": null
+      },
+      "nodeResults": {},
+      "expected": {
+        "_rows": [
+          { "CompnyName": "BVS SA" }
+        ]
+      }
+    },
+    {
+      "description": "section_visibility's {param} marker resolves to the literal boolean the renderer expects (true and false both emitted directly), confirmed live against docs/mockups_flags/*.json",
+      "input": {
+        "_target_form_state": {},
+        "_target_document_mapping": {
+          "constants": { "CompnyName": "BVS SA" },
+          "params": {
+            "ShowEmbeddedLogo@": { "constant": true },
+            "ShowEmbeddedAFIP@": { "constant": false }
+          },
+          "section_visibility": {
+            "ReportHeaderSection3": { "param": "ShowEmbeddedLogo@" },
+            "ReportHeaderSection4": { "param": "ShowEmbeddedAFIP@" }
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "_section_visibility": { "ReportHeaderSection3": true, "ReportHeaderSection4": false }
+      }
+    },
+    {
+      "description": "no section_visibility declared -> defaults to {}, same as every org that doesn't opt in",
+      "input": {
+        "_target_form_state": {},
+        "_target_document_mapping": {
+          "constants": { "CompnyName": "BVS SA" }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "_section_visibility": {}
+      }
+    },
+    {
+      "description": "object_visibility's negated {param} marker resolving to false is emitted (an explicit force-hide); a resolution of true is omitted entirely, deferring to the template's own default -- confirmed live against docs/mockups_flags/*.json's embedded-on (all-false, emitted) vs embedded-off ({}, omitted) records",
+      "input": {
+        "_target_form_state": {},
+        "_target_document_mapping": {
+          "constants": { "CompnyName": "BVS SA" },
+          "params": {
+            "ShowEmbeddedLogo@": { "constant": true }
+          },
+          "object_visibility": {
+            "Picture1": { "param": "ShowEmbeddedLogo@", "negate": true },
+            "Compania1": { "param": "ShowEmbeddedLogo@", "negate": true }
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "_object_visibility": { "Picture1": false, "Compania1": false }
+      }
+    },
+    {
+      "description": "object_visibility's negated {param} marker resolving to true (logo not embedded) is omitted, not sent as true",
+      "input": {
+        "_target_form_state": {},
+        "_target_document_mapping": {
+          "constants": { "CompnyName": "BVS SA" },
+          "params": {
+            "ShowEmbeddedLogo@": { "constant": false }
+          },
+          "object_visibility": {
+            "Picture1": { "param": "ShowEmbeddedLogo@", "negate": true }
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "_object_visibility": {}
+      }
+    },
+    {
+      "description": "a params@ flag referenced only by section_visibility/object_visibility is stripped from _params (never a real Crystal Reports parameter); one not referenced that way survives",
+      "input": {
+        "_target_form_state": {},
+        "_target_document_mapping": {
+          "constants": { "CompnyName": "BVS SA" },
+          "params": {
+            "dockey@": { "constant": 45501 },
+            "ShowEmbeddedLogo@": { "constant": true }
+          },
+          "object_visibility": {
+            "Picture1": { "param": "ShowEmbeddedLogo@", "negate": true }
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "_params": { "dockey@": 45501 }
+      }
+    },
+    {
+      "description": "logo_source declared and Merge Company Info Result produced a _logo_value -> written onto the MAIN header row under logo_source's own target_field (LogoImage), feeding the template's embedded-logo BlobField object -- distinct from and never confused with SREncabDocum's own separate LogoImage field",
+      "input": {
+        "_target_form_state": {},
+        "_target_document_mapping": {
+          "constants": { "CompnyName": "BVS SA" },
+          "logo_source": { "target_field": "LogoImage", "org_field": "logo_base64" }
+        },
+        "_logo_value": "\\x68656c6c6f"
+      },
+      "nodeResults": {},
+      "expected": {
+        "_rows": [
+          { "CompnyName": "BVS SA", "LogoImage": "\\x68656c6c6f" }
+        ]
+      }
+    },
+    {
+      "description": "logo_source declared but Merge Company Info Result's own fetch came back empty/null (org hasn't uploaded a logo yet) -> no LogoImage key added, same 'never simply fails' shape qr_source's own null case already has",
+      "input": {
+        "_target_form_state": {},
+        "_target_document_mapping": {
+          "constants": { "CompnyName": "BVS SA" },
+          "logo_source": { "target_field": "LogoImage", "org_field": "logo_base64" }
+        },
+        "_logo_value": null
+      },
+      "nodeResults": {},
+      "expected": {
+        "_rows": [
+          { "CompnyName": "BVS SA" }
+        ]
+      }
+    },
+    {
+      "description": "company_info_source declared and Merge Company Info Result produced _company_info -> written verbatim as SREncabDocum's single row -- this node never re-derives it (SAP-vs-org precedence already resolved upstream)",
+      "input": {
+        "_target_form_state": {},
+        "_target_document_mapping": {
+          "constants": { "CompnyName": "BVS SA" },
+          "company_info_source": { "subreport": "SREncabDocum" }
+        },
+        "_company_info": { "CompnyName": "BVS TV SA", "Phone1": "49585638", "E_Mail": "info@bvstv.com", "IntrntAdrs": "www.bvstv.com", "U_B1SYS_VATCtg": "" }
+      },
+      "nodeResults": {},
+      "expected": {
+        "_subreports": {
+          "SREncabDocum": { "rows": [{ "CompnyName": "BVS TV SA", "Phone1": "49585638", "E_Mail": "info@bvstv.com", "IntrntAdrs": "www.bvstv.com", "U_B1SYS_VATCtg": "" }] }
+        }
+      }
+    },
+    {
+      "description": "company_info_source declared but _company_info never arrived (e.g. the SAP call failed and Merge Company Info Result's own fallback also came up empty) -> SREncabDocum simply absent, not a null/empty row -- same 'never simply fails' shape as a missing QR value",
+      "input": {
+        "_target_form_state": {},
+        "_target_document_mapping": {
+          "constants": { "CompnyName": "BVS SA" },
+          "company_info_source": { "subreport": "SREncabDocum" }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "_subreports": {}
+      }
+    },
+    {
+      "description": "TaxDetails.rpt: two lines at two different VAT rates -> two rows, BASE/TAX summed independently per rate, CODE derived from the rate itself (never VatGroup -- see next case)",
+      "input": {
+        "_target_form_state": {
+          "VatSum": 420,
+          "DocEntry": 45523,
+          "DocumentLines": [
+            { "LineTotal": 1000, "TaxTotal": 210, "TaxPercentagePerRow": 21 },
+            { "LineTotal": 500, "TaxTotal": 210, "TaxPercentagePerRow": 21 },
+            { "LineTotal": 1000, "TaxTotal": 0, "TaxPercentagePerRow": 0 }
+          ]
+        },
+        "_target_document_mapping": {
+          "header_fields": { "VatSum": "VatSum", "DocEntry": "DocEntry" },
+          "line_item_source": "DocumentLines",
+          "tax_details_condition_field": "VatSum",
+          "tax_details_source": {
+            "subreport": "TaxDetails.rpt",
+            "line_source": "DocumentLines",
+            "rate_field": "TaxPercentagePerRow",
+            "code_prefix": "IVA_",
+            "base_field": "LineTotal",
+            "tax_field": "TaxTotal",
+            "dockey_field": "DocEntry"
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "_subreports": {
+          "TaxDetails.rpt": {
+            "rows": [
+              { "DocEntry": 45523, "CODE": "IVA_21", "RATE": 21, "BASE": 1500, "BASEME": 1500, "TAX": 420, "TAXME": 420, "ORIGEN": "" },
+              { "DocEntry": 45523, "CODE": "IVA_0", "RATE": 0, "BASE": 1000, "BASEME": 1000, "TAX": 0, "TAXME": 0, "ORIGEN": "" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "TaxDetails.rpt: tax_details_condition_field (VatSum) is 0 -> the whole subreport is omitted entirely, not sent with an empty rows array -- no VAT, nothing to break down",
+      "input": {
+        "_target_form_state": {
+          "VatSum": 0,
+          "DocEntry": 45523,
+          "DocumentLines": [{ "LineTotal": 1000, "TaxTotal": 0, "TaxPercentagePerRow": 0 }]
+        },
+        "_target_document_mapping": {
+          "header_fields": { "VatSum": "VatSum", "DocEntry": "DocEntry" },
+          "line_item_source": "DocumentLines",
+          "tax_details_condition_field": "VatSum",
+          "tax_details_source": {
+            "subreport": "TaxDetails.rpt",
+            "line_source": "DocumentLines",
+            "rate_field": "TaxPercentagePerRow",
+            "code_prefix": "IVA_",
+            "base_field": "LineTotal",
+            "tax_field": "TaxTotal",
+            "dockey_field": "DocEntry"
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "_subreports": {}
+      }
+    },
+    {
+      "description": "TaxDetails.rpt: a customized/edited line-item set (targetNode._pending_document_lines) missing VatGroup but carrying TaxPercentagePerRow (the one field generate-document.json's own edit flow is required to preserve) still produces a correct row via the rate-derived CODE -- confirms this never silently depends on VatGroup",
+      "input": {
+        "target_node_id": "n1#0",
+        "intention_nodes": {
+          "n1#0": { "_pending_document_lines": [{ "LineTotal": 2000, "TaxTotal": 420, "TaxPercentagePerRow": 21 }] }
+        },
+        "_target_form_state": { "VatSum": 420, "DocEntry": 45523 },
+        "_target_document_mapping": {
+          "header_fields": { "VatSum": "VatSum", "DocEntry": "DocEntry" },
+          "line_item_source": "DocumentLines",
+          "tax_details_condition_field": "VatSum",
+          "tax_details_source": {
+            "subreport": "TaxDetails.rpt",
+            "line_source": "DocumentLines",
+            "rate_field": "TaxPercentagePerRow",
+            "code_prefix": "IVA_",
+            "base_field": "LineTotal",
+            "tax_field": "TaxTotal",
+            "dockey_field": "DocEntry"
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "_subreports": {
+          "TaxDetails.rpt": {
+            "rows": [{ "DocEntry": 45523, "CODE": "IVA_21", "RATE": 21, "BASE": 2000, "BASEME": 2000, "TAX": 420, "TAXME": 420, "ORIGEN": "" }]
+          }
+        }
+      }
+    },
+    {
+      "description": "WTInPayment: every WithholdingTaxDataWTXCollection entry has WTAmount 0 (GL accounts registered but nothing actually withheld, confirmed live on a real invoice) -> the subreport is entirely absent, not sent with zero-amount rows",
+      "input": {
+        "_target_form_state": {
+          "DocEntry": 45523,
+          "WithholdingTaxDataWTXCollection": [
+            { "Category": "I", "WTAmount": 0, "WTAmountSC": 0, "WTAmountFC": 0 },
+            { "Category": "I", "WTAmount": 0, "WTAmountSC": 0, "WTAmountFC": 0 }
+          ]
+        },
+        "_target_document_mapping": {
+          "header_fields": { "DocEntry": "DocEntry" },
+          "withholding_source": {
+            "subreport": "WTInPayment",
+            "line_source": "WithholdingTaxDataWTXCollection",
+            "amount_field": "WTAmount",
+            "fields": { "Category": "Category", "WTAmnt": "WTAmount", "WTAmntSC": "WTAmountSC", "WTAmntFC": "WTAmountFC" },
+            "dockey_field": "DocEntry",
+            "dockey_target": "AbsEntry"
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "_subreports": {}
+      }
+    },
+    {
+      "description": "WTInPayment: one non-zero entry among others -> exactly one row, correctly mapped, AbsEntry sourced from the document's own DocEntry (dockey_field/dockey_target), not any field on the withholding entry itself",
+      "input": {
+        "_target_form_state": {
+          "DocEntry": 45523,
+          "WithholdingTaxDataWTXCollection": [
+            { "Category": "I", "WTAmount": 0, "WTAmountSC": 0, "WTAmountFC": 0 },
+            { "Category": "IIBB", "WTAmount": 45.6, "WTAmountSC": 45.6, "WTAmountFC": 45.6 }
+          ]
+        },
+        "_target_document_mapping": {
+          "header_fields": { "DocEntry": "DocEntry" },
+          "withholding_source": {
+            "subreport": "WTInPayment",
+            "line_source": "WithholdingTaxDataWTXCollection",
+            "amount_field": "WTAmount",
+            "fields": { "Category": "Category", "WTAmnt": "WTAmount", "WTAmntSC": "WTAmountSC", "WTAmntFC": "WTAmountFC" },
+            "dockey_field": "DocEntry",
+            "dockey_target": "AbsEntry"
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "_subreports": {
+          "WTInPayment": {
+            "rows": [{ "AbsEntry": 45523, "Category": "IIBB", "WTAmnt": 45.6, "WTAmntSC": 45.6, "WTAmntFC": 45.6 }]
+          }
+        }
+      }
+    }
+  ]
+}
