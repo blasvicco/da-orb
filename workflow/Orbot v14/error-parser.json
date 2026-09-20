@@ -1,0 +1,366 @@
+{
+  "name": "Orbot v14 - Error Parser",
+  "nodes": [
+    {
+      "id": "1a2b3c4d-0001-4a1a-8a1a-000000000001",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -400,
+        128
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "1a2b3c4d-0005-4a1a-8a1a-000000000005",
+      "name": "Has Error?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -160,
+        128
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-Has Error?",
+              "leftValue": "={{ Boolean($json.error) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "1a2b3c4d-0002-4a1a-8a1a-000000000002",
+      "name": "Classify & Store Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        32
+      ],
+      "parameters": {
+        "jsCode": "// Callable by any sub-workflow that hits an error -- classifies it into a stable code for\n// this turn's own reply. $json.error may be either a raw error (string or {message}) needing\n// classification, or an already-known code the caller decided itself (e.g. 'NO_MATCH') --\n// recognized by an ALL_CAPS shape, left as-is rather than reclassified.\n// $json.error_message, if present, overrides everything -- used when the caller already\n// composed a specific, localized message (e.g. an LLM's own no_match reply).\nconst rawError = $json.error;\nconst errorText = (rawError && rawError.message) || String(rawError || '').trim();\nconst isKnownCode = typeof rawError === 'string' && /^[A-Z][A-Z_]*$/.test(rawError);\nconst error_type = isKnownCode ? rawError\n  : /rate.?limit|tokens.?per.?min|TPM|too.?large/i.test(errorText) ? 'RATE_LIMIT'\n  : /parse|json|syntax/i.test(errorText) ? 'PARSE_ERROR'\n  : /not.?found|404/i.test(errorText) ? 'NOT_FOUND'\n  : /unauthorized|403|401/i.test(errorText) ? 'AUTH_ERROR'\n  : /process.?loop/i.test(errorText) ? 'PROCESS_LOOP'\n  : 'UNKNOWN_ERROR';\nconst isExpert = $json.expertise_level === 3;\nconst MSG = {\n  RATE_LIMIT:    { es: 'La b\u00fasqueda devolvi\u00f3 demasiados datos. Intenta con un criterio m\u00e1s espec\u00edfico.', en: 'The search returned too many results. Try a more specific criteria.' },\n  PARSE_ERROR:   { es: 'Hubo un error procesando la respuesta. Intenta de nuevo.', en: 'There was an error processing the response. Please try again.' },\n  NOT_FOUND:     { es: 'No se encontr\u00f3 la definici\u00f3n del proceso. Intenta de nuevo.', en: 'The process definition could not be loaded. Please try again.' },\n  AUTH_ERROR:    { es: 'Error de autenticaci\u00f3n. Contacta al administrador.', en: 'Authentication error. Please contact the administrator.' },\n  PROCESS_LOOP:  { es: 'Este proceso no pudo completarse por un problema en su configuraci\u00f3n y fue cancelado. Por favor intenta de nuevo o contacta a soporte si el problema persiste.', en: 'This process could not be completed due to a configuration issue and has been cancelled. Please try again or contact support if the problem persists.' },\n};\nconst lang = $json.language || 'es';\n// Every error_type above has a pre-written, reason-specific message -- only a code with no\n// table entry (UNKNOWN_ERROR, or any ALL_CAPS code the caller invented without its own\n// error_message) has nothing ready to show. Expert level gets the raw error verbatim in that\n// case; every other level must never see either the raw text or a content-free \"something\n// went wrong\" -- Needs Interpretation? routes those downstream to the agent instead, so\n// message is deliberately left null here as the signal to do that, never defaulted inline.\nlet message = $json.error_message || MSG[error_type]?.[lang] || null;\nif (!message && isExpert) {\n  message = errorText;\n}\nconst needsInterpretation = !message;\n// AUTH_ERROR abandons whatever was active -- the abandoned node's own intention_nodes\n// entry is left untouched (same pre-existing gap as before this restructure, not\n// introduced by it), but active_node_id itself now auto-resumes to whatever this\n// abandoned, instead of unconditionally dropping to null.\nconst clearState = error_type === 'AUTH_ERROR';\nlet activeNodeId = $json.active_node_id;\nlet intentionNodes = $json.intention_nodes || {};\nlet resetProcess = $json.reset_process === true;\nif (clearState) {\n  // Same TERMINAL_STATUSES/walk shape duplicated in Park Current Intent\n  // (intent-manager.json), Compute Execution Outcome (sap-inquiry-execution.json),\n  // Compute Form Outcome (sap-process-form-filling.json), and Resolve Final State\n  // (batch-processing.json) -- keep all five in sync if this changes.\n  const TERMINAL_STATUSES = new Set(['completed', 'abandoned']);\n  const findResumeTarget = (nodeId, nodes) => {\n    let current = nodeId;\n    while (current) {\n      const node = nodes[current];\n      if (!node) return null;\n      if (!TERMINAL_STATUSES.has(node.status)) return current;\n      current = node.parent_id;\n    }\n    return null;\n  };\n  const activeNode = intentionNodes[$json.active_node_id] || {};\n  const resumeTargetId = findResumeTarget(activeNode.parent_id, intentionNodes);\n  if (resumeTargetId) {\n    intentionNodes = { ...intentionNodes, [resumeTargetId]: { ...intentionNodes[resumeTargetId], status: 'active' } };\n  }\n  activeNodeId = resumeTargetId;\n  // active_node_id must be forced through even when it lands on null (nothing to resume\n  // to) -- Django's resettable merge otherwise coalesces an explicit null back to\n  // whatever's already in Redis (main.py's _merge_field, resettable=True only lets null\n  // through when reset_process is set).\n  resetProcess = true;\n}\nreturn [{ json: {\n  ...$json,\n  message,\n  errorText,\n  needs_interpretation: needsInterpretation,\n  active_node_id: activeNodeId,\n  intention_nodes: intentionNodes,\n  reset_process: resetProcess,\n  error: error_type,\n} }];"
+      }
+    },
+    {
+      "id": "1a2b3c4d-0009-4a1a-8a1a-000000000009",
+      "name": "Needs Interpretation?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        320,
+        32
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-Needs Interpretation?",
+              "leftValue": "={{ Boolean($json.needs_interpretation) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "1a2b3c4d-000a-4a1a-8a1a-00000000000a",
+      "name": "Prompt: Interpret Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        -256
+      ],
+      "parameters": {
+        "jsCode": "// Builds the prompt for Agent: Interpret Error. The raw error text is included only for the\n// agent's own understanding -- its system message forbids quoting it back verbatim, so a\n// non-expert user only ever sees what the error means for them, never the technical text.\nconst lang = $json.language || 'es';\nconst chatInput = `Explain, in ${lang}, what likely went wrong for the user and what they can do next.\\n\\nRAW ERROR (technical -- for your understanding only, never quote this verbatim):\\n${$json.errorText}`;\nreturn [{ json: { ...$json, chatInput } }];"
+      }
+    },
+    {
+      "id": "1a2b3c4d-000b-4a1a-8a1a-00000000000b",
+      "name": "Agent: Interpret Error",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "onError": "continueErrorOutput",
+      "position": [
+        752,
+        -256
+      ],
+      "parameters": {
+        "options": {
+          "systemMessage": "You translate a raw technical error into a short, friendly, natural-language explanation for a non-technical business user of a SAP Business One chat assistant.\n\nRULES:\n- Respond entirely in the language requested in the prompt.\n- Keep it to 1-2 short sentences.\n- Infer the likely reason from the raw error text and explain it in plain terms (e.g. \"the request took too long\", \"the item couldn't be found\", \"there was a temporary connection issue\") -- never quote the raw error text, stack traces, codes, or internal identifiers verbatim.\n- End with a brief, encouraging next step (try again, rephrase, or contact support if it keeps happening).\n\nOUTPUT (standardized JSON): {\"message\": \"<your explanation, in the requested language>\"}\nReturn ONLY a raw JSON object with exactly this one key -- no code fences, no markdown wrapping, no extra text, no other keys."
+        }
+      }
+    },
+    {
+      "id": "1a2b3c4d-000c-4a1a-8a1a-00000000000c",
+      "name": "OpenAI Chat Model (Interpret Error)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        752,
+        -64
+      ],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "2CRyLxL8C6zZXIqF",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "id": "1a2b3c4d-000d-4a1a-8a1a-00000000000d",
+      "name": "Merge Interpretation",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1088,
+        -256
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ Object.assign({}, $('Prompt: Interpret Error').first().json, $json) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "1a2b3c4d-000e-4a1a-8a1a-00000000000e",
+      "name": "Parse Interpretation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        -256
+      ],
+      "parameters": {
+        "jsCode": "// Parses Agent: Interpret Error's raw output text the same way the generic Extract JSON node\n// does elsewhere in this file, then lifts its message onto the field Clear Route Key and every\n// caller already read off Classify & Store Error. Falls back to a neutral, no-details message\n// only if the agent's own output failed to parse (should be rare, e.g. onError fallthrough) --\n// this path must never fall through to raw errorText, that's expert-only territory handled\n// entirely upstream in Classify & Store Error.\nconst raw = $json.output || '';\nlet parsed = null;\ntry {\n  parsed = JSON.parse(raw.trim());\n} catch {\n  try {\n    const stripped = raw.replace(/^```json\\n?/, '').replace(/\\n?```$/, '').trim();\n    parsed = JSON.parse(stripped);\n  } catch {\n    parsed = null;\n  }\n}\nconst lang = $json.language || 'es';\nconst FALLBACK = { es: 'Algo sali\u00f3 mal. Intenta de nuevo o contacta soporte.', en: 'Something went wrong. Please try again or contact support.' };\nreturn [{ json: { ...$json, message: (parsed && parsed.message) || FALLBACK[lang] || FALLBACK.en } }];"
+      }
+    },
+    {
+      "id": "1a2b3c4d-0006-4a1a-8a1a-000000000006",
+      "name": "Clear Route Key",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1456,
+        48
+      ],
+      "parameters": {
+        "jsCode": "// This turn is already fully handled (delivered directly below) -- null out route_key so\n// the spine's Router safely falls through to its debug dead-end instead of dispatching\n// (now to a real Intent Manager) on stale intent classification. Harmless no-op for any\n// caller that never uses route_key in the first place.\nreturn [{ json: { ...$json, route_key: null } }];"
+      }
+    },
+    {
+      "id": "1a2b3c4d-0007-4a1a-8a1a-000000000007",
+      "name": "Extract JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        224
+      ],
+      "parameters": {
+        "jsCode": "// Callable inline wherever a raw LLM `output` string needs to become JSON. Generic on\n// purpose -- it only knows how to turn text into an object, not what shape that object\n// should have (each agent's own file interprets _parsed itself). Safely inert when\n// `output` is absent (e.g. called a second time after Compute X already ran) -- just\n// yields _parsed: null, _parse_error: true, which nothing downstream reads in that case.\nconst raw = $json.output || '';\nlet content = null;\ntry {\n  content = JSON.parse(raw.trim());\n} catch {\n  try {\n    const stripped = raw.replace(/^```json\\n?/, '').replace(/\\n?```$/, '').trim();\n    content = JSON.parse(stripped);\n  } catch {\n    content = null;\n  }\n}\nif (content === null) {\n  return [{ json: { ...$json, _parsed: null, _parse_error: true } }];\n}\nreturn [{ json: { ...$json, _parsed: content, _parse_error: false } }];"
+      }
+    },
+    {
+      "id": "1a2b3c4d-0008-4a1a-8a1a-000000000008",
+      "name": "Return Result",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        224
+      ],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Has Error?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Error?": {
+      "main": [
+        [
+          {
+            "node": "Classify & Store Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify & Store Error": {
+      "main": [
+        [
+          {
+            "node": "Needs Interpretation?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Interpretation?": {
+      "main": [
+        [
+          {
+            "node": "Prompt: Interpret Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Clear Route Key",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prompt: Interpret Error": {
+      "main": [
+        [
+          {
+            "node": "Agent: Interpret Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent: Interpret Error": {
+      "main": [
+        [
+          {
+            "node": "Merge Interpretation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge Interpretation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model (Interpret Error)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agent: Interpret Error",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Interpretation": {
+      "main": [
+        [
+          {
+            "node": "Parse Interpretation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Interpretation": {
+      "main": [
+        [
+          {
+            "node": "Clear Route Key",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Route Key": {
+      "main": [
+        [
+          {
+            "node": "Return Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract JSON": {
+      "main": [
+        [
+          {
+            "node": "Return Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

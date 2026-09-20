@@ -1,0 +1,26 @@
+@reference "@/styles/main.css";
+
+.orb-attach-trigger {
+  @apply border cursor-pointer flex h-9 items-center justify-center rounded-lg shrink-0 transition-all w-9;
+  border-color: var(--orb-input-bar-border);
+  color: var(--orb-input-tool);
+
+  &:hover {
+    background: var(--orb-input-tool-hover-bg);
+    color: var(--orb-input-tool-hover);
+  }
+}
+
+.orb-attach-panel {
+  @apply flex flex-col gap-1;
+  width: 220px;
+
+  .orb-attach-option {
+    @apply cursor-pointer flex font-medium gap-3 items-center px-3 py-2 rounded-lg text-left text-sm transition-all;
+    color: var(--orb-header-title, #1e293b);
+
+    &:hover {
+      background: var(--orb-input-tool-hover-bg);
+    }
+  }
+}

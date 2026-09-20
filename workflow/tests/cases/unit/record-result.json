@@ -1,0 +1,17 @@
+{
+  "node": "Record Result",
+  "cases": [
+    {
+      "description": "success -> re-attaches path/process_name/items read back from before the Execute Workflow call wiped them, keeps the real process_definition/error from schema-resolution.json's own output",
+      "input": { "process_definition": { "id": "purchase_request" }, "error": null, "error_message": null },
+      "nodeResults": { "Loop Over Processes": { "path": "purchase/purch_request.json", "process_name": "Purchase Request", "items": [] } },
+      "expected": { "process_definition": { "id": "purchase_request" }, "error": null, "path": "purchase/purch_request.json", "process_name": "Purchase Request", "items": [] }
+    },
+    {
+      "description": "failure -> same mechanism, no separate branch needed since schema-resolution.json's own output already carries the failure correctly",
+      "input": { "process_definition": null, "error": "NOT_FOUND", "error_message": "No se encontró la definición del proceso." },
+      "nodeResults": { "Loop Over Processes": { "path": "warehouse/goods_receipt.json", "process_name": "Goods Receipt", "items": [] } },
+      "expected": { "process_definition": null, "error": "NOT_FOUND", "error_message": "No se encontró la definición del proceso.", "path": "warehouse/goods_receipt.json", "process_name": "Goods Receipt" }
+    }
+  ]
+}

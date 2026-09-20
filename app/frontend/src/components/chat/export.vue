@@ -12,6 +12,10 @@
       default: () => [],
       type: Array,
     },
+    sessionId: {
+      default: null,
+      type: [Number, String],
+    },
     sessionTitle: {
       default: null,
       type: String,
@@ -54,8 +58,13 @@
     URL.revokeObjectURL(url);
   };
 
+  // Included across every export format (not just JSON) so whichever one gets shared
+  // for debugging still lets a session be looked up directly, instead of hunting
+  // through recent n8n executions by timestamp.
+  const sessionIdLine = () => (props.sessionId != null ? `${t('chat.export.sessionId')}: ${props.sessionId}\n` : '');
+
   const exportAsText = () => {
-    const header = `${props.sessionTitle || t('chat.export.untitled')}\n${t('chat.export.exportedOn')}: ${new Date().toLocaleString()}\n`;
+    const header = `${props.sessionTitle || t('chat.export.untitled')}\n${t('chat.export.exportedOn')}: ${new Date().toLocaleString()}\n${sessionIdLine()}`;
     const body = props.messages
       .map((msg) => `[${msg.time}] ${exportSenderLabel(msg)}: ${exportMessageBody(msg)}`)
       .join('\n\n');
@@ -63,7 +72,7 @@
   };
 
   const exportAsMarkdown = () => {
-    const header = `# ${props.sessionTitle || t('chat.export.untitled')}\n\n_${t('chat.export.exportedOn')}: ${new Date().toLocaleString()}_\n`;
+    const header = `# ${props.sessionTitle || t('chat.export.untitled')}\n\n_${t('chat.export.exportedOn')}: ${new Date().toLocaleString()}_\n${sessionIdLine()}`;
     const body = props.messages
       .map((msg) => `**${exportSenderLabel(msg)}** — ${msg.time}\n\n${exportMessageBody(msg)}`)
       .join('\n\n---\n\n');
@@ -74,6 +83,7 @@
     const payload = {
       exportedOn: new Date().toISOString(),
       messages: props.messages,
+      sessionId: props.sessionId ?? null,
       title: props.sessionTitle || null,
     };
     downloadBlob(`${exportFilenameBase()}.json`, JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
@@ -143,7 +153,9 @@
         </head>
         <body>
           <h1>${title}</h1>
-          <p class="orb-pdf-exported-on">${t('chat.export.exportedOn')}: ${new Date().toLocaleString()}</p>
+          <p class="orb-pdf-exported-on">${t('chat.export.exportedOn')}: ${new Date().toLocaleString()}${
+            props.sessionId != null ? ` — ${t('chat.export.sessionId')}: ${props.sessionId}` : ''
+          }</p>
           ${messagesHtml}
         </body>
       </html>`;

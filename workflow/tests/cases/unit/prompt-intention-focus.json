@@ -1,0 +1,72 @@
+{
+  "node": "Prompt: Intention Focus",
+  "cases": [
+    {
+      "description": "fresh session, no intention_nodes at all -> empty tree, chatInput still built correctly",
+      "input": {
+        "message": "Quiero crear una solicitud de compra",
+        "intention_nodes": {}
+      },
+      "nodeResults": {},
+      "expected": {
+        "message": "Quiero crear una solicitud de compra",
+        "chatInput": "USER MESSAGE:\nQuiero crear una solicitud de compra\n\nINTENTION TREE (structural grounding only, not to repeat verbatim -- every intention so far, nested by which one each interrupted; empty if this is a fresh session):\n```json\n[]\n```"
+      }
+    },
+    {
+      "description": "paused root missing a required field, active child with none missing -> nested tree reflects both, only active/paused nodes carry missing_required_fields (intention_nodes now keyed by id, not an array)",
+      "input": {
+        "message": "listame los proveedores del grupo 100",
+        "intention_nodes": {
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "parent_id": null,
+            "process_id": "purchase_request",
+            "status": "paused",
+            "form_state": {
+              "DocDate": "2026-08-13"
+            },
+            "process_definition": {
+              "name": "Create Purchase Request",
+              "form": {
+                "sections": [
+                  {
+                    "fields": [
+                      {
+                        "id": "DocDate",
+                        "label": "Document Date",
+                        "required": false
+                      },
+                      {
+                        "id": "RequriedDate",
+                        "label": "Required Date",
+                        "required": true
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          "vendor_list#1": {
+            "id": "vendor_list#1",
+            "parent_id": "purchase_request#0",
+            "process_id": "vendor_list",
+            "status": "active",
+            "form_state": {},
+            "process_definition": {
+              "name": "List Vendors",
+              "form": {
+                "sections": []
+              }
+            }
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "chatInput": "USER MESSAGE:\nlistame los proveedores del grupo 100\n\nINTENTION TREE (structural grounding only, not to repeat verbatim -- every intention so far, nested by which one each interrupted; empty if this is a fresh session):\n```json\n[\n  {\n    \"process\": \"Create Purchase Request\",\n    \"status\": \"paused\",\n    \"missing_required_fields\": [\n      \"Required Date\"\n    ],\n    \"children\": [\n      {\n        \"process\": \"List Vendors\",\n        \"status\": \"active\",\n        \"missing_required_fields\": [],\n        \"children\": []\n      }\n    ]\n  }\n]\n```"
+      }
+    }
+  ]
+}

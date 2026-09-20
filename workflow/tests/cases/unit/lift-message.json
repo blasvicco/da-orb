@@ -1,0 +1,23 @@
+{
+  "node": "Lift Message",
+  "cases": [
+    {
+      "description": "error-parser.json's non-error branch parsed the agent's JSON output -> its message field is lifted onto the top-level message field this file's own Execute Workflow: Response call reads",
+      "input": { "_parsed": { "message": "Aquí está tu respuesta" }, "_parse_error": false },
+      "nodeResults": {},
+      "expected": { "message": "Aquí está tu respuesta" }
+    },
+    {
+      "description": "unparseable output (_parse_error true, _parsed null) falls back to the raw output text, rather than delivering an undefined reply -- same fallback the old inline Recover State code used",
+      "input": { "output": "just a plain sentence, not json", "_parsed": null, "_parse_error": true },
+      "nodeResults": {},
+      "expected": { "message": "just a plain sentence, not json" }
+    },
+    {
+      "description": "valid JSON but missing the message key -> falls back to the raw output text rather than delivering an undefined reply",
+      "input": { "output": "{\"status\": \"ok\"}", "_parsed": { "status": "ok" }, "_parse_error": false },
+      "nodeResults": {},
+      "expected": { "message": "{\"status\": \"ok\"}" }
+    }
+  ]
+}

@@ -17,7 +17,9 @@ class N8nSessionState:
 	"""Redis-backed state machine for a single CChat WebSocket session."""
 
 	# Redis key schema: n8n:session:<group_name>
-	# Value: JSON { form_state, process_id, process_definition }
+	# Value: JSON { active_node_id, intention_nodes, last_bot_message } -- intention_nodes
+	# is keyed by each node's own id (Record<id, Node>), the single source of truth for a
+	# node's process_id/process_definition/form_state; no separate root-level copy.
 	# TTL: FORM_STATE_TTL_SECONDS (default 86400 s = 24 h)
 
 	def __init__(self, group_name: str):
@@ -25,12 +27,12 @@ class N8nSessionState:
 		self._key = f"{_STATE_KEY_PREFIX}:{group_name}"
 		self._redis = Redis(
 			decode_responses=True,
-			host=settings.CONFIG.get("REDIS_HOST", "localhost"),
-			port=int(settings.CONFIG.get("REDIS_PORT", 6379)),
+			host=settings.REDIS_HOST,
+			port=settings.REDIS_PORT,
 			socket_connect_timeout=5,
 			socket_timeout=5,
 		)
-		self._ttl = settings.CONFIG.get("FORM_STATE_TTL_SECONDS", 86400)
+		self._ttl = settings.FORM_STATE_TTL_SECONDS
 
 	async def clear(self) -> None:
 		"""Delete the state key from Redis (used on disconnect or unrecoverable error)."""
@@ -69,34 +71,18 @@ class N8nSessionState:
 				"N8nSessionState: failed to restore state for key %s", self._key
 			)
 
-	async def save(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+	async def save(
 		self,
 		*,
 		active_node_id=None,
-		awaiting_stack_resume=False,
-		form_state=None,
 		intention_nodes=None,
 		last_bot_message=None,
-		parent_override_id=None,
-		paused_node_ids=None,
-		pending_processes=None,
-		process_definition=None,
-		process_id=None,
-		process_stack=None,
 	) -> None:
 		"""Persist state to Redis, refreshing the TTL."""
 		state = {
 			"active_node_id": active_node_id,
-			"awaiting_stack_resume": awaiting_stack_resume,
-			"form_state": form_state,
-			"intention_nodes": intention_nodes or [],
+			"intention_nodes": intention_nodes or {},
 			"last_bot_message": last_bot_message,
-			"parent_override_id": parent_override_id,
-			"paused_node_ids": paused_node_ids or [],
-			"pending_processes": pending_processes,
-			"process_definition": process_definition,
-			"process_id": process_id,
-			"process_stack": process_stack or [],
 		}
 		try:
 			await self._redis.set(self._key, json.dumps(state), ex=self._ttl)

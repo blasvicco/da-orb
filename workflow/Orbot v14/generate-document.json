@@ -1,0 +1,861 @@
+{
+  "name": "Orbot v14 - Generate Document",
+  "nodes": [
+    {
+      "id": "7d1a2b3c-0001-4a1a-8a1a-000000000201",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1072,
+        -352
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "7d1a2b3c-0002-4a1a-8a1a-000000000202",
+      "name": "Resolve Target Node",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -848,
+        -352
+      ],
+      "parameters": {
+        "jsCode": "// target_node_id was resolved upstream, by Agent: Find (agent-intent-finder.json), from\n// the raw intention_nodes object already on the item -- this flow only ever reads that\n// resolution, it never re-resolves which node the user means itself (see Router-dispatched\n// flows assuming resolved context, the same convention every other route follows).\n//\n// business_partner_ref is read straight off the target, not asked of the user -- CardCode is\n// SAP B1's own established field name for a Business Partner code (see e.g.\n// sap-process-form-filling.json's own reference to it).\n//\n// document_type/document_mapping are entity-level facts, declared on the process's own\n// referenced *schema*, not on any one CRUD operation over it (a customer's invoice-generation\n// capability should apply the same way whether the node came from a get, a list, or a future\n// create) -- schema-resolution.json's Decode & Set Schema merges the schema in as a NESTED\n// process_definition.schema_definition key (not spread onto the top level), so that is read\n// first; a top-level process_definition.document_type/document_mapping still wins when an\n// operation file declares its own override. Absent entirely means '' / null here, which\n// Django's /api/v1/document/generate/ already rejects cleanly as UNSUPPORTED_DOCUMENT_TYPE\n// (see Handle Render Result's friendlier message for that case).\nconst data = $json;\nconst nodes = data.intention_nodes || {};\n// A first-time generate_document request carries target_node_id (Agent: Find's STEP 2\n// resolution, same as new_intent's own target resolution). A confirming_document\n// RESUMPTION never sets target_node_id -- Agent: Find's output for that status is just\n// {\"status\": \"confirming_document\"} -- it relies on active_node_id already pointing at the\n// node, same convention pending_reply uses and the same one Compute Route Key's own\n// confirming_document check already reads. Falling back to active_node_id here closes that\n// gap -- confirmed live: without it, every confirming_document resumption hit \"No Target\n// Found\" even though classification and routing were both already correct.\nconst targetNodeId = data.target_node_id || data.active_node_id;\nconst target = targetNodeId ? nodes[targetNodeId] : null;\nconst formState = target?.form_state || null;\nconst processDefinition = target?.process_definition || {};\nconst schemaDefinition = processDefinition.schema_definition || {};\nconst documentType = schemaDefinition.document_type || processDefinition.document_type || '';\nconst documentMapping = schemaDefinition.document_mapping || processDefinition.document_mapping || null;\nreturn [{ json: {\n  ...data,\n  target_node_id: targetNodeId,\n  _target_document_type: documentType,\n  _target_document_mapping: documentMapping,\n  _target_form_state: formState,\n  _target_business_partner_ref: formState?.CardCode || '',\n  _target_status: target?.status || '',\n  _target_found: Boolean(target),\n} }];"
+      }
+    },
+    {
+      "id": "7d1a2b3c-0003-4a1a-8a1a-000000000203",
+      "name": "Has Target?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -624,
+        -352
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-Has Target?",
+              "leftValue": "={{ $json._target_found }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "7d1a2b3c-0004-4a1a-8a1a-000000000204",
+      "name": "Build Invoice Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2240,
+        -928
+      ],
+      "parameters": {
+        "jsCode": "// Generic, document-type-agnostic field mapper: reads the target process's own declared\n// document_mapping (schema-level -- see Resolve Target Node) and applies it mechanically to\n// the target's form_state, using the (possibly edited) working copy of line items from a\n// just-finished customization loop when one ran. No SAP-field-name literals live in this node\n// -- a different customer's own template/mapping needs only their own schema override, never\n// a workflow change.\nconst data = $json;\nconst form = data._target_form_state || {};\nconst mapping = data._target_document_mapping || {};\n\nconst headerFields = mapping.header_fields || {};\nconst headerTransforms = mapping.header_transforms || {};\nconst constants = mapping.constants || {};\nconst constantsFromFields = mapping.constants_from_fields || {};\nconst lineItemFields = mapping.line_item_fields || {};\nconst lineItemSource = mapping.line_item_source || '';\nconst paramsSpec = mapping.params || {};\n\n// SAP text fields (e.g. Address) can carry bare \\r line separators -- confirmed live these\n// render as an invisible/blank glyph instead of a real line break (the renderer's text\n// layout only recognizes \\n). Normalizing here, once, covers every mapped field uniformly\n// rather than special-casing Address.\nconst normalizeText = (value) => (typeof value === 'string' ? value.replace(/\\r\\n/g, '\\n').replace(/\\r/g, '\\n') : value);\n\nconst assign = (row, targets, value) => {\n  const normalized = normalizeText(value);\n  const list = Array.isArray(targets) ? targets : [targets];\n  for (const key of list) row[key] = normalized;\n};\n\n// Some header data only exists on an expanded related entity (e.g. the customer's own CUIT\n// lives on BusinessPartner, not on the invoice itself, reached via a live $expand=BusinessPartner\n// -- confirmed live) -- a dotted sapField (\"BusinessPartner.FederalTaxID\") walks into that\n// nested object; a plain field name still does a single, direct lookup exactly as before, so\n// this is a strict superset of the old behavior, not a breaking change.\nconst getPath = (obj, path) => path.split('.').reduce((acc, key) => (acc == null ? acc : acc[key]), obj);\n\nconst headerRow = { ...constants };\nfor (const [sapField, targets] of Object.entries(headerFields)) {\n  assign(headerRow, targets, getPath(form, sapField) ?? null);\n}\nfor (const transform of Object.values(headerTransforms)) {\n  const raw = getPath(form, transform.source);\n  const mapped = (transform.lookup || {})[raw];\n  assign(headerRow, transform.target, mapped ?? transform.default ?? null);\n}\nfor (const [constantField, sourceField] of Object.entries(constantsFromFields)) {\n  headerRow[constantField] = normalizeText(getPath(form, sourceField) ?? null);\n}\n// Some report fields are arithmetic over two SAP fields (e.g. a printed SubTotal that SAP's\n// own Crystal integration would normally inject, but we supply our own dataset) -- header_fields/\n// constants/constants_from_fields are all direct-passthrough-or-fixed, so this is the one\n// mapping primitive that computes a value instead of just relocating or fixing one.\nconst computedFields = mapping.computed_fields || {};\nfor (const [targetField, spec] of Object.entries(computedFields)) {\n  if (spec.op === 'subtract') {\n    assign(headerRow, targetField, (Number(getPath(form, spec.a)) || 0) - (Number(getPath(form, spec.b)) || 0));\n  }\n}\n\n// Set only by Merge QR Result, gated on Needs QR?/mapping.qr_source -- absent for any\n// document type that doesn't declare qr_source, unchanged from today's behavior.\nif (mapping.qr_source && data._qr_value != null) {\n  headerRow[mapping.qr_source.target_field] = data._qr_value;\n}\n\n// The template's own embedded-logo picture (a BlobField bound to {OADP.LogoImage},\n// confirmed live via rpt-rs's json-dump) reads from this MAIN row -- set by Merge Company\n// Info Result from the organization's own company_info, never from SAP (no logo image\n// data exists there at all). Distinct from -- and never confused with -- SREncabDocum's\n// own separate, unrelated LogoImage field (subreport_constants/company_info_source both\n// leave that one alone).\nif (mapping.logo_source && data._logo_value != null) {\n  headerRow[mapping.logo_source.target_field] = data._logo_value;\n}\n\nconst targetNode = (data.intention_nodes || {})[data.target_node_id] || {};\nconst lineItems = targetNode._pending_document_lines\n  || (lineItemSource ? form[lineItemSource] : null)\n  || [];\n\nlet rows;\nif (lineItemSource && lineItems.length) {\n  rows = lineItems.map((line, index) => {\n    const row = { ...headerRow, LineNum: index };\n    for (const [sapField, targets] of Object.entries(lineItemFields)) {\n      assign(row, targets, line[sapField] ?? null);\n    }\n    return row;\n  });\n} else {\n  rows = [headerRow];\n}\n\n// A \"source\" param reads from headerRow (the already-mapped, already-fetched entity),\n// never raw form_state -- confirmed live (2026-09-20) that form_state only ever holds\n// whatever key the user actually supplied to resolve this record (e.g. DocNum for a\n// lookup-by-number), not the entity's own DocEntry the way header_fields' own mapping of\n// the fetched entity does. dockey@ in particular feeds the .rpt's own record-selection\n// formula -- sourcing it from form_state silently filtered out every row (dockey@ resolved\n// null/mismatched), rendering a fully blank body with no error, since nothing else in this\n// pipeline treats \"zero rows matched\" as a failure.\nconst params = {};\nfor (const [paramName, spec] of Object.entries(paramsSpec)) {\n  if ('source' in spec) params[paramName] = getPath(headerRow, spec.source) ?? null;\n  else if ('constant' in spec) params[paramName] = spec.constant;\n}\n\n// Company-letterhead-style subreports (logo, phone, email, etc.) are invoice-independent --\n// one fixed row per subreport, sourced entirely from the schema's own constants. A subreport\n// gets its OWN independent dataset -- fields already present on the main row (e.g. CompnyName)\n// are NOT automatically visible to it, so the schema must repeat whatever this specific\n// subreport needs. (SREncabDocum specifically has moved to company_info_source below -- SAP\n// does expose some of it live via SQLQueries, unlike the rest of this mechanism's assumption.)\nconst subreportConstants = mapping.subreport_constants || {};\nconst subreports = {};\nfor (const [subreportName, row] of Object.entries(subreportConstants)) {\n  subreports[subreportName] = { rows: [row] };\n}\n\n// Company info (SREncabDocum): computed pre-call by Build/Merge Company Info Result --\n// SAP-sourced where declared, Organization-sourced fallback/override otherwise (this\n// instance's own OADM.CompnyName carries a test-environment prefix unusable for print;\n// OADM has no website column at all) -- see Needs Company Info?/company_info_source.\nif (mapping.company_info_source && data._company_info) {\n  subreports[mapping.company_info_source.subreport] = { rows: [data._company_info] };\n}\n\n// TaxDetails.rpt: one row per VAT rate actually used by the lines being invoiced -- the same\n// `lineItems` already resolved above (reflects any customization, not stale SAP data).\n// Gated on tax_details_condition_field (e.g. VatSum) being non-zero -- no VAT, nothing to\n// break down, matching subreport_constants' own no-op-when-absent convention.\nconst taxDetailsSpec = mapping.tax_details_source;\nconst conditionField = mapping.tax_details_condition_field;\nif (taxDetailsSpec && (!conditionField || Number(getPath(headerRow, conditionField)) !== 0)) {\n  const groups = new Map();\n  for (const line of lineItems) {\n    const rate = line[taxDetailsSpec.rate_field];\n    const key = String(rate);\n    const group = groups.get(key) || { rate, base: 0, tax: 0 };\n    group.base += Number(line[taxDetailsSpec.base_field]) || 0;\n    group.tax += Number(line[taxDetailsSpec.tax_field]) || 0;\n    groups.set(key, group);\n  }\n  subreports[taxDetailsSpec.subreport] = {\n    rows: [...groups.values()].map((group) => ({\n      [taxDetailsSpec.dockey_field]: headerRow[taxDetailsSpec.dockey_field],\n      CODE: `${taxDetailsSpec.code_prefix}${group.rate}`,\n      RATE: group.rate,\n      BASE: group.base,\n      BASEME: group.base,\n      TAX: group.tax,\n      TAXME: group.tax,\n      ORIGEN: '',\n    })),\n  };\n}\n\n// WTInPayment: one row per non-zero withholding entry, sourced from the ORIGINAL entity\n// (document-level, unrelated to line-item customization) -- only non-zero amounts produce a\n// row, so a document with no real withholding ends up with this subreport entirely absent,\n// same as an empty tax-details table would be.\nconst wtSpec = mapping.withholding_source;\nif (wtSpec) {\n  const wtLines = (getPath(form, wtSpec.line_source) || []).filter(\n    (line) => Number(line[wtSpec.amount_field]) !== 0\n  );\n  if (wtLines.length) {\n    subreports[wtSpec.subreport] = {\n      rows: wtLines.map((line) => {\n        const row = { [wtSpec.dockey_target]: headerRow[wtSpec.dockey_field] };\n        for (const [target, sourceField] of Object.entries(wtSpec.fields)) row[target] = line[sourceField];\n        return row;\n      }),\n    };\n  }\n}\n\n// A caller-supplied, per-organization override: force a specific named report section or\n// object visible or hidden regardless of what the .rpt file's own static suppress flag or\n// Object_Visibility/Section_Visibility formula would otherwise decide -- for sections some\n// SAP B1 templates ship with a plain hard-coded suppress and no condition at all (e.g. an\n// optional invoice-total line), which no amount of row/param data could ever influence.\n// Sparse by design -- a section/object name absent from either map defers entirely to the\n// template's own behavior, same as every org that doesn't declare this key at all.\n//\n// Both maps declare entries as {\"param\": \"<params@ key>\", \"negate\": <bool, optional>} rather\n// than a literal boolean -- the renderer itself has no notion of this indirection (it parses\n// section_visibility/object_visibility as plain {\"Name\": true/false} maps, see\n// app/renderer/src/main.rs's build_section_visibility/build_object_visibility), so it must be\n// resolved here, against the params@ flags computed above, before crossing that boundary.\n// Confirmed live against docs/mockups_flags/*.json (this repo's own record of a proven-working\n// render): section_visibility always emits its resolved value, true or false, directly --\n// both states are meaningful, since it toggles a conditional section on or off outright.\n// object_visibility only ever emits false (an explicit force-hide) -- a resolution of true is\n// omitted entirely rather than sent, since every current use of it is suppressing a fallback\n// object when its alternative is shown, never the reverse; the template's own default already\n// leaves these objects visible absent an override.\nconst resolveFlag = (spec) => {\n  const value = params[spec.param];\n  return spec.negate ? !value : value;\n};\nconst sectionVisibilitySpec = mapping.section_visibility || {};\nconst resolvedSectionVisibility = {};\nfor (const [sectionName, spec] of Object.entries(sectionVisibilitySpec)) {\n  resolvedSectionVisibility[sectionName] = resolveFlag(spec);\n}\nconst objectVisibilitySpec = mapping.object_visibility || {};\nconst resolvedObjectVisibility = {};\nfor (const [objectName, spec] of Object.entries(objectVisibilitySpec)) {\n  if (resolveFlag(spec) === false) resolvedObjectVisibility[objectName] = false;\n}\n\n// params@ flags that exist only to drive the visibility resolution above (e.g.\n// ShowEmbeddedLogo@) are never themselves real Crystal Reports parameters -- confirmed live\n// or the exact same docs/mockups_flags/*.json record, whose own _params never carries them,\n// only dockey@/objectid@/extparam@. Sending them anyway hasn't been confirmed harmless, so\n// they're stripped here rather than assumed inert.\nconst visibilityOnlyParamNames = new Set([\n  ...Object.values(sectionVisibilitySpec).map((spec) => spec.param),\n  ...Object.values(objectVisibilitySpec).map((spec) => spec.param),\n]);\nconst finalParams = Object.fromEntries(\n  Object.entries(params).filter(([paramName]) => !visibilityOnlyParamNames.has(paramName))\n);\n\nreturn [{ json: { ...data, _rows: rows, _params: finalParams, _subreports: subreports, _section_visibility: resolvedSectionVisibility, _object_visibility: resolvedObjectVisibility } }];"
+      }
+    },
+    {
+      "id": "7d1a2b3c-0005-4a1a-8a1a-000000000205",
+      "name": "Call Document Render",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2464,
+        -928
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://blas.local/api/v1/document/generate/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ session_id: $json.session_id, document_type: $json._target_document_type, business_partner_ref: $json._target_business_partner_ref, language: $json.language, data: $json._rows, params: $json._params, subreports: $json._subreports, section_visibility: $json._section_visibility, object_visibility: $json._object_visibility, name: ($json._target_document_mapping?.bucket_key_field ? ($json._target_document_type + '_' + $json._target_form_state?.[$json._target_document_mapping.bucket_key_field]) : ('factura_' + $json.target_node_id)), force_new_version: $json.force_new_version === true }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Zl1ukJrgzCeUg7zJ",
+          "name": "Orb Auth"
+        }
+      }
+    },
+    {
+      "id": "7d1a2b3c-0006-4a1a-8a1a-000000000206",
+      "name": "Handle Render Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2688,
+        -928
+      ],
+      "parameters": {
+        "jsCode": "const data = $('Resolve Target Node').first().json;\nconst response = $json;\nconst status = response.statusCode;\nconst body = response.body || {};\nif (status === 201 || status === 409) {\n  const already = status === 409;\n  const MESSAGES = {\n    es: already\n      ? 'Ya hab\u00eda una versi\u00f3n generada antes -- pedime una versi\u00f3n nueva si la necesit\u00e1s actualizada.'\n      : 'Ac\u00e1 ten\u00e9s el documento.',\n    en: already\n      ? \"A version was already generated earlier -- ask me for a new version if you need it updated.\"\n      : 'Here is the document.',\n  };\n  const lang = data.language || 'es';\n  return [{ json: { ...data, message: MESSAGES[lang] || MESSAGES.es, attachment: { id: body.id, name: body.name }, error: null } }];\n}\n// Distinct from a genuine render failure -- this process's document_type is empty or has no\n// template/system-fallback configured for it (see document/constants.py's SUPPORTED_DOCUMENT_TYPES),\n// not something retrying will fix.\nif (status === 400 && body.error === 'UNSUPPORTED_DOCUMENT_TYPE') {\n  const UNSUPPORTED_MESSAGES = {\n    es: 'Todav\u00eda no tengo un formato de documento configurado para este tipo de proceso.',\n    en: \"I don't have a document format configured for this type of process yet.\",\n  };\n  const lang = data.language || 'es';\n  return [{ json: { ...data, message: UNSUPPORTED_MESSAGES[lang] || UNSUPPORTED_MESSAGES.es, error: 'UNSUPPORTED_DOCUMENT_TYPE' } }];\n}\nconst ERROR_MESSAGES = {\n  es: 'No pude generar el documento. Prob\u00e1 de nuevo en un momento.',\n  en: \"I couldn't generate the document. Try again in a moment.\",\n};\nconst lang = data.language || 'es';\nreturn [{ json: { ...data, message: ERROR_MESSAGES[lang] || ERROR_MESSAGES.es, error: 'RENDER_FAILED' } }];"
+      }
+    },
+    {
+      "id": "7d1a2b3c-0007-4a1a-8a1a-000000000207",
+      "name": "No Target Found",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2544,
+        -336
+      ],
+      "parameters": {
+        "jsCode": "const data = $json;\nconst MESSAGES = {\n  es: 'No encontr\u00e9 a qu\u00e9 proceso te refer\u00eds para generar el documento. \u00bfPod\u00e9s indicarme cu\u00e1l?',\n  en: \"I couldn't find which process you mean to generate a document for. Could you point me to it?\",\n};\nconst lang = data.language || 'es';\nreturn [{ json: { ...data, message: MESSAGES[lang] || MESSAGES.es, error: 'NOT_FOUND' } }];"
+      }
+    },
+    {
+      "id": "7d1a2b3c-0008-4a1a-8a1a-000000000208",
+      "name": "Execute Workflow: Response",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2992,
+        -784
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "vGK7I4eSKjbCGqvi",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {}
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "7d1a2b3c-0009-4a1a-8a1a-000000000209",
+      "name": "Return Generate Document Result",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        3264,
+        -784
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "7d1a2b3c-0010-4a1a-8a1a-000000000210",
+      "name": "Is Confirming?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -400,
+        -432
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-Is Confirming?",
+              "leftValue": "={{ $json._target_status }}",
+              "rightValue": "confirming_document",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "7d1a2b3c-0012-4a1a-8a1a-000000000212",
+      "name": "Ask About Customization",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1632,
+        -560
+      ],
+      "parameters": {
+        "jsCode": "// First time generate_document reaches a target whose document_mapping opts into line-item\n// customization: present the current line items and ask whether to add/remove/update any\n// before generating, mirroring sap-process-form-filling.json's own turn-based pending-state\n// convention -- but as a NEW, parallel status (confirming_document) rather than reusing\n// pending_reply, which is tightly coupled to form-filling specifically (Compute Route Key in\n// agent-intent-finder.json hardcodes pending_reply -> sap_form_filling and warns its\n// TERMINAL_STATUSES/resume-walk logic must stay in sync across six files -- a new status\n// avoids touching that).\nconst data = $json;\nconst mapping = data._target_document_mapping || {};\nconst form = data._target_form_state || {};\nconst lineItemSource = mapping.line_item_source || '';\nconst lines = lineItemSource ? (form[lineItemSource] || []) : [];\n\n// The raw SAP line item can carry 100+ fields (e.g. a real Invoice DocumentLine) --\n// dumping the whole object would be an unreadable wall of JSON for a chat message. Only\n// the fields the schema itself declared meaningful (line_item_fields' own SAP-field keys)\n// are shown, keeping this generic across document types instead of hardcoding field names.\nconst summaryFields = Object.keys(mapping.line_item_fields || {});\nconst summarizeLine = (line) => {\n  if (!summaryFields.length) return JSON.stringify(line);\n  const picked = {};\n  for (const key of summaryFields) if (key in line) picked[key] = line[key];\n  return JSON.stringify(picked);\n};\nconst summarize = (items) => items.length\n  ? items.map((line, i) => `${i + 1}. ${summarizeLine(line)}`).join('\\n')\n  : '(sin items)';\n\nconst MESSAGES = {\n  es: `Antes de generar el documento, este es el detalle actual:\\n${summarize(lines)}\\n\\n\u00bfQuer\u00e9s agregar, quitar, o modificar alg\u00fan \u00edtem? Si no, decime que lo genere tal cual est\u00e1.`,\n  en: `Before generating the document, here is the current detail:\\n${summarize(lines)}\\n\\nWould you like to add, remove, or update any items? If not, just tell me to generate it as-is.`,\n};\nconst lang = data.language || 'es';\n\nconst nodeId = data.target_node_id;\nconst targetNode = data.intention_nodes[nodeId];\nconst intentionNodes = {\n  ...data.intention_nodes,\n  [nodeId]: { ...targetNode, status: 'confirming_document', _pre_confirmation_status: targetNode.status, _pending_document_lines: lines },\n};\n\nreturn [{ json: {\n  ...data,\n  intention_nodes: intentionNodes,\n  active_node_id: nodeId,\n  message: MESSAGES[lang] || MESSAGES.es,\n  error: null,\n} }];"
+      }
+    },
+    {
+      "id": "7d1a2b3c-0013-4a1a-8a1a-000000000213",
+      "name": "Prompt: Edit Invoice Lines",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        -800
+      ],
+      "parameters": {
+        "jsCode": "const data = $json;\nconst target = data.intention_nodes[data.target_node_id] || {};\nconst lines = target._pending_document_lines || [];\nconst chatInput = `The user is reviewing a document's line items before it gets generated. Current line items (a JSON array, in order):\\n${JSON.stringify(lines, null, 2)}\\n\\nThe user's latest message: \"${data.message}\"\\n\\nRespond in: ${data.language || 'es'}.`;\nreturn [{ json: { ...data, chatInput } }];"
+      }
+    },
+    {
+      "id": "7d1a2b3c-0014-4a1a-8a1a-000000000214",
+      "name": "OpenAI Chat Model Edit Invoice Lines",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        64,
+        -592
+      ],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "2CRyLxL8C6zZXIqF",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "id": "7d1a2b3c-0015-4a1a-8a1a-000000000215",
+      "name": "Agent: Edit Invoice Lines",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "onError": "continueErrorOutput",
+      "position": [
+        64,
+        -800
+      ],
+      "parameters": {
+        "options": {
+          "systemMessage": "Invoice line-item editing assistant. You are shown the CURRENT line items (a JSON array of\nplain objects -- whatever fields each already has, you don't need to know their meaning) and\nthe user's latest message, reviewing them before a document gets generated from them.\n\nDecide what the user wants:\n- If the message clearly confirms proceeding as-is (e.g. \"no\", \"esta bien\", \"generalo asi\",\n  \"proceed\", \"looks good\", \"no changes\") -- return the SAME line items unchanged, done: true.\n- If the message asks to ADD a line item -- append a new object to the list with whatever\n  fields the user specified (matching the field names already used in the existing lines,\n  inferring by comparison -- e.g. if existing lines use \"ItemCode\"/\"Quantity\", a request to\n  \"add item X10 qty 5\" becomes {\"ItemCode\": \"X10\", \"Quantity\": 5}, carrying over any OTHER\n  fields the existing lines share by copying a representative existing line's shape and\n  overwriting only what the user specified, so the new line stays structurally consistent).\n  Set done: true only if the message's edit request is fully self-contained (a complete,\n  well-specified line); if information is missing to build a valid line (e.g. they said \"add\n  an item\" with no further detail), set done: false and ask specifically what's missing in\n  message.\n- If the message asks to REMOVE a line item (by its 1-based position as shown, or by naming a\n  field's value, e.g. \"quita el item X10\") -- remove that entry from the list. done: true if\n  the removal was unambiguous, done: false with a clarifying message if which line to remove\n  is not clear.\n- If the message asks to UPDATE/change a field on an existing line (e.g. \"cambia la cantidad\n  del item 2 a 10\") -- modify that one field on that one line, leaving everything else\n  unchanged. done: true if unambiguous, done: false with a clarifying question otherwise.\n- If the message is unrelated to editing these line items, or you genuinely cannot tell what\n  they want -- done: false, and message should ask them to clarify (add/remove/update\n  something specific, or confirm as-is).\n\n\"done: true\" means the user is finished editing (whether they made changes or none at all) and\nthe document should now be generated with the returned \"lines\". \"done: false\" means you need\nanother turn -- your own \"message\" is what gets shown to the user next, asking exactly what is\nstill needed; \"lines\" should still reflect whatever partial progress was made this turn (or\nstay unchanged if the message didn't map to a valid edit at all).\n\nOUTPUT (standardized JSON, no other shape):\n{\"lines\": [...], \"done\": true|false, \"message\": \"<only meaningful when done is false -- a\nclarifying question or acknowledgement of what's still needed, in the user's own language>\"}\n\nNever fetch external data, never call any tool. Return ONLY a raw JSON object -- no code\nfences, no markdown wrapping, no extra text."
+        }
+      }
+    },
+    {
+      "id": "7d1a2b3c-0016-4a1a-8a1a-000000000216",
+      "name": "Merge Context: Edit Invoice Lines",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        416,
+        -800
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ Object.assign({}, $('Prompt: Edit Invoice Lines').first().json, $json) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "7d1a2b3c-0017-4a1a-8a1a-000000000217",
+      "name": "Compute Customization Outcome",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        -800
+      ],
+      "parameters": {
+        "jsCode": "const data = $json;\nconst nodeId = data.target_node_id;\nconst targetNode = data.intention_nodes[nodeId];\nconst lang = data.language || 'es';\n\nconst FAILURE_MESSAGES = {\n  es: 'No pude procesar ese cambio. \u00bfPod\u00e9s repetirlo de otra forma?',\n  en: \"I couldn't process that change. Could you rephrase it?\",\n};\n\nlet parsed = null;\nif (!data.error && typeof data.output === 'string') {\n  try { parsed = JSON.parse(data.output); } catch (e) { parsed = null; }\n}\n\nif (!parsed || !Array.isArray(parsed.lines)) {\n  const intentionNodes = {\n    ...data.intention_nodes,\n    [nodeId]: { ...targetNode, status: 'confirming_document' },\n  };\n  return [{ json: {\n    ...data,\n    intention_nodes: intentionNodes,\n    active_node_id: nodeId,\n    _customization_done: false,\n    message: FAILURE_MESSAGES[lang] || FAILURE_MESSAGES.es,\n    error: null,\n  } }];\n}\n\nif (parsed.done) {\n  const intentionNodes = {\n    ...data.intention_nodes,\n    [nodeId]: {\n      ...targetNode,\n      status: targetNode._pre_confirmation_status || 'completed',\n      _pending_document_lines: parsed.lines,\n    },\n  };\n  return [{ json: { ...data, intention_nodes: intentionNodes, _customization_done: true } }];\n}\n\nconst intentionNodes = {\n  ...data.intention_nodes,\n  [nodeId]: { ...targetNode, status: 'confirming_document', _pending_document_lines: parsed.lines },\n};\nreturn [{ json: {\n  ...data,\n  intention_nodes: intentionNodes,\n  active_node_id: nodeId,\n  _customization_done: false,\n  message: parsed.message || (lang === 'en' ? 'Anything else to change?' : '\u00bfAlgo m\u00e1s que quieras cambiar?'),\n  error: null,\n} }];"
+      }
+    },
+    {
+      "id": "7d1a2b3c-0018-4a1a-8a1a-000000000218",
+      "name": "Customization Done?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        864,
+        -800
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-Customization Done?",
+              "leftValue": "={{ $json._customization_done }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "7d1a2b3c-0019-4a1a-8a1a-000000000219",
+      "name": "Needs QR?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1328,
+        -944
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-Needs QR?",
+              "leftValue": "={{ $json._target_document_mapping?.qr_source }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "7d1a2b3c-0020-4a1a-8a1a-000000000220",
+      "name": "Build QR Call Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1552,
+        -1104
+      ],
+      "parameters": {
+        "jsCode": "// One-off CALL_FUNCTION request (see sap-inquiry-execution.json's Build Execution Prompt /\n// Build SAP Payload) fetching the AFIP QR blob a SQLQueries lookup already exposes -- not\n// tied to any registered intention_node (active_node_id: null), since this is\n// document-generation plumbing, not a user-facing SAP operation. suppress_delivery: true\n// stops sap-inquiry-execution.json's own error path from calling Execute Workflow: Response\n// on a failed lookup (e.g. no AFIP QR row yet for this invoice) -- confirmed live: without\n// this, a missing QR record surfaced as a raw SAP error delivered straight to the user AND\n// aborted the whole document-generation run, instead of the graceful no-QR fallback Merge QR\n// Result already implements (qrValue stays null when result.status !== 'success').\nconst data = $json;\nconst qrSource = data._target_document_mapping.qr_source;\nconst keyValue = data._target_form_state?.[qrSource.key_param];\nreturn [{ json: {\n  ...data,\n  active_node_id: null,\n  suppress_delivery: true,\n  sap_operation: 'CALL_FUNCTION',\n  sap_call_config: {\n    service_name: 'SQLQueries',\n    function_name: 'List',\n    entity_key: qrSource.sql_name,\n    params: { [qrSource.key_param]: keyValue },\n  },\n} }];"
+      }
+    },
+    {
+      "id": "7d1a2b3c-0021-4a1a-8a1a-000000000221",
+      "name": "Execute Workflow: SAP Inquiry Execution",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1776,
+        -1104
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "lSxFNlkO98YWPk1G",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {}
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "7d1a2b3c-0022-4a1a-8a1a-000000000222",
+      "name": "Merge QR Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        -1104
+      ],
+      "parameters": {
+        "jsCode": "// Execute Workflow replaces the item wholesale (n8n nodes wipe item json) -- read the\n// pre-call context back explicitly from Build QR Call Payload rather than trusting anything\n// survived the hop, same convention Merge Context: Edit Invoice Lines already uses.\nconst before = $('Build QR Call Payload').first().json;\nconst result = $json;\nconst qrSource = before._target_document_mapping.qr_source;\n\n// Service Layer's SQLQueries(...)/List returns an OData collection: {\"value\": [...]}. Each\n// row's keys match the SQL's own column aliases (qr_source.sql_text's quoted identifiers).\n// BLOB columns (FileContnt) come back base64-encoded in Service Layer's JSON -- convert to\n// the same \\x-hex convention _resolve_bucket_assets already uses for LogoImage, so\n// Build Invoice Rows never needs to know which encoding a given source used.\n// NOT YET LIVE-VERIFIED: confirm this exact response shape once Phase 1 (entityKey) and the\n// client's own OQRC server-side whitelist are both in place.\nlet qrValue = null;\nif (result.status === 'success') {\n  const raw = result._sap_call_result;\n  const rows = Array.isArray(raw?.value) ? raw.value : (Array.isArray(raw) ? raw : []);\n  const cell = rows[0]?.[qrSource.target_field];\n  if (typeof cell === 'string' && cell) {\n    qrValue = '\\\\x' + Buffer.from(cell, 'base64').toString('hex');\n  }\n}\n\nreturn [{ json: { ...before, _qr_value: qrValue } }];"
+      }
+    },
+    {
+      "id": "7d1a2b3c-0011-4a1a-8a1a-000000000211",
+      "name": "Doesn't need Confirmation?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        864,
+        -576
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-Needs Confirmation?",
+              "leftValue": "={{ Boolean($json._target_document_mapping?.allow_line_item_customization) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "8e2b3c4d-0001-4b2b-9b2b-100000000001",
+      "name": "Needs Company Info?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2000,
+        -928
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-Needs Company Info?",
+              "leftValue": "={{ $json._target_document_mapping?.company_info_source }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "8e2b3c4d-0002-4b2b-9b2b-100000000002",
+      "name": "Build Company Info Call Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2224,
+        -1104
+      ],
+      "parameters": {
+        "jsCode": "// One-off CALL_FUNCTION request (see sap-inquiry-execution.json's Build Execution Prompt /\n// Build SAP Payload) fetching the org's own SQLQueries-exposed company info -- not tied to\n// any registered intention_node (active_node_id: null), since this is document-generation\n// plumbing, not a user-facing SAP operation. suppress_delivery: true stops sap-inquiry-\n// execution.json's own error path from delivering a raw SAP error to the user or aborting\n// the whole document-generation run on failure -- Merge Company Info Result already falls\n// back to the organization's own company_info when this comes back empty or fails, same\n// convention Merge QR Result already uses for a missing QR record.\nconst data = $json;\nconst companyInfoSource = data._target_document_mapping.company_info_source;\nreturn [{ json: {\n  ...data,\n  active_node_id: null,\n  suppress_delivery: true,\n  sap_operation: 'CALL_FUNCTION',\n  sap_call_config: {\n    service_name: 'SQLQueries',\n    function_name: 'List',\n    entity_key: companyInfoSource.sql_name,\n    params: {},\n  },\n} }];"
+      }
+    },
+    {
+      "id": "8e2b3c4d-0003-4b2b-9b2b-100000000003",
+      "name": "Execute Workflow: SAP Inquiry Execution (Company Info)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2448,
+        -1104
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "lSxFNlkO98YWPk1G",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {}
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "8e2b3c4d-0004-4b2b-9b2b-100000000004",
+      "name": "Merge Company Info Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2672,
+        -1104
+      ],
+      "parameters": {
+        "jsCode": "// Execute Workflow replaces the item wholesale (n8n nodes wipe item json) -- read the\n// pre-call context back explicitly from Build Company Info Call Payload, same convention\n// Merge QR Result already uses.\n//\n// SAP is the primary source (live, always current), but two of this subreport's fields\n// can't come from SAP at all or aren't usable from it here: OADM has no website column\n// (confirmed live), and this instance's own OADM.CompnyName carries a test-environment\n// prefix/suffix unusable for print (\"*** TEST BVS TV SA ... ****\"). Each field spec\n// declares an optional sap_field (tried first) and/or org_field (fallback, or the only\n// source when sap_field is omitted) -- organization.company_info is a plain, non-secret\n// JSON field on MOrganization (unlike integration, which is encrypted and SAP-connection-\n// specific), already present on every payload via safe_to_dict().\nconst before = $('Build Company Info Call Payload').first().json;\nconst result = $json;\nconst spec = before._target_document_mapping.company_info_source;\nconst orgInfo = before.organization?.company_info || {};\n\nlet sapRow = {};\nif (result.status === 'success') {\n  const raw = result._sap_call_result;\n  const rows = Array.isArray(raw?.value) ? raw.value : (Array.isArray(raw) ? raw : []);\n  sapRow = rows[0] || {};\n}\n\nconst companyInfo = { ...(spec.constants || {}) };\nfor (const [targetField, fieldSpec] of Object.entries(spec.fields || {})) {\n  const sapValue = fieldSpec.sap_field ? sapRow[fieldSpec.sap_field] : null;\n  const orgValue = fieldSpec.org_field ? orgInfo[fieldSpec.org_field] : null;\n  companyInfo[targetField] = sapValue || orgValue || null;\n}\n\n// The embedded-logo picture (kind BlobField, \"LogoImageEmbedded\" in the template's own\n// ShowEmbeddedLogo section -- confirmed live via rpt-rs's json-dump, bound to\n// {OADP.LogoImage}) needs the SAME base64-encoded-then-hex convention _qr_value already\n// uses, sourced entirely from the org's own company_info -- this is genuinely\n// organization-wide constant data (SAP doesn't expose a company logo image at all), unlike\n// company_info's other fields, which try SAP first. Written onto the MAIN row (not\n// SREncabDocum's own row -- confirmed live these are two independent logo mechanisms,\n// SREncabDocum.LogoImage is a separate, unrelated, intentionally-unset field).\nconst logoSpec = before._target_document_mapping.logo_source;\nlet logoValue = null;\nif (logoSpec) {\n  const logoBase64 = orgInfo[logoSpec.org_field];\n  if (typeof logoBase64 === 'string' && logoBase64) {\n    logoValue = '\\\\x' + Buffer.from(logoBase64, 'base64').toString('hex');\n  }\n}\n\nreturn [{ json: { ...before, _company_info: companyInfo, _logo_value: logoValue } }];"
+      }
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Resolve Target Node",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Target Node": {
+      "main": [
+        [
+          {
+            "node": "Has Target?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Target?": {
+      "main": [
+        [
+          {
+            "node": "Is Confirming?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Target Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Invoice Rows": {
+      "main": [
+        [
+          {
+            "node": "Call Document Render",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Document Render": {
+      "main": [
+        [
+          {
+            "node": "Handle Render Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Render Result": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow: Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Target Found": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow: Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow: Response": {
+      "main": [
+        [
+          {
+            "node": "Return Generate Document Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Confirming?": {
+      "main": [
+        [
+          {
+            "node": "Prompt: Edit Invoice Lines",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Doesn't need Confirmation?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask About Customization": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow: Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prompt: Edit Invoice Lines": {
+      "main": [
+        [
+          {
+            "node": "Agent: Edit Invoice Lines",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model Edit Invoice Lines": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agent: Edit Invoice Lines",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent: Edit Invoice Lines": {
+      "main": [
+        [
+          {
+            "node": "Merge Context: Edit Invoice Lines",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge Context: Edit Invoice Lines",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Context: Edit Invoice Lines": {
+      "main": [
+        [
+          {
+            "node": "Compute Customization Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Customization Outcome": {
+      "main": [
+        [
+          {
+            "node": "Customization Done?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Customization Done?": {
+      "main": [
+        [
+          {
+            "node": "Needs QR?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute Workflow: Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs QR?": {
+      "main": [
+        [
+          {
+            "node": "Build QR Call Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Needs Company Info?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build QR Call Payload": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow: SAP Inquiry Execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow: SAP Inquiry Execution": {
+      "main": [
+        [
+          {
+            "node": "Merge QR Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge QR Result": {
+      "main": [
+        [
+          {
+            "node": "Needs Company Info?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Doesn't need Confirmation?": {
+      "main": [
+        [
+          {
+            "node": "Needs QR?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ask About Customization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Company Info?": {
+      "main": [
+        [
+          {
+            "node": "Build Company Info Call Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Invoice Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Company Info Call Payload": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow: SAP Inquiry Execution (Company Info)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow: SAP Inquiry Execution (Company Info)": {
+      "main": [
+        [
+          {
+            "node": "Merge Company Info Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Company Info Result": {
+      "main": [
+        [
+          {
+            "node": "Build Invoice Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

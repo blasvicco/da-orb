@@ -1,0 +1,29 @@
+{
+  "node": "Extract JSON",
+  "cases": [
+    {
+      "description": "plain valid JSON output -> parsed directly",
+      "input": { "output": "{\"status\":\"match\",\"path\":\"a/b.json\"}" },
+      "nodeResults": {},
+      "expected": { "_parsed": { "status": "match", "path": "a/b.json" }, "_parse_error": false }
+    },
+    {
+      "description": "output wrapped in ```json code fences -> stripped and parsed",
+      "input": { "output": "```json\n{\"status\":\"general_inquiry\"}\n```" },
+      "nodeResults": {},
+      "expected": { "_parsed": { "status": "general_inquiry" }, "_parse_error": false }
+    },
+    {
+      "description": "unparseable garbage -> _parsed null, _parse_error true rather than throwing",
+      "input": { "output": "not json at all {{{" },
+      "nodeResults": {},
+      "expected": { "_parsed": null, "_parse_error": true }
+    },
+    {
+      "description": "missing output entirely -> same graceful failure as garbage",
+      "input": {},
+      "nodeResults": {},
+      "expected": { "_parsed": null, "_parse_error": true }
+    }
+  ]
+}

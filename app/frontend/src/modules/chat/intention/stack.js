@@ -17,18 +17,17 @@ const latestState = (messages) => {
 export const deriveIntentionNodes = (messages, fallbackState) => {
   const state = latestState(messages || []) || fallbackState || null;
   if (!state) return [];
-  const nodes = state.intention_nodes || [];
-  const pausedNodeIds = state.paused_node_ids || [];
-  const resumableId = state.awaiting_stack_resume === true && pausedNodeIds.length
-    ? pausedNodeIds[pausedNodeIds.length - 1]
-    : null;
+  // intention_nodes is keyed by each node's own id (Record<id, Node>) -- the single
+  // source of truth for a node's process_id/process_definition/form_state, no separate
+  // root-level copy anymore.
+  const nodes = Object.values(state.intention_nodes || {});
 
   return nodes.map((node) => ({
     id: node.id,
     label: labelFor(node.process_id, node.process_definition),
     parentId: node.parent_id,
-    resumable: node.id === resumableId,
     status: node.status,
+    errorDetail: node.error_detail ?? null,
   }));
 };
 

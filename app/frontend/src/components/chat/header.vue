@@ -1,12 +1,9 @@
 <script setup>
   import Badge from '@/components/chat/badge.vue';
   import Export from '@/components/chat/export.vue';
-  import IntentionStack from '@/components/intention/stack.vue';
   import { formatCompactNumber } from '@/modules/number/token';
 
   import '@/components/chat/header.css';
-
-  const emit = defineEmits(['navigate', 'resume']);
 
   defineProps({
     connectionStatus: {
@@ -21,9 +18,9 @@
       default: () => [],
       type: Array,
     },
-    sessionState: {
+    sessionId: {
       default: null,
-      type: Object,
+      type: [Number, String],
     },
     sessionTitle: {
       default: null,
@@ -52,14 +49,9 @@
       >
         {{ $t('chat.header.tokensUsed', { count: formatCompactNumber(tokensUsed) }) }}
       </span>
-      <IntentionStack
-        :messages="messages"
-        :session-state="sessionState"
-        @navigate="(node) => emit('navigate', node)"
-        @resume="emit('resume')"
-      />
       <Export
         :messages="messages"
+        :session-id="sessionId"
         :session-title="sessionTitle"
         :user-name="userName"
       />

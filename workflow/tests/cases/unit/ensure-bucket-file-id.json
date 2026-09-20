@@ -1,0 +1,42 @@
+{
+  "node": "Ensure Bucket File ID",
+  "cases": [
+    {
+      "description": "REGRESSION: an item that already carries a correct bucket_file_id (the cache-miss path, inherited from the child workflow's own Attach Bucket File ID after crossing the Execute Workflow: File Extraction Item boundary) -> preserved as-is, NOT overwritten by itemMatching -- even though itemMatching would resolve to a DIFFERENT value here, simulating exactly the unreliable cross-boundary lookup that silently mis-tagged every item in the real production bug this node was written to fix",
+      "input": {},
+      "inputItems": [{ "bucket_file_id": 178, "extracted_content": "csv rows" }],
+      "nodeResults": {
+        "When Executed by Another Workflow": [{ "bucket_file_id": 177 }]
+      },
+      "expectedItems": [
+        { "bucket_file_id": 178, "extracted_content": "csv rows" }
+      ]
+    },
+    {
+      "description": "an item genuinely missing bucket_file_id (the cache-hit path, Check Cache's raw response -- no Execute Workflow boundary crossed on this path, so itemMatching is safe here) -> derived via itemMatching against this workflow's own trigger",
+      "input": {},
+      "inputItems": [{ "extracted_content": "cached content" }],
+      "nodeResults": {
+        "When Executed by Another Workflow": [{ "bucket_file_id": 101 }]
+      },
+      "expectedItems": [
+        { "bucket_file_id": 101, "extracted_content": "cached content" }
+      ]
+    },
+    {
+      "description": "mixed batch: one item already correctly tagged (cache miss), one missing it (cache hit) -> each resolved independently and correctly, not conflated",
+      "input": {},
+      "inputItems": [
+        { "bucket_file_id": 178, "extracted_content": "from cache-miss path" },
+        { "extracted_content": "from cache-hit path" }
+      ],
+      "nodeResults": {
+        "When Executed by Another Workflow": [{ "bucket_file_id": 178 }, { "bucket_file_id": 179 }]
+      },
+      "expectedItems": [
+        { "bucket_file_id": 178, "extracted_content": "from cache-miss path" },
+        { "bucket_file_id": 179, "extracted_content": "from cache-hit path" }
+      ]
+    }
+  ]
+}

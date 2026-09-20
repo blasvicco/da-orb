@@ -1,0 +1,42 @@
+{
+  "node": "Attach Bucket File ID",
+  "cases": [
+    {
+      "description": "single item -> tagged with bucket_file_id recovered via itemMatching against this SAME workflow's own trigger (safe: no Execute Workflow boundary crossed between trigger and this node)",
+      "input": {},
+      "inputItems": [{ "extracted_content": "some content" }],
+      "nodeResults": {
+        "When Executed by Another Workflow": [{ "bucket_file_id": 101 }]
+      },
+      "expectedItems": [
+        { "bucket_file_id": 101, "extracted_content": "some content" }
+      ]
+    },
+    {
+      "description": "multiple items -> each tagged with its OWN corresponding trigger item's bucket_file_id, by index, not all collapsed to the same one",
+      "input": {},
+      "inputItems": [
+        { "extracted_content": "first" },
+        { "extracted_content": "second" }
+      ],
+      "nodeResults": {
+        "When Executed by Another Workflow": [{ "bucket_file_id": 101 }, { "bucket_file_id": 102 }]
+      },
+      "expectedItems": [
+        { "bucket_file_id": 101, "extracted_content": "first" },
+        { "bucket_file_id": 102, "extracted_content": "second" }
+      ]
+    },
+    {
+      "description": "an item that already carries a (stale) bucket_file_id -> still unconditionally overwritten by itemMatching; this node always re-derives, unlike file-content-extractor.json's Ensure Bucket File ID, which prefers an already-correct value",
+      "input": {},
+      "inputItems": [{ "bucket_file_id": 999, "extracted_content": "some content" }],
+      "nodeResults": {
+        "When Executed by Another Workflow": [{ "bucket_file_id": 101 }]
+      },
+      "expectedItems": [
+        { "bucket_file_id": 101, "extracted_content": "some content" }
+      ]
+    }
+  ]
+}

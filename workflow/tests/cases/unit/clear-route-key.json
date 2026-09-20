@@ -1,0 +1,11 @@
+{
+  "node": "Clear Route Key",
+  "cases": [
+    {
+      "description": "nulls route_key so the spine's Router falls through to its debug dead-end instead of dispatching a second time after this turn was already delivered",
+      "input": { "route_key": "sap_form_filling", "message": "delivered already", "process_id": "purchase_request" },
+      "nodeResults": {},
+      "expected": { "route_key": null, "message": "delivered already", "process_id": "purchase_request" }
+    }
+  ]
+}

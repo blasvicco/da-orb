@@ -38,6 +38,12 @@ describe('Settings', () => {
     expect(wrapper.emitted('theme-change')[0]).toEqual([true]);
   });
 
+  it('never shows the slider value tooltip', async () => {
+    const wrapper = mount(Settings, { props: { expertiseLevel: 2 } });
+    await openSettings(wrapper);
+    expect(wrapper.findComponent({ name: 'ASlider' }).props('tooltip')).toEqual({ open: false });
+  });
+
   it('emits expertise-change when the slider is moved', async () => {
     const wrapper = mount(Settings, { props: { expertiseLevel: 2 } });
     await openSettings(wrapper);

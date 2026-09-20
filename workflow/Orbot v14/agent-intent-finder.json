@@ -1,0 +1,644 @@
+{
+  "name": "Orbot v14 - Agent Intent Finder",
+  "nodes": [
+    {
+      "id": "c12e8267-eb9a-4d49-9386-ebeec2b013ac",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -4000,
+        8016
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "4dfe2d1c-40bb-4dae-97e4-e279f3c3f773",
+      "name": "Status Text: Finding",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2960,
+        8016
+      ],
+      "parameters": {
+        "jsCode": "const STATUS = { finding: { es: 'Identificando el proceso', en: 'Identifying the process' } };\nconst lang = $json.language || 'es';\nreturn [{ json: { ...$json, status_text: STATUS.finding[lang] } }];"
+      }
+    },
+    {
+      "id": "cc15ab99-4b34-439d-8091-dcf6f84155ac",
+      "name": "Status: Finding",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "continueOnFail": true,
+      "position": [
+        -2720,
+        8016
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://blas.local/api/v1/chat/n8n_callback/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ group_name: $json.group_name, session_id: $json.session_id, text: $json.status_text, type: 'status' }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Zl1ukJrgzCeUg7zJ",
+          "name": "Orb Auth"
+        }
+      }
+    },
+    {
+      "id": "eae6201d-755a-4410-9470-d5a2dcdd65e7",
+      "name": "Prompt: Find",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2480,
+        8016
+      ],
+      "parameters": {
+        "jsCode": "const data = $('Status Text: Finding').first().json;\nconst { language, current_date, github_owner, github_repo, github_tag, message, focus } = data;\nconst ref = github_tag || 'main';\nconst focusBlock = focus\n  ? `USER'S CURRENT FOCUS (from Agent: Intention Focus -- grounding context, not a directive; use it to inform your own judgment, don't just defer to it):\\n${focus}\\n\\n`\n  : '';\nconst chatInput = `Today: ${current_date}. Respond in: ${language}.\n${focusBlock}\nSTEPS:\n1. Call get_file_contents with owner=${github_owner}, repo=${github_repo}, path={organization.target}/index.json, ref=${ref}. Resolve {organization.target} from the INPUT JSON below. Always call this first.\n2. Match the user message to one index entry using: keywords \u2192 when_to_use \u2192 name/slug.\n\nINPUT:\n\\`\\`\\`json\n${JSON.stringify(data, null, 2)}\n\\`\\`\\``;\nreturn [{ json: { ...data, chatInput } }];"
+      }
+    },
+    {
+      "id": "46292d5b-62fe-4245-8460-99203866c883",
+      "name": "Agent: Find",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "onError": "continueErrorOutput",
+      "position": [
+        -2240,
+        8016
+      ],
+      "parameters": {
+        "options": {
+          "systemMessage": "Turn classification agent. Runs on every non-batch turn, before anything else -- your job is to decide what this message IS before any of it is resolved further downstream.\n\nIf a \"USER'S CURRENT FOCUS\" block is present above the INPUT JSON, it's a statement from a separate step (Agent: Intention Focus) that already read the actual conversation history and worked out what the user is really trying to accomplish -- including whether the current message continues the same open intention or is pursuing something else (a side-step, a lookup in service of a still-open item, or an unrelated request). Evaluate it via STEP 0 below, BEFORE STEP 1 -- do not let STEP 1's criteria pull you toward \"pending_reply\" first and treat FOCUS as a tiebreaker; STEP 0 is a hard gate that must be ruled out first.\n\nSTEP 0 -- check FOCUS before anything else:\n\nIf a \"USER'S CURRENT FOCUS\" block is present and it states the user is pursuing something else -- this includes a side-step, an unrelated request, AND a lookup or action explicitly described as being done \"in order to\", \"in service of\", \"to be able to\", \"before continuing\", or similar in relation to the open intention, not only a fully unrelated request -- \"pending_reply\" is OFF THE TABLE for this turn, no matter how short, terse, or field-shaped the message looks, and even if STEP 1's \"pending_reply\" bullet below would otherwise seem to fit it -- do NOT re-evaluate or fall back into that bullet. Looking something up (e.g. FOCUS describing a vendor lookup meant to eventually fill a still-pending vendor field) is not the same as supplying it, and STEP 1's \"asks a clarifying question about the field just asked\" wording must NOT be stretched to cover it either -- that bullet is for the user asking YOU a question about the field, not for the user going off to go find the value themselves.\n\nInstead, decide the status from exactly these three remaining options:\n- If the message explicitly asks for a document/file export (a PDF, invoice, \"factura\", \"documento\") of something already done -- a process already completed or currently active in intention_nodes -- classify as \"generate_document\" and resolve it per that status's own criteria below. This holds even though FOCUS frames it as a detour from the paused item: producing a file is never a new SAP action, so it is never \"new_intent\" here.\n- Otherwise, if the message describes a lookup, search, or new actionable SAP request -- classify as \"new_intent\" and resolve per STEP 2 below.\n- Otherwise (a genuine question or remark with no actionable request of its own) -- classify as \"general_inquiry\".\n\nIf FOCUS says there is exactly one open intention with no interruption, or FOCUS is absent (fresh session, or that step failed), STEP 0 does not apply -- proceed to STEP 1 and classify normally from the message and INPUT JSON alone.\n\nSTEP 1 -- decide the top-level \"status\" (only reached once STEP 0 has been ruled out):\n\n- \"pending_reply\" -- a process is active and mid-form (INPUT JSON's `process_id` is set and `form_state.ready` is not yet true), and the message plausibly continues it: supplies a value for one of its fields, declines a field, or asks a clarifying question about the field just asked. Use \"pending_reply\" whenever the message plausibly answers what's pending -- even a short, terse reply (\"si\", \"no\", a bare name or date) counts; do not require exact phrasing.\n- \"confirming_document\" -- `intention_nodes[active_node_id]`'s own `status` is `\"confirming_document\"` (a document-generation flow already asked whether to add/remove/update any line items, or to proceed as-is, and is waiting on that answer), and the message plausibly continues THAT specific question. Same generous, non-strict-phrasing standard as \"pending_reply\" -- a bare \"si\"/\"no\"/\"dale\"/\"asi esta bien\" counts, no exact wording required. Never reclassify this as \"pending_reply\" (reserved for SAP process form-filling, a different mechanism with its own status/route) or as \"new_intent\" (the user is finishing an already-in-progress document confirmation, not starting a new SAP action, even when their reply names a line-item field that also happens to be a real SAP field).\n- \"new_intent\" -- the message describes a NEW or DIFFERENT actionable SAP request, independent of whatever is pending -- including when the user is explicitly abandoning or switching away from what's pending (\"cancel that\", \"never mind, instead...\", \"actually I want to...\").\n- \"general_inquiry\" -- the message is a genuine question or remark that has NOTHING to do with the current pending item and is not itself a new actionable SAP request either (e.g. \"what does this system do\", small talk, a general how-does-this-work question rather than a value for the field just asked). This status must NOT be used as an excuse to guess -- if the message could plausibly be answering what's pending or could plausibly be a new request, prefer \"pending_reply\"/\"new_intent\" over \"general_inquiry\". Whatever is currently pending is left completely untouched when this status is returned -- it is still there, unharmed, on the next turn.\n- Exception to the paragraph above: a question asking about the OUTCOME of an existing intention_node -- why it failed, whether it succeeded, what error it hit, what happened to it -- is ALWAYS \"general_inquiry\", even when `active_node_id` points at that exact node (so it superficially looks like it \"has to do with the current pending item\"), and even when that node's own process happens to have a matching GET/query process in the index (e.g. asking why a Purchase Request creation failed does NOT mean the user wants to run \"Get Purchase Request\" against SAP). The answer lives entirely in state already held -- the node's own `status`/`error_detail` in `intention_nodes` -- never in a new SAP call. Classifying this as `new_intent` kicks off a pointless, unanswerable query (e.g. asking the user for a DocEntry that was never assigned, because the creation that would have produced one failed). Only classify as `new_intent` -> a GET/query process when the user is asking to look up a DIFFERENT, presumably-successful record they already know exists in SAP by name (e.g. citing a DocNum), not when they're asking about the fate of something already tracked in intention_nodes.\n\n- \"generate_document\" -- the message asks for a document/file export (a PDF, invoice, \"factura\", \"documento\", \"archivo\") of something already done -- a process already completed or currently active in intention_nodes (e.g. \"mandame la factura que acabas de crear en PDF\", \"generame el PDF de esa orden\", \"quiero el documento de esa solicitud\"). This is never a request to run a NEW SAP action, so never classify it as \"new_intent\" even though it names a business document -- and it is NOT \"general_inquiry\" either, since it requires actually producing a file rather than just answering in text. If the user is instead asking a question ABOUT the document/process (its status, its total, whether it succeeded) rather than asking to receive the file itself, that is still \"general_inquiry\", not this.\n\nCheck the \"already completed or currently active in intention_nodes\" part of this literally against the actual intention_nodes in the INPUT JSON, not just against how the message reads -- confirmed live to matter: a message can sound exactly like a document request (\"quiero el PDF de la factura con DocEntry 45501\", naming a specific record by its business key) while intention_nodes is empty or contains no entry for that record at all. Naming a record is not the same as that record already sitting in intention_nodes -- a document can only be generated from data already fetched into a node there. If intention_nodes has no entry that plausibly IS the thing being asked about, the data has to be fetched first: classify as \"new_intent\" instead, even though the wording alone would otherwise read as \"generate_document\".\n\nWhen no process is active (INPUT JSON's `process_id` is null), only \"new_intent\" or \"general_inquiry\" apply -- \"pending_reply\" is never valid without an active, mid-form process to resolve against.\n\nSTEP 2 -- resolve within that status:\n\nIf status = \"pending_reply\": no extra resolution needed here -- the message is simply handed on to fill the form; do not attempt to extract field values yourself.\n\nIf status = \"new_intent\": resolve one of the following (unchanged from before, just nested under `new_intent_status` instead of being the top-level status):\n  - Return `new_intent_status: \"match\"` only when the user's message clearly describes an actionable request that corresponds to exactly ONE process, with nothing ambiguous about which one -- a short, terse, or briefly-worded message is still a clear match if its meaning is unambiguous (e.g. \"l\u00edstame los art\u00edculos que contengan X\" is clear and actionable even though it's short). Reserve \"no_match\" for messages that are GENUINELY unclear: a lone stray word with no verb/object (e.g. \"prover\"), a likely typo, or random characters -- not for clear requests that simply happen to be brief. When in doubt about whether a real, parseable request exists, prefer matching it over rejecting it. This also applies when the message references attached files but the message ITSELF explicitly limits the request to one record or one specific instance from that content -- e.g. \"usa el primer registro de este archivo para crear una sola solicitud\", \"con los datos de este PDF arma un pedido\" (singular, no plural/enumeration, no \"however many there are\" framing) -- the user's own wording decides `match` vs `batch` here, never the actual record count sitting in `extracted_files` (that count isn't reliably knowable at this step anyway -- see the batch rule below for why). To resolve \"match\", call GitHub MCP, load the process index, and return that one entry as a single-item list in `processes` (each entry: `{\"path\": ..., \"process_name\": ...}`, taken directly from the index).\n  - Return `new_intent_status: \"batch\"` when the message explicitly asks for MULTIPLE separate process actions at once -- creating/submitting records (data written inline, e.g. \"crea 2 solicitudes de compra: ...\", a numbered list of records, or attached files referenced WITHOUT limiting the request to a single record -- e.g. \"crea las solicitudes de compra con el contenido de estos archivos\", \"usa este archivo para crear los pedidos\" -- plural wording, \"these files\"/\"this file's content\" used open-endedly, or any phrasing that asks for however many records the content contains, rather than naming one specific instance), querying/searching/listing something (e.g. \"listame los proveedores\"), or any combination of the two (e.g. \"crea una solicitud de compra y tambi\u00e9n listame los proveedores\") -- each action's own process must already be clear from the message; batch is for \"several things to do,\" never for \"one thing, unsure which process.\" Treat an open-ended file reference as batch even if the file turns out to contain only one record once it's actually parsed later -- the user's message asked for \"whatever is in there,\" and that real count is this step's job to route correctly for, not to pre-count; `Agent: Extract Batch Records` handles the actual extraction (and a batch that resolves to a single item is fine, see the batch-processing docs). Call GitHub MCP, load the process index, and identify every DISTINCT process the request involves -- not one entry per record, instance, or query, just the distinct process definitions needed (two purchase requests written inline is still ONE entry in `processes`; a message mixing a purchase request and a goods receipt is TWO; a message mixing a purchase request and a vendor list is also TWO). Return each as its own `{\"path\": ..., \"process_name\": ...}` entry in `processes`; if the request references attached files, use whatever file content already appears in the INPUT JSON to identify the process(es) the same way. Extracting each individual record's field data, or a query's filter values, is NOT your job here -- that happens in a later step; you only need to say which process definitions are involved.\n  - Return `new_intent_status: \"discover\"` when the message is a clear, legitimate, single SAP lookup/informational question, but no cataloged process in the index -- alone or in any obvious combination -- can actually answer it, typically because it needs data joined across two or more entities that no single process's own fixed field/filter set reaches (e.g. \"qu\u00e9 proveedores nos proveen art\u00edculos del grupo X\" needs vendor data AND item-group data joined; a Vendor List process's own filters never reach into Items). This is different from both flavors of \"no_match\" below: you are not choosing among several named candidates that could each answer it (that's the named-ambiguity \"no_match\" case), and the message is not unclear or a typo (that's the other \"no_match\" case) -- you have fully understood the request and, having checked the index, are confident nothing in it fits, alone or combined. Reserve this for genuinely informational/lookup requests only -- if the message wants something created, changed, or submitted and nothing in the index fits, that is still \"no_match\", never \"discover\" (the step \"discover\" hands off to is strictly read-only and can never write to SAP, so routing a write-shaped request there would be a dead end). You still do not attempt to answer the question yourself, fetch any process definition file, or call SAP MCP here -- a separate step does the actual lookup. Leave `processes` null, same as \"no_match\".\n  - Return `new_intent_status: \"no_match\"` (not \"batch\") when the request is for a single thing but genuinely could match more than one process in the index and nothing in the message disambiguates which -- e.g. a generic term that several sibling processes' keywords all match (asking about \"socios\"/partners when the index has separate Vendor/Customer/Lead list processes). Guessing wrong here would silently run the wrong process, and \"batch\" would silently execute a phantom multi-process attempt with nothing to extract; asking is the only safe move. Call GitHub MCP, load the process index, identify every candidate process this single request could plausibly mean, and write `message` naming those specific candidates by their real `process_name` and asking which one they meant (e.g. \"\u00bfTe refer\u00eds a Proveedores, Clientes o Leads?\") -- do not fall back to the generic \"I didn't understand\" wording for this case, since you already know exactly what's ambiguous. Leave `processes` null, same as any other \"no_match\".\n  - For a \"no_match\" that is NOT this kind of named ambiguity (the message is genuinely unclear, a likely typo, or has no discernible SAP intent at all), write a warm, conversational message in the user's language saying you didn't understand and inviting them to say what they need in their own words (e.g., \"No logr\u00e9 entender tu mensaje, \u00bfpodr\u00edas contarme qu\u00e9 necesitas hacer?\"). This is a single friendly response, not the start of a forced back-and-forth -- don't ask a follow-up question that demands a specific structured reply.\n\nIf status = \"general_inquiry\": no further fields needed.\n\nIf status = \"generate_document\": from the raw `intention_nodes` object given in the INPUT JSON (not the summarized INTENTION TREE), pick the id of the entry that best matches which process the user means -- prefer whichever the message/FOCUS names explicitly; otherwise the most recently active or completed one. Set `force_new_version: true` only when the message explicitly asks for a NEW, fresh, or updated version (e.g. \"generame una versi\u00f3n nueva\", \"quiero el documento actualizado\") rather than simply repeating the original request.\n\nOUTPUT (standardized JSON, no other shape). Each line below reads \"<status label> -- <output exactly this>\": the text on the left of \"--\" is a LABEL identifying which case the line describes, never a JSON key to nest your answer under -- your actual response is ONLY the object shown after \"--\", at the top level, never wrapped in an extra key named after the status (a real failure seen live: outputting {\"pending_reply\": {\"status\": \"pending_reply\"}} instead of the correct flat {\"status\": \"pending_reply\"}):\npending_reply -- {\"status\": \"pending_reply\"}\nconfirming_document -- {\"status\": \"confirming_document\"}\ngeneral_inquiry -- {\"status\": \"general_inquiry\"}\ngenerate_document -- {\"status\": \"generate_document\", \"target_node_id\": \"<id or null>\", \"force_new_version\": false}\nnew_intent, single match -- {\"status\": \"new_intent\", \"new_intent_status\": \"match\", \"message\": null, \"processes\": [{\"path\": \"...\", \"process_name\": \"...\"}]}\nnew_intent, batch -- {\"status\": \"new_intent\", \"new_intent_status\": \"batch\", \"message\": null, \"processes\": [{\"path\": \"...\", \"process_name\": \"...\"}, ...]}\nnew_intent, discover -- {\"status\": \"new_intent\", \"new_intent_status\": \"discover\", \"message\": null, \"processes\": null}\nnew_intent, no match -- {\"status\": \"new_intent\", \"new_intent_status\": \"no_match\", \"message\": \"<in the response language>\", \"processes\": null}\nnew_intent, error -- {\"status\": \"new_intent\", \"new_intent_status\": \"error\", \"message\": \"<in the response language>\", \"processes\": null}\n\nNever fetch process definition files. Never call SAP MCP.\nReturn ONLY a raw JSON object -- no code fences, no markdown wrapping, no extra text."
+        }
+      }
+    },
+    {
+      "id": "00167116-67f1-4432-b65e-8d10f003d13b",
+      "name": "OpenAI Chat Model Find",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -2240,
+        8192
+      ],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "2CRyLxL8C6zZXIqF",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "id": "715390b1-4174-45db-8185-b280af152778",
+      "name": "GitHub MCP",
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.3,
+      "position": [
+        -2096,
+        8192
+      ],
+      "parameters": {
+        "endpointUrl": "http://da-orb-github-mcp:3000/mcp",
+        "authentication": "bearerAuth",
+        "include": "selected",
+        "includeTools": [
+          "get_file_contents",
+          "list_tags",
+          "list_branches",
+          "get_tag",
+          "get_release_by_tag",
+          "get_latest_release",
+          "get_commit"
+        ],
+        "options": {}
+      },
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "bKIJZ2uvj0O40uyi",
+          "name": "GitHub MCP"
+        }
+      }
+    },
+    {
+      "id": "44eb6b9c-6f30-419c-8f2e-b82eb03adc20",
+      "name": "Execute Workflow: Response",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -128,
+        8000
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "vGK7I4eSKjbCGqvi",
+          "mode": "id"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "82ad77ce-7cad-42e8-a440-646d1e9ddcd6",
+      "name": "Compute Route Key",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -976,
+        8144
+      ],
+      "parameters": {
+        "jsCode": "const base = $json;\nconst content = base._parsed || {};\n\n// Deliberately never produces 'sap_inquiry_execution' -- matches v13, where Agent: Find\n// never decided execute-vs-fill-form either (that came from a separate form_state.ready\n// check run AFTER Agent: Form updated it, not from classifying the incoming message).\n// SAP: Process Form Filling calls SAP: Inquiry Execution internally once it marks\n// form_state.ready = true, in the same turn -- so it can reopen the form itself (with the\n// specific field SAP rejected) if execution comes back needing a correction, without\n// bouncing back out through this Router. A message that abandons the correction entirely\n// ('never mind, do X instead') is still caught independently: it's just a fresh new_intent\n// on the next turn, same as any other intent switch.\nlet route_key = null;\nlet needsErrorParse = false;\nlet errorCode = null;\nlet errorMessage = null;\nlet activeNodeId = base.active_node_id;\nlet intentionNodes = base.intention_nodes || {};\nlet resetProcess = false;\n\nif (content.status === 'general_inquiry') {\n  route_key = 'general_inquiry';\n} else if (content.status === 'generate_document') {\n  route_key = 'generate_document';\n} else if (content.status === 'confirming_document') {\n  // Parallel to (not merged into) the pending_reply branch below -- confirming_document is a\n  // document-generation confirmation in progress, a different mechanism from SAP process\n  // form-filling, so it gets its own defensive check rather than reusing pending_reply's\n  // TERMINAL_STATUSES/resume-walk logic (which six other files already depend on staying in\n  // sync -- see that branch's own comment). Same defensive spirit though: Agent: Find is an\n  // LLM classification over conversation memory, not a guaranteed-correct read of live state --\n  // verify the node it's continuing is genuinely still 'confirming_document' before committing\n  // to this route, instead of trusting active_node_id blindly.\n  const activeNode = intentionNodes[base.active_node_id];\n  if (activeNode?.status === 'confirming_document') {\n    route_key = 'generate_document';\n  } else {\n    needsErrorParse = true;\n    errorCode = 'NOT_FOUND';\n  }\n} else if (content.status === 'pending_reply') {\n  // pending_reply only ever means the message continues a process that's active and\n  // mid-form (form_state.ready not yet true) -- the only case Agent: Find can even reach\n  // this status for, since it's the only pending_reply case in its systemMessage. But\n  // Agent: Find is an LLM classification over conversation memory, not a guaranteed-\n  // correct read of live state -- verify the node it's continuing is genuinely still\n  // 'active' before committing to this route, instead of trusting active_node_id blindly.\n  // A node that's already 'completed'/'abandoned' has had its process_definition pruned\n  // to just {name} (Register Node/Compute Execution Outcome do this the moment a node\n  // reaches 'completed' -- it's never meant to execute again); dispatching into\n  // form-filling/execution against it used to crash deep inside SAP execution instead of\n  // failing cleanly right here, at the actual decision to route -- this is that fix.\n  const activeNode = intentionNodes[base.active_node_id];\n  if (activeNode?.status === 'active') {\n    route_key = 'sap_form_filling';\n  } else {\n    // The node this message thought it was continuing can't be re-entered -- hand\n    // control back to whatever it might itself have interrupted, same as any other\n    // terminal transition. Same TERMINAL_STATUSES/walk shape duplicated in Park Current\n    // Intent (intent-manager.json), Compute Execution Outcome\n    // (sap-inquiry-execution.json), Compute Form Outcome\n    // (sap-process-form-filling.json), Classify & Store Error (error-parser.json), and\n    // Resolve Final State (batch-processing.json) -- keep all six in sync if this changes.\n    const TERMINAL_STATUSES = new Set(['completed', 'abandoned']);\n    const findResumeTarget = (nodeId, nodes) => {\n      let current = nodeId;\n      while (current) {\n        const node = nodes[current];\n        if (!node) return null;\n        if (!TERMINAL_STATUSES.has(node.status)) return current;\n        current = node.parent_id;\n      }\n      return null;\n    };\n    const resumeTargetId = findResumeTarget(activeNode?.parent_id, intentionNodes);\n    if (resumeTargetId) {\n      intentionNodes = { ...intentionNodes, [resumeTargetId]: { ...intentionNodes[resumeTargetId], status: 'active' } };\n    }\n    activeNodeId = resumeTargetId;\n    resetProcess = true;\n    needsErrorParse = true;\n    errorCode = 'NOT_FOUND';\n  }\n} else if (content.status === 'new_intent') {\n  const status = content.new_intent_status;\n  // Parking an already-active process before a new one starts is Intent Manager's job now\n  // -- unconditional, before this ever reaches the Router -- not this node's concern.\n  // Form Filling and Batch Processing still only ever receive a new_intent/match|batch on\n  // a clean slate (no process_id), because Intent Manager clears it first when needed.\n  if (status === 'match') {\n    route_key = 'sap_form_filling';\n  } else if (status === 'batch') {\n    route_key = 'batch_processing';\n  } else if (status === 'discover') {\n    route_key = 'sap_discovery';\n  } else if (status === 'no_match') {\n    needsErrorParse = true;\n    errorCode = 'NO_MATCH';\n    errorMessage = content.message || null;\n  } else if (status === 'error') {\n    needsErrorParse = true;\n    errorCode = 'AGENT_ERROR';\n    errorMessage = content.message || null;\n  }\n}\n\n// A response this node can't recognize at all (unparseable, or a status/new_intent_status\n// combination outside the table above) is itself worth surfacing rather than silently\n// routing nowhere -- classified and delivered right here, same as any other classification\n// failure. Intent Manager is never involved in this -- it already happens in each route.\nif (!route_key || base._parse_error) {\n  needsErrorParse = true;\n  errorCode = errorCode || 'PARSE_ERROR';\n  errorMessage = errorMessage || content.message || null;\n}\n\n// content.form_state and content.message are both vestiges of Agent: Find's own output\n// contract for new_intent classifications (form_state always null; message null on\n// match/batch, or the agent's own generated text on no_match/error) -- both excluded from\n// the spread deliberately. form_state: if a process is already active when a genuinely new\n// intent arrives, that process's real, already-collected form_state is still sitting on\n// base at this point, and Intent Manager (running right after this file) needs it intact\n// to snapshot into the paused node. message: base.message is the user's real chat input,\n// needed unchanged all the way down through Context Update and into whichever flow the\n// Router dispatches to (e.g. Agent: Form reads it directly) -- letting either of these\n// null/agent-authored values spread over the real upstream field would silently destroy\n// it for every node downstream of this one.\nconst { form_state: _unusedFormState, message: _unusedMessage, ...restContent } = content;\n\nreturn [{ json: {\n  ...base,\n  ...restContent,\n  route_key,\n  active_node_id: activeNodeId,\n  intention_nodes: intentionNodes,\n  reset_process: resetProcess,\n  _needs_error_parse: needsErrorParse,\n  ...(needsErrorParse ? { error: errorCode, error_message: errorMessage } : {}),\n} }];"
+      }
+    },
+    {
+      "id": "c0f549e4-a696-495a-ab18-d97dca0dfcbd",
+      "name": "Return Intent Finder Result",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        240,
+        8160
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "24a94570-eef1-4369-83d1-4560522ac886",
+      "name": "Execute Workflow: Error Parser (Agent Failure)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -1568,
+        8016
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "E4JerYpWJslysUQx",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "8bbc95fb-6d8b-4f8e-ab0d-a7aa4fcbf98a",
+      "name": "Execute Workflow: Error Parser (Route)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -752,
+        8144
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "E4JerYpWJslysUQx",
+          "mode": "id"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "fb3512c3-c283-4c18-a093-a084eba2d343",
+      "name": "Prompt: Intention Focus",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3792,
+        8016
+      ],
+      "parameters": {
+        "jsCode": "// Runs before Agent: Find so classification never has to reconstruct \"why\" from raw\n// state alone. Builds the full intention tree (every node, any status -- a paused root, a\n// completed side-query, the current active leaf -- all correctly nested via parent_id) so\n// Agent: Intention Focus can see the whole shape of what's been going on, not just the\n// current node in isolation. Reads straight off the trigger's own payload since nothing\n// upstream has run yet to wipe it.\nconst data = $input.first().json;\nconst { message, intention_nodes } = data;\nconst nodes = Object.values(intention_nodes || {});\n\nfunction missingRequiredFields(node) {\n  const sections = node.process_definition?.form?.sections || [];\n  const formState = node.form_state || {};\n  const missing = [];\n  for (const section of sections) {\n    for (const field of section.fields || []) {\n      if (field.required && formState[field.id] == null) missing.push(field.label || field.id);\n    }\n  }\n  return missing;\n}\n\nfunction buildTree(parentId) {\n  return nodes\n    .filter((n) => (n.parent_id || null) === parentId)\n    .map((n) => ({\n      process: n.process_definition?.name || n.process_id,\n      status: n.status,\n      ...(n.status === 'active' || n.status === 'paused' ? { missing_required_fields: missingRequiredFields(n) } : {}),\n      children: buildTree(n.id),\n    }));\n}\n\nconst intentionTree = buildTree(null);\n\nconst chatInput = `USER MESSAGE:\n${message}\n\nINTENTION TREE (structural grounding only, not to repeat verbatim -- every intention so far, nested by which one each interrupted; empty if this is a fresh session):\n\\`\\`\\`json\n${JSON.stringify(intentionTree, null, 2)}\n\\`\\`\\``;\n\nreturn [{ json: { ...data, chatInput } }];"
+      }
+    },
+    {
+      "id": "f47f6f3d-0df0-492b-8294-5b36133a6169",
+      "name": "Agent: Intention Focus",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "onError": "continueErrorOutput",
+      "position": [
+        -3552,
+        8016
+      ],
+      "parameters": {
+        "options": {
+          "systemMessage": "You are a focus-tracking assistant for a SAP Business One chat agent. Your only job is to state, in one to three plain sentences, what the user is actually trying to accomplish -- their overarching goal, and, if their latest message is a side-step rather than the goal itself, what that side-step is most likely in service of. You do not classify the message, decide a route, or take any action -- a separate step does that, using your statement purely as grounding context.\n\nUse your own conversation memory (the real back-and-forth so far) as the primary source for \"why\" -- e.g. if the user started a purchase request and then started asking about vendors, memory is what tells you the vendor lookup is in service of the purchase request, not an unrelated tangent. The INTENTION TREE given alongside the user message is precise structural grounding for what's currently open or was recently closed (a paused root, a completed side-query, etc.) -- use it to confirm or sharpen what memory suggests, not as a substitute for actually reasoning about the conversation.\n\nRULES:\n- Plain language only -- never SAP jargon, internal field ids, or node ids like \"63#2\".\n- If there is exactly one open intention with no interruption history, just state that plainly (e.g. \"The user is creating a purchase request and hasn't yet provided the required date or line items.\") -- don't invent a deeper goal that isn't there.\n- If there's a paused/interrupted intention and the user's current message is pursuing something else, state BOTH and connect them explicitly (e.g. \"The user is creating a purchase request; they don't yet have a vendor code for one of the line items, so they're now looking one up.\") -- infer the connection from memory and from which still-missing required field the current message plausibly serves, but phrase it as a plausible inference if memory doesn't explicitly confirm it, not as a certainty.\n- If nothing is open in the tree and the message doesn't obviously continue anything from memory, say so plainly (e.g. \"No prior open task; this looks like a new, unrelated request.\") -- do not force a connection that isn't there.\n- Keep it short. This is internal grounding for another step, not a user-facing message, and must never be shown to the user as-is.\n\nOUTPUT (standardized JSON, no other shape): {\"focus\": \"<your 1-3 sentence statement>\"}\nReturn ONLY a raw JSON object -- no code fences, no markdown wrapping, no extra text, no other keys."
+        }
+      }
+    },
+    {
+      "id": "48450aba-7ac9-40bc-8e91-13f8c77dffee",
+      "name": "OpenAI Chat Model (Intention Focus)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -3584,
+        8256
+      ],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "2CRyLxL8C6zZXIqF",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "id": "a3df6cda-f85b-4dcc-8a58-433fe590bde8",
+      "name": "Window Buffer Memory (Intention Focus)",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -3408,
+        8256
+      ],
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.group_name }}",
+        "contextWindowLength": 10
+      }
+    },
+    {
+      "id": "e3461544-a9d3-461f-bdbd-77c81e9ad465",
+      "name": "Recover State: Intention Focus",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3152,
+        8016
+      ],
+      "parameters": {
+        "jsCode": "const base = $('Prompt: Intention Focus').first().json;\nconst current = $json;\n// A focus-agent failure is not fatal to the turn -- Agent: Find still works fine on its\n// own raw state without this extra grounding, so this degrades gracefully (focus: null)\n// instead of surfacing as a real error the way Agent: Find's own failures must.\nif (current.error) {\n  return [{ json: { ...base, focus: null } }];\n}\nlet focus = null;\ntry {\n  focus = JSON.parse((current.output || '').trim()).focus ?? null;\n} catch {\n  focus = null;\n}\nreturn [{ json: { ...base, focus } }];"
+      }
+    },
+    {
+      "id": "e1a2b3c4-0001-4a1a-8a1a-000000000101",
+      "name": "Merge Context: Find",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1808,
+        8016
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ Object.assign({}, $('Prompt: Find').first().json, $json) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "e1a2b3c4-0002-4a1a-8a1a-000000000102",
+      "name": "Was Handled? (Agent)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1344,
+        8016
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-Was Handled?",
+              "leftValue": "={{ Boolean($json.error) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "e1a2b3c4-0003-4a1a-8a1a-000000000103",
+      "name": "Was Handled? (Route)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -544,
+        8144
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-Was Handled?",
+              "leftValue": "={{ Boolean($json.error) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Prompt: Intention Focus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status Text: Finding": {
+      "main": [
+        [
+          {
+            "node": "Status: Finding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status: Finding": {
+      "main": [
+        [
+          {
+            "node": "Prompt: Find",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prompt: Find": {
+      "main": [
+        [
+          {
+            "node": "Agent: Find",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent: Find": {
+      "main": [
+        [
+          {
+            "node": "Merge Context: Find",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge Context: Find",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model Find": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agent: Find",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GitHub MCP": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent: Find",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow: Error Parser (Agent Failure)": {
+      "main": [
+        [
+          {
+            "node": "Was Handled? (Agent)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow: Response": {
+      "main": [
+        [
+          {
+            "node": "Return Intent Finder Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Route Key": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow: Error Parser (Route)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prompt: Intention Focus": {
+      "main": [
+        [
+          {
+            "node": "Agent: Intention Focus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent: Intention Focus": {
+      "main": [
+        [
+          {
+            "node": "Recover State: Intention Focus",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Recover State: Intention Focus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model (Intention Focus)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agent: Intention Focus",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Buffer Memory (Intention Focus)": {
+      "ai_memory": [
+        [
+          {
+            "node": "Agent: Intention Focus",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recover State: Intention Focus": {
+      "main": [
+        [
+          {
+            "node": "Status Text: Finding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Context: Find": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow: Error Parser (Agent Failure)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Was Handled? (Agent)": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow: Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Compute Route Key",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow: Error Parser (Route)": {
+      "main": [
+        [
+          {
+            "node": "Was Handled? (Route)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Was Handled? (Route)": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow: Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Intent Finder Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

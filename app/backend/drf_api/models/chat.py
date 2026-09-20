@@ -4,11 +4,18 @@
 from django.db import models
 
 # App imports
+from drf_api.models.base import MBase
+from drf_api.models.base_soft_delete import MBaseSoftDelete
 from drf_api.models.organization import MOrganization
 
 
-class MChatSession(models.Model):
-	"""Persisted record of one WebSocket chat session."""
+class MChatSession(MBaseSoftDelete):
+	"""Persisted record of one WebSocket chat session.
+
+	Soft-deleted (deleted_on set): stays queryable by pk for any in-flight process still
+	holding the id (e.g. an n8n execution fired before the delete, or a background
+	usage-recording walk) -- only user-facing listing/resume paths (VSChat.sessions,
+	CChat._load_session) filter it out."""
 
 	org = models.ForeignKey(
 		MOrganization,
@@ -18,7 +25,6 @@ class MChatSession(models.Model):
 	username = models.CharField(max_length=150, db_index=True)
 	connection_key = models.CharField(max_length=150, blank=True, default="")
 	title = models.CharField(max_length=200, blank=True)
-	language = models.CharField(max_length=10, default="es")
 	n8n_state = models.JSONField(null=True, blank=True)
 	created_on = models.DateTimeField(auto_now_add=True, db_index=True)
 	updated_on = models.DateTimeField(auto_now=True)
@@ -28,7 +34,7 @@ class MChatSession(models.Model):
 		ordering = ["-updated_on"]
 
 
-class MChatMessage(models.Model):
+class MChatMessage(MBase):
 	"""One message within a chat session."""
 
 	session = models.ForeignKey(

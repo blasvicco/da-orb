@@ -1,14 +1,6 @@
 // Libs imports
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Mocks
-const mockAuth = vi.hoisted(() => ({
-  getSession: vi.fn().mockReturnValue({}),
-  hasSession: vi.fn().mockReturnValue(false),
-}));
-
-vi.mock('@/modules/auth', () => ({ useAuth: () => mockAuth }));
-
 // App imports
 import { buildI18n, buildRouter, mount } from '@/tests/helpers/mount';
 import App from '@/app.vue';
@@ -19,21 +11,11 @@ const setNavigatorLanguage = (lang) => {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockAuth.hasSession.mockReturnValue(false);
-  mockAuth.getSession.mockReturnValue({});
   setNavigatorLanguage('en-US');
 });
 
 describe('App locale resolution on mount', () => {
-  it("prefers the logged-in user's stored language", () => {
-    mockAuth.hasSession.mockReturnValue(true);
-    mockAuth.getSession.mockReturnValue({ language: 'es' });
-    const i18n = buildI18n();
-    mount(App, { global: { i18n } });
-    expect(i18n.global.locale.value).toBe('es');
-  });
-
-  it("falls back to the visitor's stored language when logged out", () => {
+  it("falls back to the visitor's stored language", () => {
     localStorage.setItem('visitor_language', 'es');
     const i18n = buildI18n();
     mount(App, { global: { i18n } });
@@ -78,10 +60,10 @@ describe('App window event wiring', () => {
   it('re-resolves and dispatches a language.changed event on auth.updated', () => {
     const changeSpy = vi.fn();
     window.addEventListener('language.changed', changeSpy);
-    mockAuth.hasSession.mockReturnValue(true);
-    mockAuth.getSession.mockReturnValue({ language: 'es' });
     mount(App);
+    changeSpy.mockClear();
 
+    localStorage.setItem('visitor_language', 'es');
     window.dispatchEvent(new CustomEvent('auth.updated'));
 
     expect(changeSpy).toHaveBeenCalledWith(expect.objectContaining({ detail: 'es' }));

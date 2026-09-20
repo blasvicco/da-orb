@@ -1,0 +1,187 @@
+{
+  "path": "backbone",
+  "cases": [
+    {
+      "description": "route_key=general_inquiry reaches the General Inquiry flow (pinned here since it's real now -- its own internal correctness is covered by path_general_inquiry.json)",
+      "input": {
+        "message": "test"
+      },
+      "pins": {
+        "Agent: Intent Finder": {
+          "route_key": "general_inquiry"
+        },
+        "Context Update": {
+          "route_key": "general_inquiry"
+        },
+        "General Inquiry": {
+          "_reached": "General Inquiry"
+        }
+      },
+      "assert": {
+        "node": "General Inquiry",
+        "fields": {
+          "_reached": "General Inquiry"
+        }
+      }
+    },
+    {
+      "description": "route_key=sap_form_filling reaches the SAP: Process Form Filling flow (pinned here since it's real now -- Context Update's own internal correctness is covered by path_context_update.json, SAP: Process Form Filling's by path_sap_process_form_filling.json)",
+      "input": {
+        "message": "test"
+      },
+      "pins": {
+        "Agent: Intent Finder": {
+          "route_key": "sap_form_filling"
+        },
+        "Context Update": {
+          "route_key": "sap_form_filling"
+        },
+        "SAP: Process Form Filling": {
+          "_reached": "SAP: Process Form Filling"
+        }
+      },
+      "assert": {
+        "node": "SAP: Process Form Filling",
+        "fields": {
+          "_reached": "SAP: Process Form Filling"
+        }
+      }
+    },
+    {
+      "description": "route_key=sap_inquiry_execution reaches the SAP: Inquiry Execution flow (pinned here since it's real now -- not reachable from Agent: Intent Finder in practice, but the Router branch is tested regardless; its own internal correctness is covered by path_sap_inquiry_execution.json)",
+      "input": {
+        "message": "test"
+      },
+      "pins": {
+        "Agent: Intent Finder": {
+          "route_key": "sap_inquiry_execution"
+        },
+        "Context Update": {
+          "route_key": "sap_inquiry_execution"
+        },
+        "SAP: Inquiry Execution": {
+          "_reached": "SAP: Inquiry Execution"
+        }
+      },
+      "assert": {
+        "node": "SAP: Inquiry Execution",
+        "fields": {
+          "_reached": "SAP: Inquiry Execution"
+        }
+      }
+    },
+    {
+      "description": "route_key=sap_discovery reaches the SAP: Discovery flow (pinned here since it's real now -- not reachable from Agent: Intent Finder without a real LLM call landing on new_intent_status: discover, but the Router branch is tested regardless; its own internal correctness is covered by path_sap_discovery.json)",
+      "input": {
+        "message": "test"
+      },
+      "pins": {
+        "Agent: Intent Finder": {
+          "route_key": "sap_discovery"
+        },
+        "Context Update": {
+          "route_key": "sap_discovery"
+        },
+        "SAP: Discovery": {
+          "_reached": "SAP: Discovery"
+        }
+      },
+      "assert": {
+        "node": "SAP: Discovery",
+        "fields": {
+          "_reached": "SAP: Discovery"
+        }
+      }
+    },
+    {
+      "description": "route_key=batch_processing reaches the Batch Processing flow (pinned here since it's real now -- its own internal correctness is covered by path_batch_processing.json)",
+      "input": {
+        "message": "test"
+      },
+      "pins": {
+        "Agent: Intent Finder": {
+          "route_key": "batch_processing"
+        },
+        "Context Update": {
+          "route_key": "batch_processing"
+        },
+        "Batch Processing": {
+          "_reached": "Batch Processing"
+        }
+      },
+      "assert": {
+        "node": "Batch Processing",
+        "fields": {
+          "_reached": "Batch Processing"
+        }
+      }
+    },
+    {
+      "description": "Intent Manager sits unconditionally between Agent: Intent Finder and Context Update now (not a Router destination anymore -- its own internal correctness is covered by path_intent_manager.json); a genuinely new intent while a process is already active gets parked here before Context Update ever sees it, proving it's really wired into the live chain. Updated 2026-08-15 for the 2026-08-13 audit's data shape (root-level process_id/process_definition/form_state/paused_node_ids are gone -- intention_nodes[id] is the only copy, keyed by id, and Park Current Intent signals the interrupted node via new_process_parent_id, not a separate array).",
+      "input": {
+        "message": "test"
+      },
+      "pins": {
+        "Agent: Intent Finder": {
+          "route_key": "sap_form_filling",
+          "status": "new_intent",
+          "new_intent_status": "match",
+          "active_node_id": "goods_receipt#0",
+          "intention_nodes": {
+            "goods_receipt#0": {
+              "id": "goods_receipt#0",
+              "process_id": "goods_receipt",
+              "process_definition": {
+                "id": "goods_receipt"
+              },
+              "form_state": {},
+              "status": "active"
+            }
+          }
+        },
+        "Context Update": {
+          "route_key": "sap_form_filling"
+        },
+        "SAP: Process Form Filling": {
+          "_reached": "SAP: Process Form Filling"
+        }
+      },
+      "assert": {
+        "node": "Intent Manager",
+        "fields": {
+          "active_node_id": null,
+          "new_process_parent_id": "goods_receipt#0",
+          "intention_nodes": {
+            "goods_receipt#0": {
+              "id": "goods_receipt#0",
+              "process_id": "goods_receipt",
+              "process_definition": {
+                "id": "goods_receipt"
+              },
+              "form_state": {},
+              "status": "paused"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "an unrecognized route_key falls back to the debug NoOp instead of being silently dropped",
+      "input": {
+        "message": "test"
+      },
+      "pins": {
+        "Agent: Intent Finder": {
+          "route_key": "not_a_real_route"
+        },
+        "Context Update": {
+          "route_key": "not_a_real_route"
+        }
+      },
+      "assert": {
+        "node": "Unmatched Route (debug)",
+        "fields": {}
+      }
+    }
+  ]
+}

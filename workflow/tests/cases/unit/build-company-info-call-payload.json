@@ -1,0 +1,33 @@
+{
+  "node": "Build Company Info Call Payload",
+  "cases": [
+    {
+      "description": "builds a CALL_FUNCTION request from company_info_source's own sql_name (a parameterless SQLQueries lookup, unlike qr_source -- OADM has exactly one row, no key needed), clears active_node_id (not tied to any registered process), and sets suppress_delivery so a failed lookup never reaches the user or aborts document generation -- Merge Company Info Result already falls back to the organization's own company_info on failure",
+      "input": {
+        "active_node_id": "ar_invoice_get#0",
+        "_target_document_mapping": {
+          "company_info_source": {
+            "subreport": "SREncabDocum",
+            "sql_name": "GetCompanyInfo",
+            "fields": {
+              "CompnyName": { "org_field": "name" },
+              "Phone1": { "sap_field": "Phone1", "org_field": "phone" }
+            }
+          }
+        }
+      },
+      "nodeResults": {},
+      "expected": {
+        "active_node_id": null,
+        "suppress_delivery": true,
+        "sap_operation": "CALL_FUNCTION",
+        "sap_call_config": {
+          "service_name": "SQLQueries",
+          "function_name": "List",
+          "entity_key": "GetCompanyInfo",
+          "params": {}
+        }
+      }
+    }
+  ]
+}

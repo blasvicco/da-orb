@@ -1,0 +1,39 @@
+# Dev-only tooling for the rpt-rs render-parity debug loop (see docs/mock_invoice_data.json and
+# app/renderer/Cargo.toml's own [patch] section). NOT part of the main app stack in
+# docker-compose.yml -- run explicitly with -f when needed:
+#
+#   docker compose -f docker-compose.renderer-dev.yml run --rm renderer-build
+#   docker compose -f docker-compose.renderer-dev.yml run --rm renderer-run \
+#     docs/invoice_template.rpt docs/mock_invoice_data.json docs/out.pdf
+#
+# Mounts app/renderer and docs by relative path (same convention as backend/frontend in
+# docker-compose.yml) and the sibling rpt-rs checkout via ../rpt-rs -- this assumes rpt-rs is
+# checked out next to da-orb, matching every other cross-repo reference in this engagement.
+# app/renderer/Cargo.toml's [patch] section points at /rpt-rs (this exact container path) --
+# keep the two in sync if either changes.
+
+services:
+  renderer-build:
+    build:
+      context: .
+      dockerfile: ./hub/renderer/Dockerfile
+    container_name: da-orb-renderer-build
+    platform: linux/amd64
+    volumes:
+      - ./app/renderer:/home/app
+      - ../rpt-rs:/rpt-rs
+    working_dir: /home/app
+    command: cargo build --release
+
+  renderer-run:
+    build:
+      context: .
+      dockerfile: ./hub/renderer/Dockerfile
+    container_name: da-orb-renderer-run
+    platform: linux/amd64
+    volumes:
+      - ./app/renderer:/home/app
+      - ../rpt-rs:/rpt-rs
+      - ./docs:/home/app/docs
+    working_dir: /home/app
+    entrypoint: [ "/home/app/target/release/orb-report-render" ]

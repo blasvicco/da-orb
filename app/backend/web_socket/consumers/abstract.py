@@ -80,7 +80,12 @@ class CAbstract(AsyncJsonWebsocketConsumer):
 		if not self._auth_ready and method != "auth_init":
 			return
 		if hasattr(self, method):
-			return await getattr(self, method)(content)
+			# `type` is dispatch envelope, not payload — stripped once here so every
+			# handler's own contract only ever has to declare the fields it actually
+			# reads, the same way a webhook's {headers, body} envelope gets unwrapped
+			# once before the real payload reaches application code.
+			payload = {key: value for key, value in content.items() if key != "type"}
+			return await getattr(self, method)(payload)
 		return
 
 	async def resolve_context(self):

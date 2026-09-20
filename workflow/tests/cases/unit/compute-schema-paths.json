@@ -1,0 +1,56 @@
+{
+  "node": "Compute Schema Paths",
+  "cases": [
+    {
+      "description": "builds standard/org/database paths from the caller's raw path",
+      "input": {
+        "path": "purchase/purch_request/purch_request.json",
+        "github_owner": "blasvicco", "github_repo": "da-orb-processes", "github_tag": "main",
+        "organization": { "slug": "bvs" },
+        "session": { "database": "BVS_SA_NEW_16062025" }
+      },
+      "nodeResults": {},
+      "expected": {
+        "standard_path": "purchase/purch_request/purch_request.json",
+        "org_standard_path": "purchase/bvs/standard/purch_request/purch_request.json",
+        "database_path": "purchase/bvs/BVS_SA_NEW_16062025/purch_request/purch_request.json",
+        "github_ref": "main",
+        "github_api_base": "https://api.github.com/repos/blasvicco/da-orb-processes/contents"
+      }
+    },
+    {
+      "description": "defaults github_ref to main when github_tag is absent",
+      "input": { "path": "hr/vacation_request/vacation_request.json", "github_owner": "blasvicco", "github_repo": "da-orb-processes", "organization": {}, "session": {} },
+      "nodeResults": {},
+      "expected": { "github_ref": "main" }
+    },
+    {
+      "description": "real b1s/standard/.../*.json path from da-orb-processes -- confirms the 4-segment driver/scope/module/filename convention, not a made-up 3-segment one",
+      "input": {
+        "path": "b1s/standard/purchasing/purchase_request_create.json",
+        "github_owner": "blasvicco", "github_repo": "da-orb-processes", "github_tag": "main",
+        "organization": { "slug": "bvs" },
+        "session": { "database": "BVS_SA_NEW_16062025" }
+      },
+      "nodeResults": {},
+      "expected": {
+        "standard_path": "b1s/standard/purchasing/purchase_request_create.json",
+        "org_standard_path": "b1s/bvs/standard/purchasing/purchase_request_create.json",
+        "database_path": "b1s/bvs/BVS_SA_NEW_16062025/purchasing/purchase_request_create.json"
+      }
+    },
+    {
+      "description": "an explicit module override wins over the path-derived module segment",
+      "input": {
+        "path": "hr/leaves/vacation_request.json", "module": "vacation",
+        "github_owner": "blasvicco", "github_repo": "da-orb-processes",
+        "organization": { "slug": "bvs" }, "session": { "database": "BVS_SA_NEW_16062025" }
+      },
+      "nodeResults": {},
+      "expected": {
+        "org_standard_path": "hr/bvs/standard/vacation/vacation_request.json",
+        "database_path": "hr/bvs/BVS_SA_NEW_16062025/vacation/vacation_request.json"
+      }
+    }
+  ]
+}

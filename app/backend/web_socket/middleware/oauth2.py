@@ -9,9 +9,9 @@ from channels.db import database_sync_to_async
 from django.contrib.auth.models import AnonymousUser
 
 # App imports
-from drf_api.models import MOrganization, MSession
+from drf_api.models import MOrganization, MSeat, MSession
 from drf_api.resources.auth.factory import FAuthenticator
-from drf_api.resources.auth.helpers import SapOAuthClient, has_active_seat
+from drf_api.resources.auth.helpers import SapOAuthClient
 
 
 @database_sync_to_async
@@ -29,14 +29,14 @@ def get_org_and_user(org_slug, session_data, token, username=None):
 			"""Initialise the user."""
 			self.session = session
 
+		def to_dict(self):
+			"""Convert to dictionary."""
+			return self.session.to_dict()
+
 		@property
 		def username(self) -> str:
 			"""Get username from session user dictionary."""
 			return self.session.user.get("username", "") if self.session else ""
-
-		def to_dict(self):
-			"""Convert to dictionary."""
-			return self.session.to_dict()
 
 	org, _error = MOrganization.get_by_slug(org_slug)
 	if org is None:
@@ -54,16 +54,13 @@ def get_org_and_user(org_slug, session_data, token, username=None):
 		return org, AnonymousUser()
 
 	session_dict = driver.resolve_ws_session(
-		session_data,
-		org=org_slug,
-		token=token,
-		username=username
+		session_data, org=org_slug, token=token, username=username
 	)
 	if session_dict is None:
 		return org, AnonymousUser()
 
 	resolved_username = session_dict.get("user", {}).get("username", "")
-	if not has_active_seat(org, resolved_username):
+	if not MSeat.has_active_seat(org, resolved_username):
 		return org, AnonymousUser()
 
 	return org, WsUser(session=MSession(**session_dict))
@@ -104,8 +101,8 @@ class MOAuth2:  # pylint: disable=too-few-public-methods
 
 		if org_slug and token:
 			session_data = {
-				"expires_at": expires_at,
 				"database": database,
+				"expires_at": expires_at,
 				"password": password,
 			}
 			org, user = await get_org_and_user(
