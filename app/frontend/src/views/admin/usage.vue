@@ -175,7 +175,7 @@
         {{ $t('commons.loading') }}
       </div>
 
-      <template v-else>
+      <template v-else-if="summary">
         <div class="orb-usage-stats">
           <div class="orb-usage-stat-tile">
             <span class="orb-usage-stat-value">{{ totalTokens }}</span>

@@ -4,7 +4,7 @@
 
   const { locale } = useI18n({ useScope: 'global' });
   const setLocale = (lng) => {
-    locale.setter(lng);
+    locale.value = lng;
     window.localStorage.setItem('visitor_language', lng);
     window.dispatchEvent(new CustomEvent('language.changed', {
       detail: lng,

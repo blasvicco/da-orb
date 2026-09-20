@@ -1,0 +1,167 @@
+{
+  "node": "Merge Company Info Result",
+  "cases": [
+    {
+      "description": "success -> SAP wins for any field with a sap_field whose value came back non-empty (Phone1/E_Mail); CompnyName has no sap_field declared (this instance's own OADM.CompnyName carries a test-environment prefix unusable for print) so it's org-only; constants are merged in verbatim",
+      "input": {
+        "status": "success",
+        "_sap_call_result": {
+          "value": [
+            { "CompnyName": "*** TEST BVS TV SA 17062025  ****", "Phone1": "49585638", "E_Mail": "info@bvstv.com" }
+          ]
+        }
+      },
+      "nodeResults": {
+        "Build Company Info Call Payload": {
+          "organization": { "company_info": { "name": "BVS TV SA", "phone": "000", "email": "old@bvstv.com", "website": "www.bvstv.com" } },
+          "_target_document_mapping": {
+            "company_info_source": {
+              "subreport": "SREncabDocum",
+              "sql_name": "GetCompanyInfo",
+              "fields": {
+                "CompnyName": { "org_field": "name" },
+                "Phone1": { "sap_field": "Phone1", "org_field": "phone" },
+                "E_Mail": { "sap_field": "E_Mail", "org_field": "email" },
+                "IntrntAdrs": { "org_field": "website" }
+              },
+              "constants": { "U_B1SYS_VATCtg": "" }
+            }
+          }
+        }
+      },
+      "expected": {
+        "_company_info": {
+          "U_B1SYS_VATCtg": "",
+          "CompnyName": "BVS TV SA",
+          "Phone1": "49585638",
+          "E_Mail": "info@bvstv.com",
+          "IntrntAdrs": "www.bvstv.com"
+        }
+      }
+    },
+    {
+      "description": "SAP call failed outright -> every field with an org_field falls back to organization.company_info; a field with neither a usable SAP value nor an org_field stays null",
+      "input": {
+        "status": "error",
+        "message": "table not whitelisted"
+      },
+      "nodeResults": {
+        "Build Company Info Call Payload": {
+          "organization": { "company_info": { "name": "BVS TV SA", "phone": "49585638", "email": "info@bvstv.com", "website": "www.bvstv.com" } },
+          "_target_document_mapping": {
+            "company_info_source": {
+              "subreport": "SREncabDocum",
+              "sql_name": "GetCompanyInfo",
+              "fields": {
+                "CompnyName": { "org_field": "name" },
+                "Phone1": { "sap_field": "Phone1", "org_field": "phone" },
+                "SomeSapOnlyField": { "sap_field": "SomeSapOnlyField" }
+              }
+            }
+          }
+        }
+      },
+      "expected": {
+        "_company_info": {
+          "CompnyName": "BVS TV SA",
+          "Phone1": "49585638",
+          "SomeSapOnlyField": null
+        }
+      }
+    },
+    {
+      "description": "success but the SAP row's own value for a field is empty string (falsy) -> still falls back to the org value, same as a missing/failed call would -- an empty string is never treated as 'SAP had an answer'",
+      "input": {
+        "status": "success",
+        "_sap_call_result": { "value": [{ "Phone1": "" }] }
+      },
+      "nodeResults": {
+        "Build Company Info Call Payload": {
+          "organization": { "company_info": { "phone": "49585638" } },
+          "_target_document_mapping": {
+            "company_info_source": {
+              "subreport": "SREncabDocum",
+              "sql_name": "GetCompanyInfo",
+              "fields": { "Phone1": { "sap_field": "Phone1", "org_field": "phone" } }
+            }
+          }
+        }
+      },
+      "expected": {
+        "_company_info": { "Phone1": "49585638" }
+      }
+    },
+    {
+      "description": "no organization.company_info at all (org row never populated) and SAP succeeds -> SAP-sourced fields are still filled; org-only fields resolve to null rather than throwing",
+      "input": {
+        "status": "success",
+        "_sap_call_result": { "value": [{ "Phone1": "49585638" }] }
+      },
+      "nodeResults": {
+        "Build Company Info Call Payload": {
+          "organization": {},
+          "_target_document_mapping": {
+            "company_info_source": {
+              "subreport": "SREncabDocum",
+              "sql_name": "GetCompanyInfo",
+              "fields": {
+                "Phone1": { "sap_field": "Phone1", "org_field": "phone" },
+                "IntrntAdrs": { "org_field": "website" }
+              }
+            }
+          }
+        }
+      },
+      "expected": {
+        "_company_info": { "Phone1": "49585638", "IntrntAdrs": null }
+      }
+    },
+    {
+      "description": "logo_source declared and organization.company_info.logo_base64 is set -> _logo_value is the base64 blob re-encoded as \\x-hex, same convention Merge QR Result already uses for FileContnt -- sourced entirely from the org (SAP has no logo image data at all, unlike company_info's other fields)",
+      "input": { "status": "error" },
+      "nodeResults": {
+        "Build Company Info Call Payload": {
+          "organization": { "company_info": { "logo_base64": "aGVsbG8=" } },
+          "_target_document_mapping": {
+            "company_info_source": { "subreport": "SREncabDocum", "sql_name": "GetCompanyInfo", "fields": {} },
+            "logo_source": { "target_field": "LogoImage", "org_field": "logo_base64" }
+          }
+        }
+      },
+      "expected": {
+        "_logo_value": "\\x68656c6c6f"
+      }
+    },
+    {
+      "description": "logo_source declared but organization.company_info has no logo_base64 yet (org never uploaded one) -> _logo_value stays null rather than throwing or writing a garbage encode of undefined",
+      "input": { "status": "error" },
+      "nodeResults": {
+        "Build Company Info Call Payload": {
+          "organization": { "company_info": {} },
+          "_target_document_mapping": {
+            "company_info_source": { "subreport": "SREncabDocum", "sql_name": "GetCompanyInfo", "fields": {} },
+            "logo_source": { "target_field": "LogoImage", "org_field": "logo_base64" }
+          }
+        }
+      },
+      "expected": {
+        "_logo_value": null
+      }
+    },
+    {
+      "description": "logo_source not declared at all (a schema that doesn't opt in) -> _logo_value stays null, same as today's behavior for any org without this key",
+      "input": { "status": "error" },
+      "nodeResults": {
+        "Build Company Info Call Payload": {
+          "organization": { "company_info": { "logo_base64": "aGVsbG8=" } },
+          "_target_document_mapping": {
+            "company_info_source": { "subreport": "SREncabDocum", "sql_name": "GetCompanyInfo", "fields": {} }
+          }
+        }
+      },
+      "expected": {
+        "_logo_value": null
+      }
+    }
+  ]
+}

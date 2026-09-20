@@ -1,0 +1,246 @@
+{
+  "path": "schema_resolution",
+  "target_workflow": "schema-resolution.json",
+  "cases": [
+    {
+      "description": "DB override found -> short-circuits Org/Standard, decodes process definition, fetches and merges schema_definition",
+      "input": {
+        "path": "purchase/purch_request/purch_request.json",
+        "github_owner": "org",
+        "github_repo": "repo",
+        "github_tag": "main",
+        "organization": {
+          "slug": "acme"
+        },
+        "session": {
+          "database": "db"
+        }
+      },
+      "pins": {
+        "Fetch DB Override": {
+          "statusCode": 200,
+          "body": {
+            "content": "eyJpZCI6ICJwdXJjaGFzZV9yZXF1ZXN0IiwgInNjaGVtYSI6ICJwdXJjaGFzZV9yZXF1ZXN0X3NjaGVtYSJ9",
+            "path": "purchase/acme/db/purch_request.json"
+          }
+        },
+        "Fetch Schema": {
+          "statusCode": 200,
+          "body": {
+            "content": "eyJTdXBwbGllciI6IHsidHlwZSI6ICJzdHJpbmcifX0="
+          }
+        }
+      },
+      "assert": {
+        "node": "Decode & Set Schema",
+        "fields": {
+          "error": null,
+          "error_message": null,
+          "process_definition.id": "purchase_request",
+          "process_definition.schema": "purchase_request_schema",
+          "process_definition.schema_definition": {
+            "Supplier": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "same DB-override scenario, asserted from the harness's own Execute Workflow node -- proves the caller sees the sub-workflow's final output embedded inline, not just via the linked child execution",
+      "input": {
+        "path": "purchase/purch_request/purch_request.json",
+        "github_owner": "org",
+        "github_repo": "repo",
+        "github_tag": "main",
+        "organization": {
+          "slug": "acme"
+        },
+        "session": {
+          "database": "db"
+        }
+      },
+      "pins": {
+        "Fetch DB Override": {
+          "statusCode": 200,
+          "body": {
+            "content": "eyJpZCI6ICJwdXJjaGFzZV9yZXF1ZXN0IiwgInNjaGVtYSI6ICJwdXJjaGFzZV9yZXF1ZXN0X3NjaGVtYSJ9",
+            "path": "purchase/acme/db/purch_request.json"
+          }
+        },
+        "Fetch Schema": {
+          "statusCode": 200,
+          "body": {
+            "content": "eyJTdXBwbGllciI6IHsidHlwZSI6ICJzdHJpbmcifX0="
+          }
+        }
+      },
+      "assert": {
+        "node": "Execute Workflow",
+        "fields": {
+          "error": null,
+          "process_definition.id": "purchase_request",
+          "process_definition.schema_definition": {
+            "Supplier": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "DB override 404, Org override found -> cascades past DB tier",
+      "input": {
+        "path": "purchase/purch_request/purch_request.json",
+        "github_owner": "org",
+        "github_repo": "repo",
+        "github_tag": "main",
+        "organization": {
+          "slug": "acme"
+        },
+        "session": {
+          "database": "db"
+        }
+      },
+      "pins": {
+        "Fetch DB Override": {
+          "statusCode": 404
+        },
+        "Fetch Org Override": {
+          "statusCode": 200,
+          "body": {
+            "content": "eyJpZCI6ICJwdXJjaGFzZV9yZXF1ZXN0IiwgInNjaGVtYSI6ICJwdXJjaGFzZV9yZXF1ZXN0X3NjaGVtYSJ9",
+            "path": "purchase/acme/standard/purch_request.json"
+          }
+        },
+        "Fetch Schema": {
+          "statusCode": 404
+        }
+      },
+      "assert": {
+        "node": "Decode & Set Schema",
+        "fields": {
+          "error": null,
+          "error_message": null,
+          "process_definition.id": "purchase_request",
+          "process_definition.schema": "purchase_request_schema",
+          "process_definition.schema_definition": null
+        }
+      }
+    },
+    {
+      "description": "DB and Org overrides both 404, Standard found, no schema slug -> schema_fetch_url is null; Fetch Schema is still pinned (it runs unconditionally in the current wiring regardless of whether schema_fetch_url is usable) so this stays deterministic",
+      "input": {
+        "path": "purchase/purch_request/purch_request.json",
+        "github_owner": "org",
+        "github_repo": "repo",
+        "github_tag": "main",
+        "organization": {
+          "slug": "acme"
+        },
+        "session": {
+          "database": "db"
+        }
+      },
+      "pins": {
+        "Fetch DB Override": {
+          "statusCode": 404
+        },
+        "Fetch Org Override": {
+          "statusCode": 404
+        },
+        "Fetch Standard": {
+          "statusCode": 200,
+          "body": {
+            "content": "eyJpZCI6ICJwdXJjaGFzZV9yZXF1ZXN0In0=",
+            "path": "purchase/purch_request/purch_request.json"
+          }
+        },
+        "Fetch Schema": {
+          "statusCode": 404
+        }
+      },
+      "assert": {
+        "node": "Decode & Set Schema",
+        "fields": {
+          "error": null,
+          "error_message": null,
+          "process_definition.id": "purchase_request",
+          "process_definition.schema_definition": null
+        }
+      }
+    },
+    {
+      "description": "all three tiers 404 -> NOT_FOUND",
+      "input": {
+        "path": "purchase/purch_request/purch_request.json",
+        "github_owner": "org",
+        "github_repo": "repo",
+        "github_tag": "main",
+        "organization": {
+          "slug": "acme"
+        },
+        "session": {
+          "database": "db"
+        }
+      },
+      "pins": {
+        "Fetch DB Override": {
+          "statusCode": 404
+        },
+        "Fetch Org Override": {
+          "statusCode": 404
+        },
+        "Fetch Standard": {
+          "statusCode": 404
+        },
+        "Fetch Schema": {
+          "statusCode": 404
+        }
+      },
+      "assert": {
+        "node": "Decode & Set Schema",
+        "fields": {
+          "process_definition": null,
+          "error": "NOT_FOUND",
+          "error_message": "No se encontró la definición del proceso."
+        }
+      }
+    },
+    {
+      "description": "DB override content isn't valid base64 JSON -> Decode Process Definition itself reports the parse error (asserted on the intermediate node, not just the terminal one)",
+      "input": {
+        "path": "purchase/purch_request/purch_request.json",
+        "github_owner": "org",
+        "github_repo": "repo",
+        "github_tag": "main",
+        "organization": {
+          "slug": "acme"
+        },
+        "session": {
+          "database": "db"
+        }
+      },
+      "pins": {
+        "Fetch DB Override": {
+          "statusCode": 200,
+          "body": {
+            "content": "bm90LWpzb24=",
+            "path": "purchase/acme/db/purch_request.json"
+          }
+        },
+        "Fetch Schema": {
+          "statusCode": 404
+        }
+      },
+      "assert": {
+        "node": "Decode Process Definition",
+        "fields": {
+          "process_definition": null,
+          "error": "NOT_FOUND",
+          "error_message": "Error al parsear la definición del proceso."
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "node": "Prepare SAP Inquiry Call",
+  "cases": [
+    {
+      "description": "fresh batch turn, nothing else active -> builds a throwaway single-entry intention_nodes/active_node_id from this record's own resolved data, stashes the real (empty) originals, sets suppress_delivery. Used unmodified for GET or CREATE alike -- this node no longer knows or cares which kind of process it's calling.",
+      "input": {
+        "path": "purchase/vendor_list.json",
+        "process_definition": { "api": { "method": "GET" } },
+        "_record": { "CardName": "Flete" }
+      },
+      "nodeResults": {},
+      "expected": {
+        "_original_intention_nodes": {},
+        "_original_active_node_id": null,
+        "active_node_id": "batch#purchase/vendor_list.json",
+        "intention_nodes": {
+          "batch#purchase/vendor_list.json": {
+            "id": "batch#purchase/vendor_list.json",
+            "status": "active",
+            "parent_id": null,
+            "process_id": "purchase/vendor_list.json",
+            "process_definition": { "api": { "method": "GET" } },
+            "form_state": { "CardName": "Flete" }
+          }
+        },
+        "suppress_delivery": true
+      }
+    },
+    {
+      "description": "a CREATE record (POST) -> identical mechanism, no branching on method",
+      "input": {
+        "path": "purchase/purch_request.json",
+        "process_definition": { "api": { "method": "POST" } },
+        "_record": { "CardCode": "V10000" }
+      },
+      "nodeResults": {},
+      "expected": {
+        "active_node_id": "batch#purchase/purch_request.json",
+        "intention_nodes": {
+          "batch#purchase/purch_request.json": {
+            "id": "batch#purchase/purch_request.json",
+            "status": "active",
+            "parent_id": null,
+            "process_id": "purchase/purch_request.json",
+            "process_definition": { "api": { "method": "POST" } },
+            "form_state": { "CardCode": "V10000" }
+          }
+        }
+      }
+    },
+    {
+      "description": "another process is genuinely active/paused during this batch turn -> merged into the real intention_nodes, not replacing it, and the real active_node_id is stashed for later restoration",
+      "input": {
+        "path": "purchase/vendor_list.json",
+        "process_definition": { "api": { "method": "GET" } },
+        "_record": {},
+        "intention_nodes": { "pr#0": { "id": "pr#0", "status": "paused" } },
+        "active_node_id": "pr#0"
+      },
+      "nodeResults": {},
+      "expected": {
+        "_original_intention_nodes": { "pr#0": { "id": "pr#0", "status": "paused" } },
+        "_original_active_node_id": "pr#0",
+        "active_node_id": "batch#purchase/vendor_list.json",
+        "intention_nodes": {
+          "pr#0": { "id": "pr#0", "status": "paused" },
+          "batch#purchase/vendor_list.json": {
+            "id": "batch#purchase/vendor_list.json",
+            "status": "active",
+            "parent_id": null,
+            "process_id": "purchase/vendor_list.json",
+            "process_definition": { "api": { "method": "GET" } },
+            "form_state": {}
+          }
+        },
+        "suppress_delivery": true
+      }
+    },
+    {
+      "description": "_record missing entirely (defensive) -> defaults to an empty form_state rather than throwing",
+      "input": {
+        "path": "purchase/vendor_list.json",
+        "process_definition": { "api": { "method": "GET" } }
+      },
+      "nodeResults": {},
+      "expected": {
+        "intention_nodes": {
+          "batch#purchase/vendor_list.json": {
+            "id": "batch#purchase/vendor_list.json",
+            "status": "active",
+            "parent_id": null,
+            "process_id": "purchase/vendor_list.json",
+            "process_definition": { "api": { "method": "GET" } },
+            "form_state": {}
+          }
+        }
+      }
+    }
+  ]
+}

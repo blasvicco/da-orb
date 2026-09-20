@@ -1,0 +1,22 @@
+@reference "@/styles/main.css";
+
+.orb-admin-actions {
+  @apply flex justify-end mb-4;
+}
+
+.orb-template-form {
+  @apply flex flex-col gap-4;
+}
+
+.orb-template-form-field {
+  @apply flex flex-col gap-1;
+}
+
+.orb-template-form-label {
+  @apply font-medium text-sm;
+  color: var(--orb-header-title);
+}
+
+.orb-template-preview-error {
+  @apply bg-red-50 border border-red-200 mt-3 px-3 py-2 rounded-lg text-red-700 text-sm;
+}

@@ -24,7 +24,7 @@
   // App assets imports
   import orbLogo from '@/assets/img/logo.svg?url';
 
-  const { t, te } = useI18n();
+  const { locale, t, te } = useI18n({ useScope: 'global' });
   const router = useRouter();
   const auth = useAuth();
 
@@ -51,12 +51,27 @@
   const connectionStatus = ref('connecting');
   const isTyping = ref(false);
   const messages = ref([]);
+  const pendingContextFiles = ref([]);
   const promptText = ref('');
   const sessionId = ref(null);
   const sessions = ref([]);
   const statusText = ref(null);
 
   const chat = new Chat();
+  // Resolvers waiting on the next 'session.created' event — see ensureSessionId().
+  let sessionReadyResolvers = [];
+
+  // Guarantees a real session_id exists, creating it ahead of any message if
+  // needed (e.g. a file attached before anything is typed) — resolves
+  // immediately if a session already exists, otherwise waits for the
+  // 'session.created' event fired in response to chat.ensureSession().
+  const ensureSessionId = () => {
+    if (sessionId.value) return Promise.resolve(sessionId.value);
+    return new Promise((resolve) => {
+      sessionReadyResolvers.push(resolve);
+      chat.ensureSession();
+    });
+  };
 
   // Theme
   const theme = ref(localStorage.getItem('orb-theme') || 'light');
@@ -82,6 +97,12 @@
 
   const _timestamp = (isoString) =>
     new Date(isoString || new Date()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const currentSessionState = computed(() => {
+    if (!sessionId.value) return null;
+    const s = sessions.value.find((s) => s.id === sessionId.value);
+    return s?.n8n_state || null;
+  });
 
   const currentSessionTitle = computed(() => {
     if (!sessionId.value) return null;
@@ -115,9 +136,10 @@
     // Don't blindly clear the typing indicator — if this chat is still waiting on
     // an agent reply (per the sidebar's last-known pending state), keep showing it
     // so the user doesn't lose track of which chats are still in progress. The
-    // specific status text (e.g. "Identificando proceso") isn't persisted, only
+    // specific status text (e.g. "Interpretando mensaje") isn't persisted, only
     // whether a reply is pending, so we fall back to the generic typing dots.
     isTyping.value = !!sessions.value.find((s) => s.id === id)?.pending;
+    pendingContextFiles.value = [];
     sessionId.value = id;
     statusText.value = null;
     chat.sessionId = id;
@@ -127,12 +149,19 @@
     const result = await AppAPI.Chat.messages(id);
     if (!result?.errors) {
       messages.value = result.map((m) => ({
+        attachment: m.extra?.attachment || null,
         extra: m.extra || null,
         processes: m.extra?.processes || null,
         text: te(m.text) ? t(m.text) : m.text,
         time: _timestamp(m.timestamp),
         type: m.type,
       }));
+      // The sidebar's cached `pending` flag (used above, before this fetch resolved)
+      // can be stale if the agent replied while this chat was in the background —
+      // trust the freshly fetched history instead: a session is only still pending
+      // if its very last message is from the user.
+      const last = result[result.length - 1];
+      isTyping.value = !!last && last.type === 'user';
       scrollToBottom();
     }
   };
@@ -152,6 +181,7 @@
     chat.sessionId = null;
     isTyping.value = false;
     messages.value = [];
+    pendingContextFiles.value = [];
     sessionId.value = null;
     statusText.value = null;
     setTimeout(() => chat.connect(), 300);
@@ -170,8 +200,38 @@
   // Send Prompt Message Flow
   const handleSend = () => {
     if (!promptText.value.trim() || connectionStatus.value !== 'connected') return;
-    chat.sendMessage(promptText.value.trim(), expertiseLevel.value);
+    chat.sendMessage(
+      promptText.value.trim(),
+      locale.value,
+      expertiseLevel.value,
+      pendingContextFiles.value.map((file) => file.id),
+    );
+    pendingContextFiles.value = [];
     promptText.value = '';
+  };
+
+  // Explicit click-to-navigate from the Intention Graph sidebar — switches the active
+  // node immediately (resolved directly in Django, no n8n round-trip). The announcement
+  // bubble is NOT pushed locally here — it's translated up front (only the frontend
+  // knows the active locale) and sent along for the backend to broadcast back as a
+  // 'system' message, the same round trip a typed message takes, so it lands in
+  // messages.value via onSystemMessage below and gets persisted for session review.
+  const handleNavigate = ({ id, label }) => {
+    chat.switchActiveNode(id, t('chat.intentionGraph.contextSwitch', { label }));
+  };
+
+  // "Use as context" from the bucket panel, and/or files dropped onto the composer
+  // that just finished uploading — both arm a one-shot reference that rides along
+  // with the user's next message.
+  const handleContextFile = (file) => {
+    if (pendingContextFiles.value.some((entry) => entry.id === file.id)) return;
+    pendingContextFiles.value = [...pendingContextFiles.value, file];
+  };
+
+  // Also reused as the file-deleted handler: removing a bucket file that's
+  // currently selected as context clears its chip too.
+  const handleRemoveContext = (fileId) => {
+    pendingContextFiles.value = pendingContextFiles.value.filter((entry) => entry.id !== fileId);
   };
 
   // Sign out flow
@@ -193,6 +253,8 @@
     chat.on('session.created', async (data) => {
       chat.sessionId = data.session_id;
       sessionId.value = data.session_id;
+      sessionReadyResolvers.forEach((resolve) => resolve(data.session_id));
+      sessionReadyResolvers = [];
       // Refresh sidebar so the new session appears with its title
       await refreshSessions();
     });
@@ -215,6 +277,7 @@
     chat.onAgentMessage((data) => {
       isTyping.value = false;
       messages.value.push({
+        attachment: data.attachment || null,
         processes: data.processes || null,
         state: data.state || null,
         text: data.text,
@@ -281,19 +344,27 @@
   <ChatLayout :theme="theme">
     <template #sidebar-top>
       <!-- Logo -->
-      <a
-        href="/"
-        class="orb-sidebar-logo-wrap"
-      >
-        <img
-          :src="orbLogo"
-          class="orb-sidebar-logo-icon"
-          alt="Orb"
+      <div class="orb-sidebar-logo-block">
+        <a
+          href="/"
+          class="orb-sidebar-logo-wrap"
         >
-        <span class="orb-sidebar-logo-text">
-          {{ $t('landing.title') }}
+          <img
+            :src="orbLogo"
+            class="orb-sidebar-logo-icon"
+            alt="Orb"
+          >
+          <span class="orb-sidebar-logo-text">
+            {{ $t('landing.title') }}
+          </span>
+        </a>
+        <span
+          v-if="userProfile.connection"
+          class="orb-sidebar-connection"
+        >
+          {{ userProfile.connection }}
         </span>
-      </a>
+      </div>
 
       <!-- New Chat Action -->
       <button
@@ -331,9 +402,9 @@
     <ChatHeader
       :session-title="currentSessionTitle"
       :has-messages="messages.length > 0"
-      :connection="userProfile.connection"
       :connection-status="connectionStatus"
       :messages="messages"
+      :session-id="sessionId"
       :user-name="userProfile.name"
       :tokens-used="currentSessionTokens"
     />
@@ -382,7 +453,16 @@
 
     <ChatInput
       v-model="promptText"
+      :context-files="pendingContextFiles"
       :disabled="isTyping || connectionStatus !== 'connected'"
+      :ensure-session-id="ensureSessionId"
+      :messages="messages"
+      :session-id="sessionId"
+      :session-state="currentSessionState"
+      @context-file="handleContextFile"
+      @file-deleted="handleRemoveContext"
+      @navigate="handleNavigate"
+      @remove-context="handleRemoveContext"
       @send="handleSend"
     />
   </ChatLayout>

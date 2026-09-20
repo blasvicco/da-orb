@@ -1,0 +1,12 @@
+{
+  "path": "response",
+  "target_workflow": "response.json",
+  "cases": [
+    {
+      "description": "builds the Django callback payload without needing a live HTTP round-trip to assert on",
+      "input": { "group_name": "g1", "session_id": "s1", "message": "here you go" },
+      "pins": {},
+      "assert": { "node": "Build Callback Payload", "fields": { "group_name": "g1", "session_id": "s1", "text": "here you go", "type": "agent" } }
+    }
+  ]
+}

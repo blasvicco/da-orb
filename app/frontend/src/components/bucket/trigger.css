@@ -1,0 +1,99 @@
+@reference "@/styles/main.css";
+
+.orb-panel-title {
+  @apply flex items-center justify-between pr-6 w-full;
+
+  .orb-panel-switch {
+    @apply cursor-pointer flex items-center justify-center;
+    color: var(--orb-input-tool, #64748b);
+
+    &:hover {
+      color: var(--orb-input-tool-hover, #0F52BA);
+    }
+  }
+}
+
+@media (max-width: 639px) {
+  .orb-bucket-drawer .ant-drawer-content-wrapper {
+    width: 100% !important;
+  }
+}
+
+.orb-bucket-file-input {
+  @apply hidden;
+}
+
+.orb-bucket-upload-btn {
+  @apply flex gap-2 items-center justify-center mb-4;
+}
+
+.orb-bucket-empty {
+  @apply text-sm;
+  color: var(--orb-header-title, #1e293b);
+  opacity: 0.6;
+}
+
+.orb-bucket-list {
+  @apply flex flex-col gap-2;
+}
+
+.orb-bucket-item {
+  @apply flex gap-3 items-center justify-between;
+
+  &.orb-bucket-item--pending {
+    @apply opacity-60;
+  }
+
+  .orb-bucket-item-info {
+    @apply flex flex-col gap-0.5 min-w-0;
+
+    .orb-bucket-item-name {
+      @apply font-medium overflow-hidden text-ellipsis text-sm whitespace-nowrap;
+      color: var(--orb-header-title, #1e293b);
+
+      &.orb-bucket-item-name--clickable {
+        @apply cursor-pointer;
+
+        &:hover {
+          color: var(--orb-input-tool-hover, #0F52BA);
+          text-decoration: underline;
+        }
+      }
+    }
+
+    .orb-bucket-item-meta {
+      @apply text-xs;
+      color: var(--orb-header-title, #1e293b);
+      opacity: 0.6;
+    }
+  }
+
+  .orb-bucket-remove-btn {
+    @apply shrink-0;
+
+    &:hover {
+      color: #dc2626;
+    }
+  }
+
+  .orb-bucket-item-actions {
+    @apply flex gap-1.5 items-center shrink-0;
+
+    .orb-bucket-delete-btn:hover {
+      color: #dc2626;
+    }
+  }
+}
+
+.orb-bucket-preview-loading {
+  @apply flex items-center justify-center py-10;
+}
+
+.orb-bucket-preview-image {
+  @apply max-h-[70vh] max-w-full mx-auto;
+}
+
+.orb-bucket-preview-text {
+  @apply font-mono max-h-[70vh] overflow-auto text-xs whitespace-pre-wrap;
+  color: var(--orb-header-title, #1e293b);
+}

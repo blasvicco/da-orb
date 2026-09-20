@@ -1,0 +1,119 @@
+{
+  "path": "sap_process_form_filling",
+  "target_workflow": "sap-process-form-filling.json",
+  "cases": [
+    {
+      "description": "continuing form_fill -> confirmed -> calls SAP: Inquiry Execution internally, no schema resolution re-run, merges the final field values into the node's own saved form_state",
+      "input": {
+        "language": "es",
+        "message": "si, confirmo",
+        "group_name": "g1",
+        "session_id": "s1",
+        "active_node_id": "purchase_request#0",
+        "intention_nodes": {
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "status": "active",
+            "parent_id": null,
+            "process_id": "purchase_request",
+            "process_definition": { "id": "purchase_request", "form": { "sections": [] } },
+            "form_state": { "CardCode": "C1" }
+          }
+        }
+      },
+      "pins": {
+        "Agent: Form": { "output": "{\"status\":\"confirmed\",\"message\":\"Confirmado\",\"form_state\":{\"CardCode\":\"C1\"}}" },
+        "Status: Collecting": { "status_text": "stub" },
+        "Execute Workflow: SAP Inquiry Execution": { "delivered": true }
+      },
+      "assert": {
+        "node": "Compute Form Outcome",
+        "fields": {
+          "_should_execute": true,
+          "active_node_id": "purchase_request#0",
+          "intention_nodes": {
+            "purchase_request#0": {
+              "id": "purchase_request#0",
+              "status": "active",
+              "parent_id": null,
+              "process_id": "purchase_request",
+              "process_definition": { "id": "purchase_request", "form": { "sections": [] } },
+              "form_state": { "CardCode": "C1", "ready": true }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "continuing form_fill -> cancelled -> clears active_node_id and marks the node itself 'abandoned' (confirmed-fixed gap: it used to stay silently 'active' forever); form_state is preserved, not nulled, so the data can still be copied into a new intention later",
+      "input": {
+        "language": "es",
+        "message": "cancelar",
+        "group_name": "g1",
+        "session_id": "s1",
+        "active_node_id": "purchase_request#0",
+        "intention_nodes": {
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "status": "active",
+            "parent_id": null,
+            "process_id": "purchase_request",
+            "process_definition": { "id": "purchase_request", "form": { "sections": [] } },
+            "form_state": { "CardCode": "C1" }
+          }
+        }
+      },
+      "pins": {
+        "Agent: Form": { "output": "{\"status\":\"cancelled\",\"message\":\"Entendido, cancelado.\"}" },
+        "Status: Collecting": { "status_text": "stub" },
+        "Execute Workflow: Response": { "delivered": true }
+      },
+      "assert": {
+        "node": "Compute Form Outcome",
+        "fields": {
+          "message": "Entendido, cancelado.",
+          "active_node_id": null,
+          "intention_nodes": {
+            "purchase_request#0": {
+              "id": "purchase_request#0",
+              "status": "abandoned",
+              "parent_id": null,
+              "process_id": "purchase_request",
+              "process_definition": { "id": "purchase_request", "form": { "sections": [] } },
+              "form_state": { "CardCode": "C1" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "agent/tool failure -> classified via the real shared Error Parser (Response pinned only to avoid a live Django call in this test), active_node_id and the node itself untouched",
+      "input": {
+        "language": "es",
+        "message": "algo",
+        "group_name": "g1",
+        "session_id": "s1",
+        "active_node_id": "purchase_request#0",
+        "intention_nodes": {
+          "purchase_request#0": {
+            "id": "purchase_request#0",
+            "status": "active",
+            "parent_id": null,
+            "process_id": "purchase_request",
+            "process_definition": { "id": "purchase_request", "form": { "sections": [] } },
+            "form_state": { "CardCode": "C1" }
+          }
+        }
+      },
+      "pins": {
+        "Agent: Form": { "__error__": { "error": { "message": "Rate limit exceeded, tokens per min" } } },
+        "Status: Collecting": { "status_text": "stub" },
+        "Execute Workflow: Response": { "delivered": true }
+      },
+      "assert": {
+        "node": "Execute Workflow: Error Parser (Agent Failure)",
+        "fields": { "error": "RATE_LIMIT", "active_node_id": "purchase_request#0" }
+      }
+    }
+  ]
+}

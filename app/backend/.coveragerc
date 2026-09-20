@@ -1,0 +1,13 @@
+[run]
+omit =
+    core/asgi.py
+    core/settings.py
+    core/wsgi.py
+    drf_api/urls.py
+    manage.py
+    web_socket/routing.py
+    */tests/*
+    */migrations/*
+
+[report]
+show_missing = True

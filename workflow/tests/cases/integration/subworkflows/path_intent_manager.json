@@ -1,0 +1,81 @@
+{
+  "path": "intent_manager",
+  "target_workflow": "intent-manager.json",
+  "cases": [
+    {
+      "description": "route_key already null (this turn was already delivered upstream, e.g. a classification failure) -> passes straight through untouched, nothing else runs",
+      "input": { "route_key": null, "message": "test" },
+      "pins": {},
+      "assert": { "node": "Return Intent Manager Result", "fields": { "route_key": null } }
+    },
+    {
+      "description": "no park needed (a plain continuing form_fill turn) -> passes straight through untouched",
+      "input": {
+        "route_key": "sap_form_filling",
+        "active_node_id": "purchase_request#0",
+        "message": "500",
+        "intention_nodes": { "purchase_request#0": { "id": "purchase_request#0", "process_id": "purchase_request", "status": "active" } }
+      },
+      "pins": {},
+      "assert": { "node": "Return Intent Manager Result", "fields": { "route_key": "sap_form_filling", "active_node_id": "purchase_request#0" } }
+    },
+    {
+      "description": "new_intent/match while a process is already active -> parks the active one and clears the slate, route_key stays sap_form_filling for the new intent",
+      "input": {
+        "route_key": "sap_form_filling",
+        "status": "new_intent",
+        "new_intent_status": "match",
+        "active_node_id": "goods_receipt#1",
+        "intention_nodes": { "goods_receipt#1": { "id": "goods_receipt#1", "process_id": "goods_receipt", "process_definition": { "id": "goods_receipt" }, "form_state": { "warehouse": "01" }, "status": "active" } }
+      },
+      "pins": {},
+      "assert": {
+        "node": "Return Intent Manager Result",
+        "fields": {
+          "route_key": "sap_form_filling",
+          "active_node_id": null,
+          "new_process_parent_id": "goods_receipt#1",
+          "intention_nodes": { "goods_receipt#1": { "id": "goods_receipt#1", "process_id": "goods_receipt", "process_definition": { "id": "goods_receipt" }, "form_state": { "warehouse": "01" }, "status": "paused" } }
+        }
+      }
+    },
+    {
+      "description": "new_intent/match on a clean slate (no active_node_id) -> no park needed, passes straight through",
+      "input": { "route_key": "sap_form_filling", "status": "new_intent", "new_intent_status": "match", "active_node_id": null },
+      "pins": {},
+      "assert": { "node": "Return Intent Manager Result", "fields": { "route_key": "sap_form_filling", "active_node_id": null } }
+    },
+    {
+      "description": "new_intent/match right after a GET-style inquiry completed (active_node_id still points at the now-completed node) -> park still runs, only actually pausing a node that's genuinely 'active' (a 'completed' node just gets read for its id as the new node's parent, not relabeled 'paused'), and hands off new_process_parent_id so the new node nests under the completed one instead of becoming an unrelated root",
+      "input": {
+        "route_key": "sap_form_filling",
+        "status": "new_intent",
+        "new_intent_status": "match",
+        "active_node_id": "vendor_list#1",
+        "intention_nodes": {
+          "purchase_request#0": { "id": "purchase_request#0", "process_id": "purchase_request", "process_definition": {}, "form_state": {}, "status": "paused" },
+          "vendor_list#1": { "id": "vendor_list#1", "process_id": "vendor_list", "process_definition": {}, "form_state": null, "status": "completed" }
+        }
+      },
+      "pins": {},
+      "assert": {
+        "node": "Return Intent Manager Result",
+        "fields": {
+          "route_key": "sap_form_filling",
+          "active_node_id": null,
+          "new_process_parent_id": "vendor_list#1",
+          "intention_nodes": {
+            "purchase_request#0": { "id": "purchase_request#0", "process_id": "purchase_request", "process_definition": {}, "form_state": {}, "status": "paused" },
+            "vendor_list#1": { "id": "vendor_list#1", "process_id": "vendor_list", "process_definition": {}, "form_state": null, "status": "completed" }
+          }
+        }
+      }
+    },
+    {
+      "description": "route_key carries a stale/unrecognized value (e.g. from a since-removed classification path) -> Intent Manager doesn't special-case it, just passes straight through same as any other non-null route_key with no park needed (both the stack-resume confirmation flow and active_node_override/Resolve Override were removed entirely 2026-08-13 -- clicking a node in the Intention Graph now switches the active node directly in Django, with no n8n involvement at all)",
+      "input": { "route_key": "sap_form_filling", "confirmed": true, "language": "es" },
+      "pins": {},
+      "assert": { "node": "Return Intent Manager Result", "fields": { "route_key": "sap_form_filling" } }
+    }
+  ]
+}

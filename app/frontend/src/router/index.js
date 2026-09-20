@@ -8,6 +8,7 @@ import { useAuth } from '@/modules/auth';
 import landing from '@/views/landing.vue';
 import chat from '@/views/chat.vue';
 import privacy from '@/views/privacy.vue';
+import documentTemplates from '@/views/admin/document-templates.vue';
 import seats from '@/views/admin/seats.vue';
 import terms from '@/views/terms.vue';
 import usage from '@/views/admin/usage.vue';
@@ -70,6 +71,14 @@ const router = createRouter({
       auth: true,
       adminOnly: true,
     },
+  }, {
+    path: '/admin/document-templates',
+    name: 'admin-document-templates',
+    component: documentTemplates,
+    meta: {
+      auth: true,
+      adminOnly: true,
+    },
   }],
   scrollBehavior: (to, from, _savedPosition) => {
     if (to.name === from.name) return;
@@ -100,12 +109,15 @@ router.beforeEach((to, from, next) => {
     }
   }
   // if route can be accessed without authentication - guest is true
-  else if (to.matched.some((record) => record.meta.guest)) {
-    // guest handling reserved for Phase 2
-  }
-  // if not guest or requiresAuth continue
   else {
-    next();
+    // v8 ignore next -- no route sets meta.guest yet; reserved for Phase 2.
+    if (to.matched.some((record) => record.meta.guest)) {
+      // guest handling reserved for Phase 2
+    }
+    // if not guest or requiresAuth continue
+    else {
+      next();
+    }
   }
 });
 

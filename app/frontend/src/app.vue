@@ -4,37 +4,27 @@
   import { useI18n } from 'vue-i18n';
   import { RouterView, useRouter } from 'vue-router';
 
-  // Modules imports
-  import { useAuth } from '@/modules/auth';
-
   // Constants
   const { locale } = useI18n({ useScope: 'global' });
   const router = useRouter();
 
   const getSupportedLocales = () => ['en', 'es'];
   const resolveLocale = () => {
-    const auth = useAuth();
-
-    // 1. Logged-in user preference
-    if (auth.hasSession()) {
-      return auth.getSession()?.language;
-    }
-
-    // 2. Visitor's stored selection
+    // 1. Visitor's stored selection
     const stored = window.localStorage.getItem('visitor_language');
     if (stored && getSupportedLocales().includes(stored)) return stored;
 
-    // 3. Browser/system language
+    // 2. Browser/system language
     const browserLang = navigator.language?.split('-')[0];
     if (getSupportedLocales().includes(browserLang)) return browserLang;
 
-    // 4. Fallback
+    // 3. Fallback
     return __APP_ENV__.FALLBACK_LOCALE;
   };
 
   const logoutHandler = () => router.push({ name: 'landing' });
   const setLocale = (lng) => {
-    locale.setter(lng);
+    locale.value = lng;
     window.dispatchEvent(
       new CustomEvent('language.changed', { detail: lng })
     );

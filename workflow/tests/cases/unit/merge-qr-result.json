@@ -1,0 +1,99 @@
+{
+  "node": "Merge QR Result",
+  "cases": [
+    {
+      "description": "success with an OData-wrapped {value: [...]} collection -> decodes the base64 blob to the \\x-hex convention _resolve_bucket_assets already uses for LogoImage",
+      "input": {
+        "status": "success",
+        "_sap_call_result": {
+          "value": [
+            { "FileContnt": "aGVsbG8=" }
+          ]
+        }
+      },
+      "nodeResults": {
+        "Build QR Call Payload": {
+          "_target_document_mapping": {
+            "qr_source": {
+              "sql_name": "GetInvoiceQR",
+              "key_param": "DocEntry",
+              "target_field": "FileContnt"
+            }
+          },
+          "_target_form_state": { "DocEntry": 45501 }
+        }
+      },
+      "expected": {
+        "_qr_value": "\\x68656c6c6f"
+      }
+    },
+    {
+      "description": "success with a bare array (no OData envelope) is also accepted",
+      "input": {
+        "status": "success",
+        "_sap_call_result": [
+          { "FileContnt": "aGVsbG8=" }
+        ]
+      },
+      "nodeResults": {
+        "Build QR Call Payload": {
+          "_target_document_mapping": {
+            "qr_source": {
+              "sql_name": "GetInvoiceQR",
+              "key_param": "DocEntry",
+              "target_field": "FileContnt"
+            }
+          },
+          "_target_form_state": { "DocEntry": 45501 }
+        }
+      },
+      "expected": {
+        "_qr_value": "\\x68656c6c6f"
+      }
+    },
+    {
+      "description": "error status -> _qr_value stays null, no attempt to read _sap_call_result at all",
+      "input": {
+        "status": "error",
+        "message": "table not whitelisted"
+      },
+      "nodeResults": {
+        "Build QR Call Payload": {
+          "_target_document_mapping": {
+            "qr_source": {
+              "sql_name": "GetInvoiceQR",
+              "key_param": "DocEntry",
+              "target_field": "FileContnt"
+            }
+          },
+          "_target_form_state": { "DocEntry": 45501 }
+        }
+      },
+      "expected": {
+        "_qr_value": null
+      }
+    },
+    {
+      "description": "success but empty result set (no OQRC row yet -- e.g. AFIP hasn't issued a CAE) -> _qr_value stays null rather than throwing",
+      "input": {
+        "status": "success",
+        "_sap_call_result": { "value": [] }
+      },
+      "nodeResults": {
+        "Build QR Call Payload": {
+          "_target_document_mapping": {
+            "qr_source": {
+              "sql_name": "GetInvoiceQR",
+              "key_param": "DocEntry",
+              "target_field": "FileContnt"
+            }
+          },
+          "_target_form_state": { "DocEntry": 45501 }
+        }
+      },
+      "expected": {
+        "_qr_value": null
+      }
+    }
+  ]
+}

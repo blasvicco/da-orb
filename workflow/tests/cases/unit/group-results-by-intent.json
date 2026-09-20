@@ -1,0 +1,94 @@
+{
+  "node": "Group Results By Intent",
+  "cases": [
+    {
+      "description": "two records from the same intent -> grouped into one intent entry with both results, both queued for registration; the failed record's error_detail (set upstream by Record Execution Result) rides through into _pending_registration so Register Node has something to persist",
+      "input": {},
+      "inputItems": [
+        { "path": "purchase/purch_request.json", "process_name": "Purchase Request", "process_definition": { "id": "purchase_request" }, "_record_result": { "form_state": { "CardCode": "V10000" }, "status": "completed", "message": "ok", "error_detail": null } },
+        { "path": "purchase/purch_request.json", "process_name": "Purchase Request", "process_definition": { "id": "purchase_request" }, "_record_result": { "form_state": { "CardCode": "V20000" }, "status": "failed", "message": "missing field", "error_detail": "missing field" } }
+      ],
+      "expected": {
+        "path": "purchase/purch_request.json",
+        "process_name": "Purchase Request",
+        "error": null,
+        "error_message": null,
+        "items": [
+          { "form_state": { "CardCode": "V10000" }, "status": "completed", "message": "ok", "error_detail": null },
+          { "form_state": { "CardCode": "V20000" }, "status": "failed", "message": "missing field", "error_detail": "missing field" }
+        ],
+        "_pending_registration": [
+          { "process_definition": { "id": "purchase_request" }, "form_state": { "CardCode": "V10000" }, "status": "completed", "error_detail": null },
+          { "process_definition": { "id": "purchase_request" }, "form_state": { "CardCode": "V20000", "ready": false }, "status": "failed", "error_detail": "missing field" }
+        ],
+        "_hard_failure": null
+      }
+    },
+    {
+      "description": "a failed record whose _record_result predates this fix (no error_detail field at all) -> defensive fallback to null, not a crash",
+      "input": {},
+      "inputItems": [
+        { "path": "purchase/purch_request.json", "process_name": "Purchase Request", "process_definition": { "id": "purchase_request" }, "_record_result": { "form_state": { "CardCode": "V30000" }, "status": "failed", "message": "missing field" } }
+      ],
+      "expectedItems": [
+        { "_pending_registration": [
+          { "process_definition": { "id": "purchase_request" }, "form_state": { "CardCode": "V30000", "ready": false }, "status": "failed", "error_detail": null }
+        ] }
+      ]
+    },
+    {
+      "description": "two distinct intents, one record each -> two separate grouped entries, in order, no cross-contamination of process_definition/form_state (this is the exact bug a nested splitInBatches loop -- and later a branch-then-reconverge topology -- produced live; the fully linear single-connection chain exists specifically to avoid it)",
+      "input": {},
+      "inputItems": [
+        { "path": "purchase/purch_request.json", "process_name": "Purchase Request", "process_definition": { "id": "purchase_request" }, "_record_result": { "form_state": { "CardCode": "V1" }, "status": "completed", "message": "ok" } },
+        { "path": "purchase/vendor_list.json", "process_name": "List Vendors", "process_definition": { "id": "vendor_list" }, "_record_result": { "form_state": { "CardName": "Flete" }, "status": "completed", "message": "| Code | Name |" } }
+      ],
+      "expectedItems": [
+        { "path": "purchase/purch_request.json", "process_definition": { "id": "purchase_request" }, "items": [{ "form_state": { "CardCode": "V1" }, "status": "completed", "message": "ok" }] },
+        { "path": "purchase/vendor_list.json", "process_definition": { "id": "vendor_list" }, "items": [{ "form_state": { "CardName": "Flete" }, "status": "completed", "message": "| Code | Name |" }] }
+      ]
+    },
+    {
+      "description": "a _skip_execution marker (never executed, carries its own resolution error) -> becomes its own entry with items:[], error/error_message preserved, nothing queued for registration",
+      "input": {},
+      "inputItems": [
+        { "path": "bogus/x.json", "process_name": "Unknown", "process_definition": null, "error": "NOT_FOUND", "error_message": "No se encontró la definición del proceso.", "_skip_execution": true }
+      ],
+      "expectedItems": [
+        { "path": "bogus/x.json", "process_name": "Unknown", "process_definition": null, "error": "NOT_FOUND", "error_message": "No se encontró la definición del proceso.", "items": [], "_pending_registration": [], "_hard_failure": null }
+      ]
+    },
+    {
+      "description": "one record carries a genuine hard failure (tagged by Record Execution Result, not a normal _record_result) -> _hard_failure surfaces it on every output item",
+      "input": {},
+      "inputItems": [
+        { "path": "purchase/vendor_list.json", "process_name": "List Vendors", "process_definition": { "id": "vendor_list" }, "_hard_failure": { "error": "RATE_LIMIT", "error_message": "Rate limit exceeded, tokens per min" } }
+      ],
+      "expectedItems": [
+        { "path": "purchase/vendor_list.json", "items": [], "_hard_failure": { "error": "RATE_LIMIT", "error_message": "Rate limit exceeded, tokens per min" } }
+      ]
+    },
+    {
+      "description": "a record's own graceful SAP_ERROR is NOT treated as a hard failure -- _hard_failure stays null, the record's own _record_result (status:failed) still gets queued normally",
+      "input": {},
+      "inputItems": [
+        { "path": "purchase/vendor_list.json", "process_name": "List Vendors", "process_definition": { "id": "vendor_list" }, "_record_result": { "form_state": { "CardName": "Flete" }, "status": "failed", "message": "El proveedor no existe" } }
+      ],
+      "expectedItems": [
+        { "_hard_failure": null, "items": [{ "form_state": { "CardName": "Flete" }, "status": "failed", "message": "El proveedor no existe" }] }
+      ]
+    },
+    {
+      "description": "merged (2026-08-15) with what used to be a separate Prepare Hard Failure For Error Parser node: when a genuine hard failure occurs anywhere in the turn, error/error_message are overridden to the hard failure's own values on EVERY output item -- safe because Has Any Hard Failure?'s true branch is the only consumer, and none of these items ever reach Compose Batch Summary in that case, so an unresolved intent's own error being overridden here doesn't matter",
+      "input": {},
+      "inputItems": [
+        { "path": "bogus/x.json", "process_name": "Unknown", "process_definition": null, "error": "NOT_FOUND", "error_message": "No se encontró la definición del proceso.", "_skip_execution": true },
+        { "path": "purchase/purch_request.json", "process_name": "Purchase Request", "process_definition": { "id": "purchase_request" }, "_hard_failure": { "error": "RATE_LIMIT", "error_message": "Rate limit exceeded, tokens per min" } }
+      ],
+      "expectedItems": [
+        { "path": "bogus/x.json", "error": "RATE_LIMIT", "error_message": "Rate limit exceeded, tokens per min", "_hard_failure": { "error": "RATE_LIMIT", "error_message": "Rate limit exceeded, tokens per min" } },
+        { "path": "purchase/purch_request.json", "error": "RATE_LIMIT", "error_message": "Rate limit exceeded, tokens per min" }
+      ]
+    }
+  ]
+}

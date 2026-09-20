@@ -112,6 +112,21 @@ def test_revoke_rejects_self():
 		assert MSeat.objects.get(org=org, username="admin").status == "active"
 
 
+def test_reinstate_missing_username_returns_400():
+	"""Test reinstate returns 400 when no target username is given"""
+
+	with step("Arrange: An org, no username in the request body."):
+		org = _make_org()
+		request = _make_request("post", org, data={})
+
+	with step("Act: Call reinstate."):
+		response = VSSeat.as_view({"post": "reinstate"})(request)
+
+	with step("Assert: 400 MISSING_USERNAME is returned."):
+		assert response.status_code == 400
+		assert response.data == {"error": "MISSING_USERNAME"}
+
+
 def test_reinstate_succeeds_within_capacity():
 	"""Test reinstate flips a revoked seat back to active when capacity allows"""
 

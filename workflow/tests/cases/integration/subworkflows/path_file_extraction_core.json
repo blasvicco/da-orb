@@ -1,0 +1,82 @@
+{
+  "path": "file_extraction_core",
+  "target_workflow": "file-extraction-core.json",
+  "cases": [
+    {
+      "description": "single bucket_file_id -> Has Files? routes through Split Files/Execute Workflow: File Content Extractor/Merge File Extractions, extracted_files matches the id to its result via the result's own bucket_file_id field (the pin literal includes it explicitly, standing in for what the real Ensure Bucket File ID step would have tagged it with)",
+      "input": {
+        "message": "que dice este archivo",
+        "organization": { "slug": "bvs" },
+        "session": { "access_token": "tok-abc" },
+        "bucket_file_ids": [101]
+      },
+      "pins": {
+        "Execute Workflow: File Content Extractor": { "bucket_file_id": 101, "extracted_content": "col1,col2\n1,2", "error": null }
+      },
+      "assert": {
+        "node": "Return Extraction Result",
+        "fields": {
+          "message": "que dice este archivo",
+          "extracted_files": [
+            { "bucket_file_id": 101, "extracted_content": "col1,col2\n1,2", "error": null }
+          ]
+        }
+      }
+    },
+    {
+      "description": "REGRESSION: multiple bucket_file_ids, but the pin mechanism can only ever return ONE literal (duplicated identically per item, per runOnceForEachItem) -- so with the pin's bucket_file_id hardcoded to 101, only 101 can genuinely match; 102 must surface as MISSING_EXTRACTION_RESULT rather than silently inheriting 101's data by array position (the actual production bug: an array-position zip would have handed 101's real content to whichever id happened to land at that index)",
+      "input": {
+        "message": "process these",
+        "organization": { "slug": "bvs" },
+        "session": { "access_token": "tok-abc" },
+        "bucket_file_ids": [101, 102]
+      },
+      "pins": {
+        "Execute Workflow: File Content Extractor": { "bucket_file_id": 101, "extracted_content": null, "error": "UNSUPPORTED_MIME_TYPE" }
+      },
+      "assert": {
+        "node": "Return Extraction Result",
+        "fields": {
+          "extracted_files": [
+            { "bucket_file_id": 101, "extracted_content": null, "error": "UNSUPPORTED_MIME_TYPE" },
+            { "bucket_file_id": 102, "extracted_content": null, "error": "MISSING_EXTRACTION_RESULT" }
+          ]
+        }
+      }
+    },
+    {
+      "description": "no bucket_file_ids -> Has Files? skips the extraction chain entirely, Execute Workflow: File Content Extractor never runs, extracted_files normalizes to null",
+      "input": {
+        "message": "hola",
+        "organization": { "slug": "bvs" }
+      },
+      "pins": {
+        "Execute Workflow: File Content Extractor": { "extracted_content": "should never be used", "error": null }
+      },
+      "assert": {
+        "node": "Return Extraction Result",
+        "fields": {
+          "message": "hola",
+          "extracted_files": null
+        }
+      }
+    },
+    {
+      "description": "empty bucket_file_ids array -> same no-op path as absent (not just falsy-but-present)",
+      "input": {
+        "message": "hola",
+        "organization": { "slug": "bvs" },
+        "bucket_file_ids": []
+      },
+      "pins": {
+        "Execute Workflow: File Content Extractor": { "extracted_content": "should never be used", "error": null }
+      },
+      "assert": {
+        "node": "Return Extraction Result",
+        "fields": {
+          "extracted_files": null
+        }
+      }
+    }
+  ]
+}
