@@ -1,0 +1,24 @@
+@reference "@/styles/main.css";
+
+.orb-project-back {
+  @apply gap-1 inline-flex items-center mb-4 no-underline text-sm;
+  color: var(--orb-typing-text);
+
+  &:hover {
+    color: var(--orb-header-title);
+  }
+}
+
+/* The project dropdown sits at the left of the action row, the Move button at the right. */
+.orb-project-switcher {
+  @apply flex gap-3 items-center mr-auto;
+
+  .orb-project-switcher-label {
+    @apply font-medium text-sm;
+    color: var(--orb-header-title);
+  }
+
+  .orb-project-switcher-select {
+    @apply w-72;
+  }
+}

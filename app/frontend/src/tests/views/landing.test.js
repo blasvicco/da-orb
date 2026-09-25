@@ -1,5 +1,6 @@
 // Libs imports
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { nextTick } from 'vue';
 
 // Mocks
 const mockAuth = vi.hoisted(() => ({
@@ -20,7 +21,9 @@ vi.mock('@/modules/organization', () => ({ useOrganization: () => mockOrg }));
 // App imports
 import { body, buildRouter, flushPromises, mount } from '@/tests/helpers/mount';
 import { useContactModal } from '@/modules/contact';
+import en from '@/i18n/lng/en.js';
 import Landing from '@/views/landing.vue';
+import Showcase from '@/components/landing/showcase.vue';
 import Signin from '@/components/auth/signin.vue';
 
 beforeEach(() => {
@@ -45,18 +48,88 @@ describe('Landing mount', () => {
   });
 });
 
+describe('Landing.sections', () => {
+  it('lists the sections as platform, features, security, in that order', () => {
+    const wrapper = mount(Landing);
+
+    expect(wrapper.findAll('section[id]').map((section) => section.attributes('id'))).toEqual(['platform', 'features', 'security']);
+  });
+
+  it('renders the capabilities showcase as the #features section', () => {
+    const wrapper = mount(Landing);
+
+    expect(wrapper.findAllComponents(Showcase)).toHaveLength(1);
+    expect(wrapper.findAll('#features .orb-showcase-row')).toHaveLength(7);
+  });
+
+  it('keeps the four platform cards under #platform with their original copy', () => {
+    const wrapper = mount(Landing);
+    const platform = en.landing.platform;
+
+    expect(wrapper.find('#platform .orb-features-title').text()).toBe(platform.title);
+    expect(wrapper.findAll('#platform .orb-feature-title').map((title) => title.text())).toEqual([
+      platform.naturalLanguage.title,
+      platform.mcp.title,
+      platform.realtime.title,
+      platform.secure.title,
+    ]);
+  });
+
+  it('points the hero Learn More button at the first section below the hero', () => {
+    const wrapper = mount(Landing);
+
+    expect(wrapper.find('.orb-hero-ctas a.orb-btn-secondary').attributes('href')).toBe('#platform');
+  });
+});
+
 describe('Landing chat scenario simulator', () => {
   it('plays through every scripted step and loops back to the start', async () => {
     vi.useFakeTimers();
-    mount(Landing, { attachTo: document.body });
+    const wrapper = mount(Landing, { attachTo: document.body });
 
     // Step delays: user(1500), agent(hardcoded 1500), sap-data(hardcoded 1500),
-    // user(2000), agent(hardcoded 1500), sap-data(hardcoded 1500).
-    for (const ms of [1500, 1500, 1500, 2000, 1500, 1500]) {
+    // agent(hardcoded 1500).
+    for (const ms of [1500, 1500, 1500, 1500]) {
       await vi.advanceTimersByTimeAsync(ms);
     }
-    // All 6 steps have played; runScenarioStep now schedules the 8s loop-restart timer.
+    // All 4 steps have played; runScenarioStep now schedules the 8s loop-restart timer.
     await vi.advanceTimersByTimeAsync(8000);
+    await nextTick();
+    expect(wrapper.findAll('.orb-msg-bubble')).toHaveLength(0);
+
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(wrapper.find('.orb-msg-user').text()).toBe(en.landing.chat.step1.user);
+    vi.useRealTimers();
+  });
+
+  it('shows the invoice request, the generated invoice details, then the PDF delivered from the File Bucket', async () => {
+    vi.useFakeTimers();
+    const wrapper = mount(Landing, { attachTo: document.body });
+    const chat = en.landing.chat;
+
+    await vi.advanceTimersByTimeAsync(1500);
+    await nextTick();
+    expect(wrapper.find('.orb-msg-user').text()).toBe(chat.step1.user);
+
+    await vi.advanceTimersByTimeAsync(1500);
+    await nextTick();
+    expect(wrapper.find('.orb-msg-agent').text()).toBe(chat.step2.agent);
+    expect(wrapper.find('.orb-msg-file').exists()).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1500);
+    await nextTick();
+    const card = wrapper.find('.orb-msg-sap-data');
+    expect(card.text()).toContain(chat.step3.title);
+    // The rows keep their display order, which is why the scenario data is a list and not an object.
+    expect(card.findAll('.text-right').map((cell) => cell.text())).toEqual(
+      ['docTypeVal', 'docNumberVal', 'customerVal', 'totalVal', 'formatVal'].map((key) => chat.step3[key]),
+    );
+
+    await vi.advanceTimersByTimeAsync(1500);
+    await nextTick();
+    const delivery = wrapper.findAll('.orb-msg-agent')[1];
+    expect(delivery.text()).toContain(chat.step4.agent);
+    expect(delivery.find('.orb-msg-file-name').text()).toBe(chat.step4.file);
     vi.useRealTimers();
   });
 

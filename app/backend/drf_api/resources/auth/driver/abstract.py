@@ -61,7 +61,9 @@ class AAuthDriver(ABC):
 		# this to swap in the real credentials at fire time.
 		return session_dict
 
-	def resolve_ws_session(self, session_data: dict, *, org: str, token: str, username: str = None) -> dict:
+	def resolve_ws_session(
+		self, session_data: dict, *, org: str, token: str, username: str = None
+	) -> dict:
 		"""Resolve a WebSocket reconnect session dict, or None if it can't be resolved."""
 		# Default: re-run authenticate() with the reconnect fields it already accepts.
 		# Drivers whose live session only carries an opaque token (e.g. B1S) should override

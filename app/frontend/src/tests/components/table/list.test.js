@@ -284,4 +284,96 @@ describe('TableList exposed refresh', () => {
 
     expect(loader.mock.calls.length).toBe(callsBefore + 1);
   });
+
+  it('refresh() repeats the current filters, sorter and page, so the data matches what the table shows', async () => {
+    const loader = vi.fn().mockResolvedValue({ count: 100, results: [{ id: 1, username: 'bob' }] });
+    const wrapper = mount(TableList, { props: { columns: columns(), loader } });
+    await flushPromises();
+    const sorter = { field: 'username', order: 'ascend' };
+    await table(wrapper).vm.$emit('change', { current: 3, pageSize: 20 }, { username: 'bob' }, sorter);
+    await flushPromises();
+
+    await wrapper.vm.refresh();
+
+    expect(loader).toHaveBeenLastCalledWith({
+      filters: { username__icontains: 'bob' },
+      limit: 20,
+      offset: 40,
+      sorter,
+    });
+  });
+});
+
+describe('TableList page past the end', () => {
+  it('steps back to the last page that exists when the requested one has no rows any more', async () => {
+    // e.g. every row on page 3 was just moved to another project
+    const loader = vi.fn(async ({ offset }) => (offset >= 40
+      ? { count: 25, results: [] }
+      : { count: 25, results: [{ id: 21, username: 'last-page' }] }));
+    const wrapper = mount(TableList, { props: { columns: columns(), loader } });
+    await flushPromises();
+
+    await table(wrapper).vm.$emit('change', { current: 3, pageSize: 20 }, {}, {});
+    await flushPromises();
+
+    expect(loader).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 20 }));
+    expect(table(wrapper).props('dataSource')).toEqual([{ id: 21, username: 'last-page' }]);
+    expect(table(wrapper).props('pagination').current).toBe(2);
+  });
+
+  it('keeps the active filters while stepping back', async () => {
+    const loader = vi.fn(async ({ offset }) => (offset >= 20
+      ? { count: 5, results: [] }
+      : { count: 5, results: [{ id: 1, username: 'bob' }] }));
+    const wrapper = mount(TableList, { props: { columns: columns(), loader } });
+    await flushPromises();
+
+    await table(wrapper).vm.$emit('change', { current: 2, pageSize: 20 }, { username: 'bob' }, {});
+    await flushPromises();
+
+    expect(loader).toHaveBeenLastCalledWith(
+      expect.objectContaining({ filters: { username__icontains: 'bob' }, offset: 0 }),
+    );
+  });
+
+  it.each([
+    ['the list is genuinely empty', { count: 0, results: [] }],
+    ['it is already the first page', { count: 30, results: [] }],
+  ])('does not loop when %s', async (_label, response) => {
+    const loader = vi.fn().mockResolvedValue(response);
+    mount(TableList, { props: { columns: columns(), loader } });
+    await flushPromises();
+
+    expect(loader).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('TableList shared look', () => {
+  it('pins the table size, whatever the global antd config says, so every list matches', async () => {
+    const wrapper = mount(TableList, { props: { columns: columns(), loader: vi.fn().mockResolvedValue({ count: 0, results: [] }) } });
+    await flushPromises();
+
+    expect(table(wrapper).props('size')).toBe('large');
+  });
+});
+
+describe('TableList row selection', () => {
+  it('hands the given selection config to the table', async () => {
+    const rowSelection = { onChange: vi.fn(), selectedRowKeys: [1] };
+    const wrapper = mount(TableList, {
+      props: { columns: columns(), loader: vi.fn().mockResolvedValue({ count: 0, results: [] }), rowSelection },
+    });
+    await flushPromises();
+
+    expect(table(wrapper).props('rowSelection')).toEqual(rowSelection);
+  });
+
+  it('is a plain list (no selection column) when none is given', async () => {
+    const wrapper = mount(TableList, {
+      props: { columns: columns(), loader: vi.fn().mockResolvedValue({ count: 0, results: [] }) },
+    });
+    await flushPromises();
+
+    expect(table(wrapper).props('rowSelection')).toBeUndefined();
+  });
 });

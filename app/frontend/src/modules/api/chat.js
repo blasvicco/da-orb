@@ -7,9 +7,18 @@ class Chat extends Abstract {
     this._updateEndpoint();
   }
 
-  async sessions() {
+  async sessions(projectId) {
     const res = await fetch(
-      `${this.constants.ENDPOINT}/sessions/`,
+      `${this.constants.ENDPOINT}/sessions/?project_id=${projectId}`,
+      { credentials: 'include', headers: this.header() },
+    );
+    return this._handleError(res);
+  }
+
+  // The few most recent sessions across every project, for the sidebar's Recent Chats.
+  async recent() {
+    const res = await fetch(
+      `${this.constants.ENDPOINT}/recent/`,
       { credentials: 'include', headers: this.header() },
     );
     return this._handleError(res);

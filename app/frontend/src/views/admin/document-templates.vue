@@ -5,7 +5,7 @@
   import { useRouter } from 'vue-router';
 
   // Antd imports
-  import { Switch } from 'antdv-next';
+  import { Button, Switch } from 'antdv-next';
   import { ArrowLeftOutlined, EyeOutlined } from '@antdv-next/icons';
 
   // App modules imports
@@ -209,11 +209,13 @@
     {
       dataIndex: 'is_default',
       key: 'is_default',
+      // No text inside the switch itself; the label is for assistive tech only.
       render: (_value, record) => h(Switch, {
+        'aria-label': record.is_default
+          ? t('admin.documentTemplates.default')
+          : t('admin.documentTemplates.setDefault'),
         checked: record.is_default,
-        checkedChildren: t('admin.documentTemplates.default'),
         disabled: record.is_default,
-        unCheckedChildren: t('admin.documentTemplates.setDefault'),
         onChange: () => setDefault(record.id),
       }),
       title: t('admin.documentTemplates.default'),
@@ -228,8 +230,8 @@
       dataIndex: 'preview',
       key: 'preview',
       render: (_value, record) => h(
-        'a-button',
-        { size: 'small', onClick: () => openPreview(record) },
+        Button,
+        { onClick: () => openPreview(record), size: 'small' },
         () => h(EyeOutlined),
       ),
       title: t('admin.documentTemplates.preview'),

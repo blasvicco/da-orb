@@ -11,12 +11,14 @@ const mockBucket = vi.hoisted(() => ({
 vi.mock('@/modules/api', () => ({ default: { Bucket: mockBucket } }));
 
 // App imports
-import { body, flushPromises, mount } from '@/tests/helpers/mount';
+import { flushPromises, mount, waitForBody } from '@/tests/helpers/mount';
 import AttachMenu from '@/components/chat/attach-menu.vue';
 
-// a-popover uses trigger="click" and only mounts (teleported) content once opened.
+// a-popover uses trigger="click" and only mounts (teleported) content once opened, and
+// mounts it asynchronously: resolves with the panel's two options once they are in the body.
 const openMenu = async (wrapper) => {
   await wrapper.find('.orb-attach-trigger').trigger('click');
+  return waitForBody('.orb-attach-option', 2);
 };
 
 describe('AttachMenu', () => {
@@ -42,8 +44,7 @@ describe('AttachMenu', () => {
 
   it('emits pick-files and closes the menu when "Add files" is clicked, without opening the bucket drawer', async () => {
     const wrapper = mount(AttachMenu, { props: { sessionId: 42 } });
-    await openMenu(wrapper);
-    const options = body().findAll('.orb-attach-option');
+    const options = await openMenu(wrapper);
     await options[0].trigger('click');
 
     expect(wrapper.emitted('pick-files')).toHaveLength(1);
@@ -53,8 +54,7 @@ describe('AttachMenu', () => {
 
   it('opens the intention graph drawer when "Show intention graph" is clicked', async () => {
     const wrapper = mount(AttachMenu);
-    await openMenu(wrapper);
-    const options = body().findAll('.orb-attach-option');
+    const options = await openMenu(wrapper);
     await options[1].trigger('click');
 
     expect(wrapper.findComponent({ name: 'IntentionStack' }).props('open')).toBe(true);
@@ -63,8 +63,7 @@ describe('AttachMenu', () => {
 
   it('closes the intention graph drawer when the bucket drawer is opened afterwards', async () => {
     const wrapper = mount(AttachMenu, { props: { sessionId: 42 } });
-    await openMenu(wrapper);
-    const options = body().findAll('.orb-attach-option');
+    const options = await openMenu(wrapper);
     await options[1].trigger('click');
     expect(wrapper.findComponent({ name: 'IntentionStack' }).props('open')).toBe(true);
 
@@ -89,8 +88,7 @@ describe('AttachMenu', () => {
 
   it('switches from the intention graph drawer to the bucket drawer on switch-panel', async () => {
     const wrapper = mount(AttachMenu, { props: { sessionId: 42 } });
-    await openMenu(wrapper);
-    const options = body().findAll('.orb-attach-option');
+    const options = await openMenu(wrapper);
     await options[1].trigger('click');
     expect(wrapper.findComponent({ name: 'IntentionStack' }).props('open')).toBe(true);
 
@@ -98,6 +96,17 @@ describe('AttachMenu', () => {
 
     expect(wrapper.findComponent({ name: 'IntentionStack' }).props('open')).toBe(false);
     expect(wrapper.findComponent({ name: 'BucketTrigger' }).props('open')).toBe(true);
+  });
+
+  it.each(['BucketTrigger', 'IntentionStack'])('lets the %s drawer open and close itself', async (name) => {
+    const wrapper = mount(AttachMenu, { props: { sessionId: 42 } });
+    const drawer = wrapper.findComponent({ name });
+
+    await drawer.vm.$emit('update:open', true);
+    expect(drawer.props('open')).toBe(true);
+
+    await drawer.vm.$emit('update:open', false);
+    expect(drawer.props('open')).toBe(false);
   });
 
   it('forwards messages/sessionState to IntentionStack', () => {

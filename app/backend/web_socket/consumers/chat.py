@@ -13,7 +13,7 @@ from django.db import IntegrityError
 from django.db.models import Sum
 
 # App imports
-from drf_api.models import MBucketFile, MChatMessage, MChatSession
+from drf_api.models import MBucketFile, MChatMessage, MChatSession, MProject
 from web_socket.helpers.n8n import (
 	N8nClient,
 	N8nClientError,
@@ -37,9 +37,9 @@ _MSG_QUEUED = "chat.system.queued"
 
 
 @database_sync_to_async
-def _create_session(connection_key, org, username):
+def _create_session(connection_key, org, project, username):
 	return MChatSession.objects.create(
-		connection_key=connection_key, org=org, username=username
+		connection_key=connection_key, org=org, project=project, username=username
 	)
 
 
@@ -55,6 +55,11 @@ def _load_session(connection_key, org_id, session_id, username):
 		)
 	except MChatSession.DoesNotExist:
 		return None
+
+
+@database_sync_to_async
+def _resolve_project(connection_key, org, project_id, username):
+	return MProject.resolve_for_chat(org, username, connection_key, project_id)
 
 
 @database_sync_to_async
@@ -98,6 +103,7 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 	n8n_queue = None
 	organization = None
 	pending_processes = None
+	_resume_project_id = None
 	_resume_session_id = None
 	_new_chat_token = None
 
@@ -122,7 +128,10 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 		return {"session_id": self.chat_session.id} if self.chat_session else {}
 
 	async def auth_init(self, content):
-		"""Capture optional session_id for resume before delegating to parent."""
+		"""Capture optional session_id for resume, and project_id for a new chat, before delegating to parent."""
+		project_id = content.get("project_id")
+		# Only a real integer id is accepted — anything else falls back to the Default project.
+		self._resume_project_id = project_id if isinstance(project_id, int) else None
 		self._resume_session_id = content.get("session_id")
 		await super().auth_init(content)
 
@@ -181,9 +190,18 @@ class CChat(CAbstract):  # pylint: disable=too-many-instance-attributes
 		# to target instead of silently deferring until the first message is sent.
 		if self.chat_session is not None:
 			return
+		# The project the frontend had selected when it connected (or the Default project
+		# if none/unknown/deleted) — only ever consulted here, never when resuming a session.
+		project = await _resolve_project(
+			connection_key=self.connection_key,
+			org=self.organization,
+			project_id=self._resume_project_id,
+			username=self.user.username,
+		)
 		self.chat_session = await _create_session(
 			connection_key=self.connection_key,
 			org=self.organization,
+			project=project,
 			username=self.user.username,
 		)
 		await self._rekey_group()

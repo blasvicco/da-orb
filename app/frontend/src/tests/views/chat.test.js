@@ -42,7 +42,13 @@ vi.mock('@/modules/api', () => ({
     Chat: {
       deleteSession: vi.fn().mockResolvedValue({}),
       messages: vi.fn().mockResolvedValue([]),
+      recent: vi.fn().mockResolvedValue([]),
       sessions: vi.fn().mockResolvedValue([]),
+    },
+    Project: {
+      default: vi.fn(),
+      list: vi.fn(),
+      select: vi.fn(),
     },
   },
 }));
@@ -59,6 +65,10 @@ import ChatWelcome from '@/components/chat/welcome.vue';
 import Settings from '@/components/chat/settings.vue';
 import UserDetail from '@/components/user/detail.vue';
 
+// Fixtures
+const DEFAULT_PROJECT = { id: 1, is_default: true, name: 'Default' };
+const WORK_PROJECT = { id: 2, is_default: false, name: 'Work' };
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockAuth.getSession.mockReturnValue({});
@@ -68,12 +78,18 @@ beforeEach(() => {
   AppAPI.Chat.sessions.mockResolvedValue([]);
   AppAPI.Chat.messages.mockResolvedValue([]);
   AppAPI.Chat.deleteSession.mockResolvedValue({});
+  AppAPI.Chat.recent.mockResolvedValue([]);
+  AppAPI.Project.default.mockResolvedValue(DEFAULT_PROJECT);
+  AppAPI.Project.list.mockResolvedValue({ count: 2, results: [DEFAULT_PROJECT, WORK_PROJECT] });
+  AppAPI.Project.select.mockImplementation(async (id) => (id === WORK_PROJECT.id ? WORK_PROJECT : DEFAULT_PROJECT));
+  mockChat.instance.projectId = null;
   localStorage.clear();
 });
 
 describe('ChatView mount', () => {
-  it('connects the chat socket on mount and disconnects on unmount', () => {
+  it('connects the chat socket on mount and disconnects on unmount', async () => {
     const wrapper = mount(ChatView);
+    await flushPromises();
     expect(mockChat.instance.connect).toHaveBeenCalled();
 
     wrapper.unmount();

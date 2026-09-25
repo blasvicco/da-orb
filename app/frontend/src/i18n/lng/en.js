@@ -1,3 +1,4 @@
+/* v8 ignore file -- translation messages only: plain data, no logic to cover. */
 export default {
   commons: {
     accept: 'Accept',
@@ -127,6 +128,63 @@ export default {
       unknownProcess: 'Unknown process',
     },
   },
+  api: {
+    error: {
+      response: {
+        id: {
+          DEFAULT_PROJECT_CANNOT_BE_DELETED: 'The Default project cannot be deleted.',
+          PROJECT_STILL_HAS_ACTIVE_CHAT_SESSIONS: 'This project still has chats. Empty it first, then delete it.',
+        },
+        name: {
+          DEFAULT_PROJECT_CANNOT_BE_RENAMED: 'The Default project cannot be renamed.',
+          THIS_FIELD_IS_REQUIRED: 'A name is required.',
+          THIS_FIELD_MAY_NOT_BE_BLANK: 'A name is required.',
+        },
+        null: {
+          SOME_OF_THE_SELECTED_CHATS_NO_LONGER_EXIST: 'Some of the selected chats no longer exist. The list has been refreshed.',
+          THE_DESTINATION_PROJECT_NO_LONGER_EXISTS: 'The destination project no longer exists.',
+        },
+        session_ids: {
+          CHAT_IDS_MUST_BE_A_LIST_OF_INTEGERS: 'The selection is not valid. Refresh and try again.',
+          SELECT_AT_LEAST_ONE_CHAT: 'Select at least one chat.',
+          TOO_MANY_CHATS_SELECTED: 'Too many chats selected at once.',
+        },
+      },
+    },
+  },
+  project: {
+    backToChat: 'Back to chat',
+    columns: {
+      accessedOn: 'Last accessed',
+      chatSessionsCount: 'Chats',
+      createdOn: 'Created on',
+      name: 'Name',
+      summary: 'Summary',
+      updatedOn: 'Updated on',
+    },
+    default: 'Default',
+    editTitle: 'Edit Project',
+    empty: {
+      button: 'Empty project',
+      confirm: 'Delete every chat in this project?',
+      description: 'A project can only be deleted once it has no chats. This one has {count}.',
+    },
+    newProject: 'New Project',
+    newTitle: 'New Project',
+    title: 'Projects',
+    view: {
+      backToProjects: 'Projects',
+      columns: {
+        title: 'Title',
+        tokensUsed: 'Tokens',
+      },
+      move: 'Move',
+      moveCount: 'Move ({count})',
+      moved: '{count} chat moved | {count} chats moved',
+      notFound: 'This project no longer exists.',
+      switchProject: 'Project',
+    },
+  },
   errors: {
     B1S_AUTH_FAILED: 'We could not verify your SAP credentials. Please check your username, password, and company database.',
     B1S_INVALID_RESPONSE: 'SAP did not respond as expected. Please try again shortly.',
@@ -144,127 +202,227 @@ export default {
     SEAT_REVOKED: 'Your seat has been revoked. Contact your organization admin for access.',
   },
   landing: {
-    title: 'Orb',
-    tagline: 'One conversation. Every SAP Business One process.',
-    description: 'Orb gives your team a single natural-language interface to run SAP Business One — checking stock, creating purchase requisitions, approving requests — without menus, transaction codes, or waiting on a specialist. Every action is reviewed and confirmed before it runs.',
-    badge: 'Conversational Execution Platform',
     authError: {
       desc: "We couldn't complete your sign-in. Please try again or contact your IT admin.",
       title: 'Sign-in Failed',
     },
+    b1s: {
+      database: 'Company Database',
+      databasePlaceholder: 'CompanyDB',
+      errorDesc: 'We could not verify your SAP credentials. Please try again.',
+      errorTitle: 'Sign-in Failed',
+      formTitle: 'Sign in with SAP Business One',
+      password: 'Password',
+      passwordPlaceholder: 'Enter your password',
+      submit: 'Sign In',
+      submitting: 'Signing in…',
+      username: 'SAP Username',
+      usernamePlaceholder: 'Enter your SAP username',
+    },
+    badge: 'Conversational Execution Platform',
+    chat: {
+      simulator: {
+        agentName: 'Orb AI',
+        department: 'Sales',
+        online: 'Online',
+      },
+      step1: {
+        user: 'Send me the invoice for order 4521 as a PDF.',
+      },
+      step2: {
+        agent: 'Generating your invoice…',
+      },
+      step3: {
+        customer: 'Customer',
+        customerVal: 'C20000 (Orion Retail)',
+        docNumber: 'Doc Number',
+        docNumberVal: 'INV-20048',
+        docType: 'Doc Type',
+        docTypeVal: 'A/R Invoice',
+        format: 'Format',
+        formatVal: 'PDF',
+        title: 'SAP Business One - Invoice Generated',
+        total: 'Total',
+        totalVal: '$8,940.00',
+      },
+      step4: {
+        agent: 'Your invoice is ready and saved in your File Bucket.',
+        file: 'invoice_INV-20048.pdf',
+      },
+    },
     cta: {
+      learnMore: 'Learn More',
       signin: 'Sign In to Orb',
       signup: 'Request Orb',
-      learnMore: 'Learn More',
+    },
+    description: 'Orb gives your team a single natural-language interface to run SAP Business One — checking stock, creating purchase requisitions, approving requests, generating invoices — without menus, transaction codes, or waiting on a specialist. Every action is reviewed and confirmed before it runs.',
+    features: {
+      batch: {
+        desc: 'Type your requests in the chat or attach the file. Orb turns every record into its own transaction, runs them all and reports back, for example "2 created, 1 failed". Each one is tracked in your Intention Graph.',
+        eyebrow: 'Batch Processing',
+        mock: {
+          created: 'Created',
+          failed: 'Failed',
+          record: 'Purchase Request',
+          summary: 'Batch complete: 2 created, 1 failed',
+          title: 'Batch execution',
+        },
+        points: {
+          p1: 'Batch from chat: "create two purchase requests…"',
+          p2: 'Batch from files: one row, one record',
+          p3: 'Mixed process types in one message',
+          p4: 'A clear summary of what succeeded and what failed',
+        },
+        title: 'One message. A whole batch.',
+      },
+      bucket: {
+        desc: "Upload documents to your chat's File Bucket and reuse them whenever you need. Documents Orb generates for you, like PDFs, land there too.",
+        eyebrow: 'File Bucket',
+        points: {
+          p1: 'Your uploads and Orb-generated documents in one place',
+          p2: 'Attach any stored file as context with one click',
+          p3: 'Delete what you no longer need',
+        },
+        title: 'Every file, one click from the conversation.',
+      },
+      extraction: {
+        desc: 'Attach a spreadsheet, PDF or export and Orb reads it for you, answering questions about the content or using it to fill in forms. Each file is read once and remembered.',
+        eyebrow: 'File Content Extraction',
+        mock: {
+          date: 'Required date',
+          dateVal: '2026-09-15',
+          extracted: 'Extracted content',
+          qty: 'Quantity',
+          qtyVal: '100 units',
+          supplier: 'Supplier',
+          supplierVal: 'V10000',
+          used: 'Used to fill Purchase Request',
+        },
+        points: {
+          p1: 'CSV, Excel, ODS, PDF, HTML, JSON, RTF and plain text',
+          p2: "Answer questions about a file's content",
+          p3: "Pre-fill forms from what's in the file",
+        },
+        title: "Ask your files, don't retype them.",
+      },
+      groups: {
+        team: 'For teams & admins',
+        work: 'In your daily work',
+      },
+      intentionGraph: {
+        desc: 'Halfway through a purchase request when someone needs a vendor list? Just ask. Orb parks what you were doing, answers the new request, and picks the first one back up automatically. Or jump to any paused task in one click.',
+        eyebrow: 'Intention Graph',
+        mock: {
+          checkStock: 'Check Stock Level',
+          createPR: 'Create Purchase Request',
+          listVendors: 'List Vendors',
+          resume: 'Resumes automatically when List Vendors finishes',
+        },
+        points: {
+          p1: 'Every task tracked as Active, Paused or Completed',
+          p2: 'Auto-resume when the interrupting task finishes',
+          p3: 'One-click jump back to any earlier task',
+        },
+        title: 'Interrupted? Orb keeps your place.',
+      },
+      language: {
+        desc: "Switch the whole interface between English and Spanish at any moment. Orb answers in the language you've chosen, so everyone works in the one they're fastest in.",
+        eyebrow: 'Multilanguage',
+        mock: {
+          switch: 'Switch any time',
+        },
+        points: {
+          p1: 'Interface in English and Spanish',
+          p2: 'Replies follow your selected language',
+          p3: 'Document templates can be tailored per language',
+        },
+        title: "Your team's language, every time.",
+      },
+      projects: {
+        desc: "Group related chats into projects, such as the Q4 restock or month-end close. Browse a project's conversations, move chats between projects in bulk and see how much each chat uses.",
+        eyebrow: 'Projects',
+        mock: {
+          chats: '{count} chats',
+          close: 'Month-end Close',
+          q4: 'Q4 Restock',
+        },
+        points: {
+          p1: 'Every chat lives in a project (a Default one is always there)',
+          p2: 'Move several chats at once',
+          p3: 'Per-chat usage at a glance',
+        },
+        title: 'A home for every initiative.',
+      },
+      subtitle: "Real work isn't one tidy request at a time. Orb handles the interruptions, the spreadsheets and the batches, and always remembers where you left off.",
+      title: 'Built for how work really happens',
+      usage: {
+        desc: "A built-in usage dashboard for organization admins: who's active, which processes run most and where AI usage goes, measured against your plan's seat and token limits.",
+        eyebrow: 'Usage Dashboard',
+        mock: {
+          rank1: 'Purchase Request',
+          rank2: 'Goods Receipt',
+          rank3: 'Vendor Search',
+        },
+        points: {
+          p1: 'Total processes run and AI tokens used',
+          p2: 'Most active users and most-run processes',
+          p3: 'Usage broken down by process',
+          p4: 'Seats and tokens against your plan',
+        },
+        title: 'See exactly how Orb is being used.',
+      },
     },
     hero: {
       titleAccent: 'One conversation.',
       titleRest: 'Every SAP Business One process.',
     },
-    b1s: {
-      formTitle: 'Sign in with SAP Business One',
-      username: 'SAP Username',
-      usernamePlaceholder: 'Enter your SAP username',
-      password: 'Password',
-      passwordPlaceholder: 'Enter your password',
-      database: 'Company Database',
-      databasePlaceholder: 'CompanyDB',
-      submit: 'Sign In',
-      submitting: 'Signing in…',
-      errorTitle: 'Sign-in Failed',
-      errorDesc: 'We could not verify your SAP credentials. Please try again.',
-    },
     nav: {
       features: 'Features',
+      platform: 'Platform',
       security: 'Security',
     },
-    features: {
-      title: 'Every process. One conversation.',
-      subtitle: 'Orb turns complex SAP Business One workflows into a single guided conversation today.',
-      naturalLanguage: {
-        title: 'Natural Language Operations',
-        desc: 'Ask for inventory, draft a purchase requisition, or check a vendor status in plain language. No menus, no transaction codes, no specialist required.',
-      },
+    platform: {
       mcp: {
-        title: 'MCP Server Driven',
         desc: 'Orb connects to SAP Business One today through the Model Context Protocol (MCP) — the same architecture that lets future systems be onboarded through configuration, not code, as the roadmap grows.',
+        title: 'MCP Server Driven',
+      },
+      naturalLanguage: {
+        desc: 'Ask for inventory, draft a purchase requisition, or check a vendor status in plain language. No menus, no transaction codes, no specialist required.',
+        title: 'Natural Language Operations',
       },
       realtime: {
-        title: 'Real-Time Insights',
         desc: 'Get live data and status updates straight from your connected systems in seconds, without logging into a separate platform.',
+        title: 'Real-Time Insights',
       },
       secure: {
-        title: 'Governed & Auditable',
         desc: "Every action is reviewed and confirmed before it's submitted, and every conversation is logged — so nothing runs without approval, and nothing is untraceable.",
+        title: 'Governed & Auditable',
       },
+      subtitle: 'Today, Orb turns complex SAP Business One workflows into a single guided conversation.',
+      title: 'Every process. One conversation.',
     },
     security: {
-      title: 'Enterprise-Grade Security',
-      subtitle: 'Built to pass IT review and satisfy board-level due diligence — isolated infrastructure, independent audits, and zero exposure of your internal systems.',
-      privateByDesign: {
-        title: 'Private by Design',
-        desc: 'Orb runs inside an isolated private network in the cloud. The only thing ever exposed to the internet is the chat interface itself — the database, cache, and internal services are unreachable from outside.',
+      audited: {
+        desc: 'Orb runs on AWS infrastructure certified against SOC 1 Type II, SOC 2 Type II, and ISO 27001/27017/27018 — audited by accredited third parties, not self-assessed.',
+        title: 'Independently Audited',
       },
       encrypted: {
-        title: 'Encrypted Everywhere',
         desc: 'Every conversation, session, and configuration value is encrypted at rest and in transit, automatically and without exception. Credentials are kept in a secure vault, never in code or config files.',
+        title: 'Encrypted Everywhere',
       },
-      audited: {
-        title: 'Independently Audited',
-        desc: 'Orb runs on AWS infrastructure certified against SOC 1 Type II, SOC 2 Type II, and ISO 27001/27017/27018 — audited by accredited third parties, not self-assessed.',
+      privateByDesign: {
+        desc: 'Orb runs inside an isolated private network in the cloud. The only thing ever exposed to the internet is the chat interface itself — the database, cache, and internal services are unreachable from outside.',
+        title: 'Private by Design',
       },
+      subtitle: 'Built to pass IT review and satisfy board-level due diligence — isolated infrastructure, independent audits, and zero exposure of your internal systems.',
+      title: 'Enterprise-Grade Security',
       zeroExposure: {
-        title: 'Zero-Exposure Integrations',
         desc: 'Connecting Orb to your SAP Business One environment never requires opening your network to the internet. VPN, Direct Connect, PrivateLink, or VPC Peering keep every connection private and revocable at any time.',
+        title: 'Zero-Exposure Integrations',
       },
     },
-    chat: {
-      simulator: {
-        agentName: 'Orb AI',
-        online: 'Online',
-        plant: 'Warehouse WH01',
-      },
-      step1: {
-        user: 'Show me the current stock status for Sapphire bearing assembly #SH-9821.',
-      },
-      step2: {
-        agent: 'Connecting to SAP Business One via MCP Server... 🔍 Checking Main Warehouse (WH01)...',
-      },
-      step3: {
-        title: 'SAP Business One - Stock Overview',
-        itemCode: 'Item Code',
-        itemCodeVal: 'SH-9821 (Sapphire Bearing)',
-        warehouse: 'Warehouse',
-        warehouseVal: 'WH01 (Main Warehouse)',
-        inStock: 'In Stock',
-        inStockVal: '142 units',
-        committed: 'Committed',
-        committedVal: '0 units',
-        reorder: 'Reorder Point',
-        reorderVal: '150 units (⚠️ BELOW MINIMUM)',
-      },
-      step4: {
-        user: 'Create a draft Purchase Request for 100 units from approved vendor V10032.',
-      },
-      step5: {
-        agent: 'Creating the Purchase Request in SAP Business One... 🤖 Populating item, quantity, and vendor details...',
-      },
-      step6: {
-        title: 'SAP Business One - Document Created',
-        docType: 'Doc Type',
-        docTypeVal: 'Purchase Request (PR)',
-        docNumber: 'Doc Number',
-        docNumberVal: 'PR-10049283',
-        status: 'Status',
-        statusVal: 'Open (Pending Approval)',
-        qty: 'Item/Qty',
-        qtyVal: 'SH-9821 / 100 units',
-        vendor: 'Vendor',
-        vendorVal: 'V10032 (Heidelberg Ind.)',
-        value: 'Value',
-        valueVal: '€12,500.00',
-      },
-    },
+    tagline: 'One conversation. Every SAP Business One process.',
+    title: 'Orb',
   },
   legal: {
     privacy: {
@@ -369,16 +527,27 @@ export default {
     },
     sidebar: {
       newChat: 'New Chat',
-      historyTitle: 'Recent Chats',
+      historyTitle: 'Project Chats',
       logout: 'Sign Out',
       logoutConfirm: 'Sign out of your account?',
       history: {
-        empty: 'No recent chats',
+        empty: 'No chats in this project',
         untitled: 'Untitled chat',
         deleteConfirm: 'Delete this chat?',
         yesterday: 'Yesterday',
         pending: 'The agent is working on this chat',
         tokensUsed: '{count} tokens',
+      },
+      recentChats: {
+        empty: 'No recent chats',
+        entry: '{project} - {tokens}',
+        title: 'Recent Chats',
+      },
+      project: {
+        empty: 'No projects found',
+        manage: 'Manage projects',
+        searchPlaceholder: 'Search projects…',
+        title: 'Project',
       },
     },
     header: {

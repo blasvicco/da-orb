@@ -52,7 +52,7 @@ Never run the whole test suit.
 # n8n Workflows
 
 The chat agent's actual behavior is whatever is deployed in the running n8n instance
-(`da-sapot-n8n-main`) — the JSON files under `workflow/` are exported snapshots, not the
+(`da-orb-n8n-main`) — the JSON files under `workflow/` are exported snapshots, not the
 source of truth. They can drift from what's live (e.g. someone edited a node directly in the
 n8n UI), so **the live workflow always wins over the local file.**
 
@@ -66,15 +66,15 @@ n8n UI), so **the live workflow always wins over the local file.**
    keys (matches this repo's existing exported files):
    ```bash
    ssh -p 8532 blas@blas.local \
-     "docker exec da-sapot-backend python3 -c \"
+     "docker exec da-orb-backend python3 -c \"
    import json, os, requests
-   r = requests.get('http://da-sapot-n8n-main:5678/api/v1/workflows/<ID>', headers={'X-N8N-API-KEY': os.environ['N8N_API_KEY']})
+   r = requests.get('http://da-orb-n8n-main:5678/api/v1/workflows/<ID>', headers={'X-N8N-API-KEY': os.environ['N8N_API_KEY']})
    r.raise_for_status()
    full = r.json()
    json.dump({k: full[k] for k in ('name', 'nodes', 'connections', 'settings')}, open('/home/workflow/Orbot vNN/<name>.json', 'w'), indent=2)
    \""
    ```
-   (`/home/workflow` is this repo's `./workflow` directory, already mounted into `da-sapot-backend`.)
+   (`/home/workflow` is this repo's `./workflow` directory, already mounted into `da-orb-backend`.)
 2. **Edit the local file** with the actual change, keeping existing conventions (`jsCode`
    stays a single escaped string, node ids/positions untouched).
 3. **Validate the JSON parses** before pushing anything:
@@ -85,18 +85,18 @@ n8n UI), so **the live workflow always wins over the local file.**
    workflow; n8n re-publishes an active workflow automatically, no separate activation step:
    ```bash
    ssh -p 8532 blas@blas.local \
-     "docker exec da-sapot-backend python3 -c \"
+     "docker exec da-orb-backend python3 -c \"
    import json, os, requests
    body = json.load(open('/home/workflow/Orbot vNN/<name>.json'))
-   r = requests.put('http://da-sapot-n8n-main:5678/api/v1/workflows/<ID>', headers={'X-N8N-API-KEY': os.environ['N8N_API_KEY']}, json=body)
+   r = requests.put('http://da-orb-n8n-main:5678/api/v1/workflows/<ID>', headers={'X-N8N-API-KEY': os.environ['N8N_API_KEY']}, json=body)
    r.raise_for_status()
    \""
    ```
 5. **Validate the change** (see below) before considering it done.
 
-Both calls use `N8N_API_KEY`, already available as an env var inside `da-sapot-backend`; see
+Both calls use `N8N_API_KEY`, already available as an env var inside `da-orb-backend`; see
 `workflow/tests/integration/engine/n8n_client.py` for the same request shape (base URL
-`http://da-sapot-n8n-main:5678/api/v1`, header `X-N8N-API-KEY`).
+`http://da-orb-n8n-main:5678/api/v1`, header `X-N8N-API-KEY`).
 
 ## Validating a workflow change
 

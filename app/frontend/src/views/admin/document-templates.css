@@ -1,9 +1,5 @@
 @reference "@/styles/main.css";
 
-.orb-admin-actions {
-  @apply flex justify-end mb-4;
-}
-
 .orb-template-form {
   @apply flex flex-col gap-4;
 }

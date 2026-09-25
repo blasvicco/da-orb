@@ -57,6 +57,17 @@ export default defineConfig({
     setupFiles: ['./src/tests/setup.js'],
     include: ['src/tests/**/*.test.js'],
     reporters: ['verbose'],
+    // Full-view mounts (antdv-next Table + Modal) take well under a second alone, but under
+    // `--coverage` with parallel workers the same mount can blow the 5s default, and which
+    // test loses that race changes from run to run. A generous ceiling costs nothing when
+    // the suite is healthy — a genuinely hung test still fails, just after 20s instead of 5s.
+    testTimeout: 20000,
+    // Under `--coverage` with parallel workers a DOM interaction test (a click right after
+    // mount, an antdv-next popup) occasionally loses a race, and which one changes from run
+    // to run: each passes alone every time and none has been traced to a code bug. A retry
+    // absorbs that; a real regression still fails all its attempts, and the verbose report
+    // marks every test that needed a retry so flakes stay visible.
+    retry: 2,
     onConsoleLog() {
       return false;
     },

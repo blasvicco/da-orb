@@ -156,7 +156,9 @@ class Instance(AAuthDriver):
 		}
 
 	# pylint: disable-next=unused-argument
-	def resolve_ws_session(self, session_data: dict, *, org: str, token: str, username: str = None) -> dict:
+	def resolve_ws_session(
+		self, session_data: dict, *, org: str, token: str, username: str = None
+	) -> dict:
 		"""Resolve a WebSocket reconnect session from the verified opaque proxy token, or None if it can't be resolved."""
 		# The proxy token is verified against MSessionProxy rather than trusting the
 		# client-supplied org/username, which B1S's opaque SessionId can't vouch for itself.

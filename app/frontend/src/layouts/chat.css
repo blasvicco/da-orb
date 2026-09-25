@@ -25,16 +25,36 @@
 
 /* ── AntD overrides — dark theme (require !important, outside shadow DOM) ── */
 .orb-chat-layout[data-theme="dark"] {
-  .ant-select:not(.ant-select-open) .ant-select-selector,
-  .ant-select-selector {
+  .ant-select-outlined:not(.ant-select-disabled) {
     background: rgba(255, 255, 255, 0.06) !important;
     border-color: rgba(240, 246, 252, 0.12) !important;
   }
 
-  .ant-select-selection-item,
-  .ant-select-selection-placeholder { color: #c9d1d9 !important; }
+  .ant-select-outlined.ant-select-focused,
+  .ant-select-outlined.ant-select-open { border-color: var(--color-brand-primary) !important; }
 
-  .ant-select-arrow { color: #6e7681 !important; }
+  .ant-select-content,
+  .ant-select-content input { color: #c9d1d9 !important; }
+
+  .ant-select-placeholder { color: #8b949e !important; }
+
+  .ant-select-suffix { color: #6e7681 !important; }
+
+  /* A disabled button (e.g. Move with nothing ticked) keeps readable text: antd's own
+     disabled colors are dark-on-dark here. */
+  .ant-btn:disabled,
+  .ant-btn.ant-btn-disabled {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-color: rgba(240, 246, 252, 0.12) !important;
+    color: #8b949e !important;
+  }
+
+  /* Unticked checkboxes (table row selection) stay dark; ticked/indeterminate keep the brand
+     fill. In antdv-next the box is the .ant-checkbox span itself, not a child element. */
+  .ant-checkbox:not(.ant-checkbox-checked):not(.ant-checkbox-indeterminate) {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-color: rgba(240, 246, 252, 0.3) !important;
+  }
 
   .ant-table,
   .ant-table-container,
@@ -55,10 +75,18 @@
   .ant-table-tbody > tr:hover > td,
   .ant-table-tbody > tr.ant-table-row:hover > td { background: rgba(255, 255, 255, 0.06) !important; }
 
+  .ant-table-placeholder,
+  .ant-table-placeholder:hover,
   .ant-table-placeholder td,
   .ant-table-placeholder:hover td { background: transparent !important; }
 
+  .ant-table-tbody > tr.ant-table-row-selected > td,
+  .ant-table-tbody > tr.ant-table-row-selected:hover > td { background: rgba(15, 82, 186, 0.22) !important; }
+
   .ant-empty-description { color: #8b949e !important; }
+
+  /* The default empty-state illustration is drawn for a light page: dimmed, it stays a quiet hint. */
+  .ant-empty-image { opacity: 0.3; }
 
   .ant-table-filter-trigger,
   .ant-table-column-sorter { color: #6e7681 !important; }

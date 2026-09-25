@@ -21,6 +21,7 @@ describe('websocket.Abstract.constructor', () => {
     const socket = new TestSocket();
     expect(socket.endpoint).toBe('/ws/test/');
     expect(socket.handlers).toEqual({});
+    expect(socket.projectId).toBeNull();
     expect(socket.reconnectDelay).toBe(3000);
     expect(socket.sessionId).toBeNull();
     expect(socket.shouldReconnect).toBe(true);
@@ -152,6 +153,25 @@ describe('websocket.Abstract._sendAuthInit', () => {
       session_id: 42,
       type: 'auth.init',
     });
+  });
+
+  it('sends project_id when a project is selected, so a brand-new chat lands in it', () => {
+    const socket = new TestSocket();
+    socket.projectId = 7;
+    socket.connect();
+    socket.socket.readyState = WebSocket.OPEN;
+    const sendSpy = vi.spyOn(socket.socket, 'send');
+    socket._sendAuthInit();
+    expect(JSON.parse(sendSpy.mock.calls[0][0])).toMatchObject({ project_id: 7, type: 'auth.init' });
+  });
+
+  it('omits project_id when no project is selected', () => {
+    const socket = new TestSocket();
+    socket.connect();
+    socket.socket.readyState = WebSocket.OPEN;
+    const sendSpy = vi.spyOn(socket.socket, 'send');
+    socket._sendAuthInit();
+    expect(JSON.parse(sendSpy.mock.calls[0][0])).not.toHaveProperty('project_id');
   });
 
   it('omits session_id when starting a brand-new chat', () => {

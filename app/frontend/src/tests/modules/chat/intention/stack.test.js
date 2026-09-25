@@ -37,6 +37,13 @@ describe('intentionStack.deriveIntentionNodes', () => {
     expect(nodes[0].label).toBe('Purchase Request');
   });
 
+  it('falls back to an empty label when the node carries neither a process_definition nor a process_id', () => {
+    const nodes = deriveIntentionNodes([makeMessage({
+      intention_nodes: { 'p1#0': { id: 'p1#0', parent_id: null, status: 'active' } },
+    })]);
+    expect(nodes[0].label).toBe('');
+  });
+
   it('preserves intention_nodes insertion order and carries the parent_id chain through as parentId', () => {
     const nodes = deriveIntentionNodes([makeMessage({
       intention_nodes: {

@@ -97,7 +97,7 @@ export default class Abstract {
     // build filters
     let fQuery = Object.keys(filters).reduce((fQuery, field) => {
       return filters[field]
-        ? `${fQuery}${field}=${filters[field]}&`
+        ? `${fQuery}${field}=${encodeURIComponent(filters[field])}&`
         : fQuery;
     }, '');
     // build sort

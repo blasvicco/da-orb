@@ -1,4 +1,12 @@
 // Libs imports
+import {
+  FileExcelOutlined,
+  FileImageOutlined,
+  FileOutlined,
+  FilePdfOutlined,
+  FileWordOutlined,
+  FileZipOutlined,
+} from '@antdv-next/icons';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mocks
@@ -178,6 +186,19 @@ describe('ChatInput attach menu wiring', () => {
     expect(mockBucket.upload).not.toHaveBeenCalled();
     expect(wrapper.findComponent({ name: 'BucketTrigger' }).props('open')).toBe(false);
   });
+
+  it.each([
+    ['an empty selection', []],
+    ['no file list at all', undefined],
+  ])('stages nothing when the native picker reports %s', async (_label, files) => {
+    const wrapper = mount(ChatInput, { props: { sessionId: 42 } });
+    const input = wrapper.find('.orb-prompt-file-input');
+    Object.defineProperty(input.element, 'files', { value: files });
+
+    await input.trigger('change');
+
+    expect(wrapper.find('.orb-prompt-attachments').exists()).toBe(false);
+  });
 });
 
 describe('ChatInput context file chips', () => {
@@ -245,14 +266,34 @@ describe('ChatInput drag and drop', () => {
     expect(mockBucket.upload).not.toHaveBeenCalled();
   });
 
-  it('does nothing when the drop carries no files', async () => {
+  it.each([
+    ['an empty file list', makeDropEvent([])],
+    ['no data transfer at all', {}],
+  ])('does nothing when the drop carries %s', async (_label, dropEvent) => {
     const wrapper = mount(ChatInput);
     const dropZone = wrapper.find('.orb-prompt-wrapper');
 
-    await dropZone.trigger('drop', makeDropEvent([]));
+    await dropZone.trigger('drop', dropEvent);
     await flushPromises();
 
     expect(wrapper.find('.orb-prompt-attachments').exists()).toBe(false);
+  });
+
+  it.each([
+    ['an image', 'image/png', FileImageOutlined],
+    ['a PDF', 'application/pdf', FilePdfOutlined],
+    ['a spreadsheet', 'application/vnd.ms-excel', FileExcelOutlined],
+    ['a Word document', 'application/msword', FileWordOutlined],
+    ['an archive', 'application/zip', FileZipOutlined],
+    ['a type with no dedicated icon', 'text/csv', FileOutlined],
+    ['no type at all', '', FileOutlined],
+  ])('previews %s with its own file icon', async (_label, type, Icon) => {
+    const wrapper = mount(ChatInput);
+    const dropZone = wrapper.find('.orb-prompt-wrapper');
+
+    await dropZone.trigger('drop', makeDropEvent([new File(['x'], 'staged.bin', { type })]));
+
+    expect(wrapper.find('.orb-prompt-attachment').findComponent(Icon).exists()).toBe(true);
   });
 
   it('removes a previewed file from the queue when its remove button is clicked', async () => {

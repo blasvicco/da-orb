@@ -19,3 +19,5 @@ media/
 **/avatar/**
 celerybeat*
 .coverage
+
+app/renderer/target/**

@@ -11,7 +11,7 @@ from rest_framework.test import APIRequestFactory
 
 # App imports
 from core.modules.storage.exception import StorageError
-from drf_api.models import MBucketFile, MChatSession, MOrganization, MSeat
+from drf_api.models import MBucketFile, MChatSession, MOrganization, MProject, MSeat
 from drf_api.resources.bucket.main import VSBucket
 
 pytestmark = pytest.mark.django_db
@@ -49,10 +49,16 @@ def test_files_returns_only_the_owned_session_bucket_files():
 	with step("Arrange: A session with two files, and an unrelated session with one."):
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		other_session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="alice"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "alice", "TESTDB"),
+			username="alice",
 		)
 		matching_one = MBucketFile.objects.create(name="a.csv", session=session, size=1)
 		matching_two = MBucketFile.objects.create(name="b.csv", session=session, size=2)
@@ -76,7 +82,10 @@ def test_files_rejects_session_owned_by_another_user():
 	with step("Arrange: A session owned by 'alice', requested as 'bob'."):
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="alice"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "alice", "TESTDB"),
+			username="alice",
 		)
 		request = _make_request("get", org, query={"session_id": session.id})
 
@@ -93,7 +102,10 @@ def test_upload_creates_bucket_file_and_writes_to_storage(mocker):
 	with step("Arrange: An owned session and a mocked storage driver."):
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		mock_fstorage = mocker.patch("drf_api.resources.bucket.main.FStorage")
 		upload_file = SimpleUploadedFile(
@@ -129,7 +141,10 @@ def test_upload_returns_400_and_discards_the_row_when_storage_upload_fails(mocke
 	with step("Arrange: An owned session and a storage driver that fails to upload."):
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		mock_fstorage = mocker.patch("drf_api.resources.bucket.main.FStorage")
 		mock_fstorage.get_instance.return_value.upload.side_effect = StorageError(
@@ -159,7 +174,10 @@ def test_upload_missing_file_returns_400(mocker):
 	with step("Arrange: An owned session, no file in the payload."):
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		mocker.patch("drf_api.resources.bucket.main.FStorage")
 		request = _make_request("post", org, data={"session_id": session.id})
@@ -179,7 +197,10 @@ def test_upload_rejects_file_over_the_configured_size_limit(mocker, settings):
 		settings.BUCKET_MAX_FILE_SIZE_MB = 0
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		mocker.patch("drf_api.resources.bucket.main.FStorage")
 		upload_file = SimpleUploadedFile("orders.csv", b"a,b\n1,2")
@@ -204,7 +225,10 @@ def test_upload_rejects_session_owned_by_another_user(mocker):
 	with step("Arrange: A session owned by 'alice', uploaded as 'bob'."):
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="alice"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "alice", "TESTDB"),
+			username="alice",
 		)
 		mocker.patch("drf_api.resources.bucket.main.FStorage")
 		upload_file = SimpleUploadedFile("orders.csv", b"a,b\n1,2")
@@ -230,7 +254,10 @@ def test_download_returns_a_presigned_url(mocker):
 	):
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		bucket_file = MBucketFile.objects.create(
 			name="orders.csv",
@@ -265,7 +292,10 @@ def test_download_returns_400_when_presigned_url_generation_fails(mocker):
 	):
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		bucket_file = MBucketFile.objects.create(
 			name="orders.csv",
@@ -293,7 +323,10 @@ def test_download_rejects_file_owned_by_another_session(mocker):
 	with step("Arrange: A bucket file owned by 'alice', requested as 'bob'."):
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="alice"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "alice", "TESTDB"),
+			username="alice",
 		)
 		bucket_file = MBucketFile.objects.create(
 			name="orders.csv", session=session, size=1
@@ -314,7 +347,10 @@ def test_extraction_get_returns_none_when_never_extracted():
 	with step("Arrange: A bucket file owned by the requester, never extracted."):
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		bucket_file = MBucketFile.objects.create(
 			name="orders.csv", session=session, size=1
@@ -335,7 +371,10 @@ def test_extraction_get_returns_the_cached_content():
 	with step("Arrange: A bucket file with previously cached extracted_content."):
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		bucket_file = MBucketFile.objects.create(
 			extracted_content="a,b\n1,2",
@@ -359,7 +398,10 @@ def test_extraction_patch_persists_the_content():
 	with step("Arrange: A bucket file owned by the requester, never extracted."):
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		bucket_file = MBucketFile.objects.create(
 			name="orders.csv", session=session, size=1
@@ -387,7 +429,10 @@ def test_extraction_rejects_file_owned_by_another_session():
 	with step("Arrange: A bucket file owned by 'alice', requested as 'bob'."):
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="alice"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "alice", "TESTDB"),
+			username="alice",
 		)
 		bucket_file = MBucketFile.objects.create(
 			name="orders.csv", session=session, size=1
@@ -409,7 +454,10 @@ def test_delete_file_removes_the_storage_object_and_the_row(mocker):
 	):
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		bucket_file = MBucketFile.objects.create(
 			name="orders.csv",
@@ -439,7 +487,10 @@ def test_delete_file_skips_storage_delete_when_storage_path_is_blank(mocker):
 	with step("Arrange: A bucket file owned by the requester with no storage_path."):
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		bucket_file = MBucketFile.objects.create(
 			name="orders.csv", session=session, size=1
@@ -464,7 +515,10 @@ def test_delete_file_returns_400_and_keeps_the_row_when_storage_delete_fails(moc
 	):
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		bucket_file = MBucketFile.objects.create(
 			name="orders.csv",
@@ -493,7 +547,10 @@ def test_delete_file_rejects_file_owned_by_another_session(mocker):
 	with step("Arrange: A bucket file owned by 'alice', requested as 'bob'."):
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="alice"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "alice", "TESTDB"),
+			username="alice",
 		)
 		bucket_file = MBucketFile.objects.create(
 			name="orders.csv", session=session, size=1

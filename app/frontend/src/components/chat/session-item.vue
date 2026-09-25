@@ -19,7 +19,7 @@
 
   const isActive = computed(() => props.session.id === props.activeSessionId);
 
-  const emit = defineEmits(['select', 'delete']);
+  const emit = defineEmits(['delete', 'select']);
 
   const hovered = ref(false);
   const popOpen = ref(false);

@@ -11,7 +11,9 @@ from drf_api.tests.factories import (
 	FBucketFile,
 	FChatMessage,
 	FChatSession,
+	FDocumentTemplate,
 	FOrganization,
+	FProject,
 	FSeat,
 	FSession,
 	FSessionProxy,
@@ -21,7 +23,9 @@ from drf_api.tests.factories import (
 register(FBucketFile)
 register(FChatMessage)
 register(FChatSession)
+register(FDocumentTemplate)
 register(FOrganization)
+register(FProject)
 register(FSeat)
 register(FSession)
 register(FSessionProxy)

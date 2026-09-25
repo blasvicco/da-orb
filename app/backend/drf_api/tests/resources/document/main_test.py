@@ -11,7 +11,13 @@ from rest_framework.test import APIRequestFactory
 # App imports
 from core.modules.report.exception import ReportError
 from core.modules.storage.exception import StorageError
-from drf_api.models import MBucketFile, MChatSession, MDocumentTemplate, MOrganization
+from drf_api.models import (
+	MBucketFile,
+	MChatSession,
+	MDocumentTemplate,
+	MOrganization,
+	MProject,
+)
 from drf_api.resources.document.main import VSDocument
 
 pytestmark = pytest.mark.django_db
@@ -46,7 +52,10 @@ def test_generate_creates_bucket_file_and_writes_to_storage(mocker, settings):
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		mock_freport = mocker.patch("drf_api.resources.document.main.FReport")
 		mock_freport.get_instance.return_value.render.return_value = (
@@ -92,7 +101,10 @@ def test_generate_passes_params_and_subreports_to_the_renderer(mocker, settings)
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		mock_freport = mocker.patch("drf_api.resources.document.main.FReport")
 		mock_freport.get_instance.return_value.render.return_value = (
@@ -135,7 +147,10 @@ def test_generate_passes_section_visibility_to_the_renderer(mocker, settings):
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		mock_freport = mocker.patch("drf_api.resources.document.main.FReport")
 		mock_freport.get_instance.return_value.render.return_value = (
@@ -179,7 +194,10 @@ def test_generate_defaults_params_and_subreports_when_absent(mocker, settings):
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		mock_freport = mocker.patch("drf_api.resources.document.main.FReport")
 		mock_freport.get_instance.return_value.render.return_value = (
@@ -218,7 +236,10 @@ def test_generate_resolves_bucket_path_markers_in_subreports(mocker, settings):
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		with tempfile.NamedTemporaryFile(delete=False) as asset_file:
 			asset_file.write(b"\x89PNG\r\n")
@@ -275,7 +296,10 @@ def test_generate_degrades_to_empty_when_bucket_path_asset_is_missing(mocker, se
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		mock_fstorage = mocker.patch("drf_api.resources.document.main.FStorage")
 		mock_fstorage.get_instance.return_value.download.side_effect = StorageError(
@@ -328,7 +352,10 @@ def test_generate_uses_the_orgs_default_template_when_set(mocker, settings):
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		MDocumentTemplate.objects.create(
 			document_type="invoice",
@@ -377,7 +404,10 @@ def test_generate_prefers_exact_bp_and_language_match_over_everything(mocker, se
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		MDocumentTemplate.objects.create(
 			document_type="invoice",
@@ -435,7 +465,10 @@ def test_generate_prefers_bp_only_match_over_the_org_default(mocker, settings):
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		MDocumentTemplate.objects.create(
 			document_type="invoice",
@@ -486,7 +519,10 @@ def test_generate_prefers_language_only_match_over_the_org_default(mocker, setti
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		MDocumentTemplate.objects.create(
 			document_type="invoice",
@@ -535,7 +571,10 @@ def test_generate_rejects_unsupported_document_type(settings):
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		request = _make_request(
 			{
@@ -568,7 +607,10 @@ def test_generate_rejects_missing_data(settings, payload):
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		request = _make_request(
 			{
@@ -594,7 +636,10 @@ def test_generate_rejects_missing_name(settings):
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		request = _make_request(
 			{
@@ -622,7 +667,10 @@ def test_generate_returns_409_with_existing_file_when_not_forced(mocker, setting
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		existing = MBucketFile.objects.create(
 			name="factura_12345.pdf",
@@ -660,7 +708,10 @@ def test_generate_creates_a_versioned_file_when_forced(mocker, settings):
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		existing = MBucketFile.objects.create(
 			name="factura_12345.pdf",
@@ -703,7 +754,10 @@ def test_generate_returns_400_when_render_fails(mocker, settings):
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		mock_freport = mocker.patch("drf_api.resources.document.main.FReport")
 		mock_freport.get_instance.return_value.render.side_effect = ReportError("boom")
@@ -736,7 +790,10 @@ def test_generate_returns_400_and_discards_the_row_when_storage_upload_fails(
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		mock_freport = mocker.patch("drf_api.resources.document.main.FReport")
 		mock_freport.get_instance.return_value.render.return_value = (
@@ -771,7 +828,10 @@ def test_generate_rejects_requests_without_the_shared_secret(settings):
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		request = _make_request(
 			{

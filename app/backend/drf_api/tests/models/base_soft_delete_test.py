@@ -6,7 +6,7 @@ from allure import step
 from django.utils import timezone
 
 # App imports
-from drf_api.models import MChatSession, MOrganization
+from drf_api.models import MChatSession, MOrganization, MProject
 
 pytestmark = pytest.mark.django_db
 
@@ -16,7 +16,11 @@ def test_delete_marks_deleted_on_instead_of_removing_the_row():
 
 	with step("Arrange: A persisted MChatSession (extends MBaseSoftDelete)."):
 		org = MOrganization.objects.create(name="acme", slug="acme")
-		session = MChatSession.objects.create(org=org, username="bob")
+		session = MChatSession.objects.create(
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", ""),
+			username="bob",
+		)
 
 	with step("Act: Call delete()."):
 		session.delete()

@@ -7,7 +7,14 @@ from django.utils import timezone
 from rest_framework.test import APIRequestFactory
 
 # App imports
-from drf_api.models import MChatMessage, MChatSession, MOrganization, MSeat, MUsageEvent
+from drf_api.models import (
+	MChatMessage,
+	MChatSession,
+	MOrganization,
+	MProject,
+	MSeat,
+	MUsageEvent,
+)
 from drf_api.resources.auth.helpers import set_org_admin
 from drf_api.resources.usage.main import VSUsage
 
@@ -173,8 +180,16 @@ def test_summary_top_users_rankings():
 
 	with step("Arrange: Messages and usage events split across two users."):
 		org = _make_org()
-		session_bob = MChatSession.objects.create(org=org, username="bob")
-		session_alice = MChatSession.objects.create(org=org, username="alice")
+		session_bob = MChatSession.objects.create(
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", ""),
+			username="bob",
+		)
+		session_alice = MChatSession.objects.create(
+			org=org,
+			project=MProject.get_or_create_default(org, "alice", ""),
+			username="alice",
+		)
 		MChatMessage.objects.create(
 			session=session_bob, text="a", timestamp=timezone.now(), type="user"
 		)
@@ -216,7 +231,11 @@ def test_summary_session_time_approximation():
 
 	with step("Arrange: A chat session with a forced, known duration."):
 		org = _make_org()
-		session = MChatSession.objects.create(org=org, username="bob")
+		session = MChatSession.objects.create(
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", ""),
+			username="bob",
+		)
 		start = timezone.now()
 		MChatSession.objects.filter(pk=session.pk).update(
 			created_on=start, updated_on=start + timezone.timedelta(minutes=10)

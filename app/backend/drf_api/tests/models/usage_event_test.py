@@ -6,7 +6,7 @@ from allure import step
 from django.utils import timezone
 
 # App imports
-from drf_api.models import MChatSession, MOrganization, MUsageEvent
+from drf_api.models import MChatSession, MOrganization, MProject, MUsageEvent
 
 pytestmark = pytest.mark.django_db
 
@@ -38,7 +38,11 @@ def test_survives_session_deletion():
 
 	with step("Arrange: A usage event linked to a chat session."):
 		org = _make_org()
-		session = MChatSession.objects.create(org=org, username="bob")
+		session = MChatSession.objects.create(
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", ""),
+			username="bob",
+		)
 		event = MUsageEvent.objects.create(
 			event_type="token_usage",
 			occurred_on=timezone.now(),
@@ -48,8 +52,10 @@ def test_survives_session_deletion():
 			username="bob",
 		)
 
-	with step("Act: Delete the chat session."):
-		session.delete()
+	with step("Act: Hard-delete the chat session."):
+		# A queryset delete, not session.delete(): MChatSession is soft-deleted (MBaseSoftDelete),
+		# so the model-level delete() never removes the row and would never trigger on_delete.
+		MChatSession.objects.filter(pk=session.pk).delete()
 
 	with step("Assert: The usage event still exists, with session set to null."):
 		event.refresh_from_db()

@@ -5,7 +5,7 @@ import pytest
 from allure import step
 
 # App imports
-from drf_api.models import MBucketFile
+from drf_api.models import MBucketFile, MChatSession
 
 pytestmark = pytest.mark.django_db
 
@@ -52,8 +52,10 @@ def test_cascades_on_session_deletion(f_bucket_file):
 		session = bucket_file.session
 		bucket_file_id = bucket_file.id
 
-	with step("Act: Delete the chat session."):
-		session.delete()
+	with step("Act: Hard-delete the chat session."):
+		# A queryset delete, not session.delete(): MChatSession is soft-deleted (MBaseSoftDelete),
+		# so the model-level delete() never removes the row and would never trigger on_delete.
+		MChatSession.objects.filter(pk=session.pk).delete()
 
 	with step("Assert: The bucket file no longer exists."):
 		assert not MBucketFile.objects.filter(id=bucket_file_id).exists()

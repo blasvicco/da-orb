@@ -136,6 +136,64 @@ def test_collect_execution_tree_usage_recurses_into_child_executions():
 		}
 
 
+def test_collect_execution_tree_usage_walks_an_execution_only_once_when_the_tree_loops_back():
+	"""Test collect_execution_tree_usage does not recurse forever or double count when a child points back at an already-walked execution"""
+
+	with step(
+		"Arrange: A root whose child spawns the root again, the child carrying the only usage."
+	):
+		root = {
+			"data": {
+				"resultData": {
+					"runData": {
+						"Agent: Intent Finder": [_run_entry(sub_execution_id="200")]
+					}
+				}
+			},
+			"finished": True,
+			"id": "100",
+		}
+		child = {
+			"data": {
+				"resultData": {
+					"runData": {
+						"OpenAI Chat Model Find": [
+							_run_entry(
+								completion_tokens=7,
+								prompt_tokens=2273,
+								sub_execution_id="100",
+								total_tokens=2280,
+							)
+						]
+					}
+				}
+			},
+			"finished": True,
+			"id": "200",
+		}
+
+	with step("Act: Call collect_execution_tree_usage."):
+		with patch(
+			"web_socket.helpers.n8n.usage.httpx.get",
+			side_effect=[
+				_make_response(root),
+				_make_response(child),
+				_make_response(root),
+			],
+		) as mock_get:
+			result = collect_execution_tree_usage("100")
+
+	with step(
+		"Assert: The looped-back root was fetched but not walked again, so the usage is counted once."
+	):
+		assert mock_get.call_count == 3
+		assert result == {
+			"completion_tokens": 7,
+			"prompt_tokens": 2273,
+			"total_tokens": 2280,
+		}
+
+
 def test_collect_execution_tree_usage_sums_multiple_runs_of_the_same_node():
 	"""Test collect_execution_tree_usage sums every run entry for a node that executed more than once (a loop)"""
 

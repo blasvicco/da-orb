@@ -15,6 +15,7 @@ pytestmark = pytest.mark.django_db
 	[
 		"f_chat_message",
 		"f_chat_session",
+		"f_document_template",
 		"f_organization",
 		"f_seat",
 		"f_session_proxy",

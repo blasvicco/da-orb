@@ -12,6 +12,7 @@ class SChatSession(serializers.ModelSerializer):
 	"""Serializer for MChatSession list/detail."""
 
 	pending = serializers.SerializerMethodField()
+	project_name = serializers.CharField(read_only=True, source="project.name")
 	tokens_used = serializers.SerializerMethodField()
 
 	class Meta:
@@ -22,18 +23,22 @@ class SChatSession(serializers.ModelSerializer):
 			"created_on",
 			"updated_on",
 			"pending",
+			"project",
+			"project_name",
 			"tokens_used",
 			"n8n_state",
 		]
 
 	def get_pending(self, obj):
 		"""True when the session's last message is from the user — no agent reply yet."""
-		# The agent is presumably still working on it.
-		last = obj.messages.last()
-		return bool(last and last.type == "user")
+		# The agent is presumably still working on it. Reads the `last_message_type` annotation
+		# added by VSChat's list queries, so serializing N chats costs no extra queries. There is
+		# deliberately no per-row fallback: an unannotated queryset should fail loudly here, not
+		# silently turn back into one query per chat.
+		return obj.last_message_type == "user"
 
 	def get_tokens_used(self, obj):
-		"""Read the `tokens_used` annotation added by VSChat.sessions(); 0 if absent/None."""
+		"""Read the `tokens_used` annotation added by VSChat's list queries; 0 if absent/None."""
 		return getattr(obj, "tokens_used", None) or 0
 
 

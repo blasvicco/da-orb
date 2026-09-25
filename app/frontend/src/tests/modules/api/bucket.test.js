@@ -13,6 +13,14 @@ describe('Bucket', () => {
     globalThis.fetch.mockResolvedValue({ json: async () => ([]), status: 200 });
   });
 
+  it('deleteFile() DELETEs the delete_file endpoint scoped to a file_id', async () => {
+    await Bucket.deleteFile(9);
+    const [url, opts] = globalThis.fetch.mock.calls[0];
+    expect(url).toBe(`${Bucket.constants.ENDPOINT}/delete_file/?file_id=9`);
+    expect(opts.method).toBe('DELETE');
+    expect(opts.credentials).toBe('include');
+  });
+
   it('files() GETs the files endpoint scoped to a session_id', async () => {
     await Bucket.files(42);
     const [url, opts] = globalThis.fetch.mock.calls[0];

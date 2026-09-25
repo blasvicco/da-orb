@@ -1,0 +1,23 @@
+@reference "@/styles/main.css";
+
+.orb-project-selector {
+  @apply flex flex-col gap-2 mt-4 w-full;
+
+  .orb-project-selector-header {
+    @apply flex items-center justify-between px-1;
+
+    .orb-project-selector-title {
+      @apply font-bold text-xs tracking-wider uppercase;
+      color: var(--orb-history-label);
+    }
+
+    .orb-project-selector-manage {
+      @apply cursor-pointer duration-200 transition-colors;
+      color: var(--orb-history-date);
+
+      &:hover {
+        color: var(--orb-history-hover-text);
+      }
+    }
+  }
+}

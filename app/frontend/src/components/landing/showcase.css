@@ -1,0 +1,267 @@
+@reference "@/styles/main.css";
+
+/* Landing Features Showcase Styles */
+.orb-showcase {
+  .orb-showcase-group {
+    & + .orb-showcase-group {
+      @apply md:mt-28 mt-20;
+    }
+
+    .orb-showcase-group-label {
+      @apply bg-brand-primary/10 block border border-brand-primary/20 font-bold mb-12 mx-auto px-4 py-1.5 rounded-full text-brand-primary text-center text-sm tracking-wide uppercase w-fit;
+    }
+
+    .orb-showcase-rows {
+      @apply flex flex-col gap-16 lg:gap-24;
+    }
+  }
+
+  /* One feature: text on one side, mockup on the other */
+  .orb-showcase-row {
+    @apply flex flex-col gap-8 items-center lg:flex-row lg:gap-16;
+
+    &.orb-showcase-row--reverse {
+      @apply lg:flex-row-reverse;
+    }
+
+    .orb-showcase-text {
+      @apply flex-1 max-w-xl space-y-4 w-full;
+
+      .orb-showcase-eyebrow {
+        @apply font-bold gap-2.5 inline-flex items-center text-brand-primary text-sm tracking-wide uppercase;
+
+        .orb-showcase-eyebrow-icon {
+          @apply bg-brand-primary/10 flex h-9 items-center justify-center rounded-lg text-lg w-9;
+        }
+      }
+
+      .orb-showcase-title {
+        @apply font-extrabold leading-tight md:text-3xl text-2xl text-brand-text tracking-tight;
+      }
+
+      .orb-showcase-desc {
+        @apply leading-relaxed text-brand-text-muted text-lg;
+      }
+
+      .orb-showcase-points {
+        @apply pt-2 space-y-2;
+
+        .orb-showcase-point {
+          @apply flex font-medium gap-2.5 items-start text-brand-text text-sm;
+
+          .orb-showcase-point-icon {
+            @apply mt-0.5 shrink-0 text-brand-accent;
+          }
+        }
+      }
+    }
+
+    .orb-showcase-visual {
+      @apply flex-1 max-w-xl w-full;
+    }
+  }
+
+  /* Mockup card shared by every feature */
+  .orb-mock {
+    @apply backdrop-blur-xl bg-white/90 border border-brand-primary/10 duration-500 flex flex-col gap-3 hover:shadow-2xl hover:shadow-brand-primary/10 motion-reduce:transition-none p-5 rounded-2xl shadow-brand-primary/5 shadow-xl text-sm transition-all;
+
+    .orb-mock-header {
+      @apply border-b border-slate-100 flex font-semibold gap-2 items-center justify-between pb-3 text-slate-500 text-xs;
+
+      .orb-mock-title {
+        @apply gap-1.5 inline-flex items-center;
+      }
+    }
+
+    .orb-mock-list {
+      @apply flex flex-col gap-2;
+    }
+
+    .orb-mock-hint {
+      @apply text-slate-400 text-xs;
+    }
+
+    .orb-mock-chip {
+      @apply bg-brand-primary/10 font-semibold px-2.5 py-1 rounded-lg text-brand-primary text-xs whitespace-nowrap;
+    }
+
+    .orb-mock-pill {
+      @apply font-semibold px-2.5 py-0.5 rounded-full text-xs whitespace-nowrap;
+
+      &.orb-mock-pill--active {
+        @apply animate-pulse bg-brand-primary/10 motion-reduce:animate-none text-brand-primary;
+      }
+
+      &.orb-mock-pill--completed {
+        @apply bg-emerald-50 text-emerald-600;
+      }
+
+      &.orb-mock-pill--paused {
+        @apply bg-amber-50 text-amber-600;
+      }
+    }
+
+    /* Intention Graph */
+    .orb-mock-node {
+      @apply bg-slate-50 border border-slate-100 flex gap-3 items-center justify-between px-3 py-2.5 rounded-xl;
+
+      &.orb-mock-node--active {
+        @apply bg-brand-primary/5 border-brand-primary/20;
+      }
+
+      &.orb-mock-node--depth-1 {
+        @apply ml-6;
+      }
+
+      .orb-mock-node-label {
+        @apply font-semibold min-w-0 text-slate-700 truncate;
+      }
+    }
+
+    /* File Bucket */
+    .orb-mock-file {
+      @apply bg-slate-50 border border-slate-100 flex gap-3 items-center px-3 py-2.5 rounded-xl;
+
+      .orb-mock-file-icon {
+        @apply text-brand-primary text-xl;
+      }
+
+      .orb-mock-file-meta {
+        @apply flex flex-1 flex-col min-w-0;
+
+        .orb-mock-file-name {
+          @apply font-semibold text-slate-700 truncate;
+        }
+
+        .orb-mock-file-origin {
+          @apply text-slate-400 text-xs;
+        }
+      }
+    }
+
+    /* File content extraction */
+    .orb-mock-kv {
+      @apply bg-slate-50 border border-slate-100 gap-x-4 gap-y-1.5 grid grid-cols-2 p-3 rounded-xl;
+
+      .orb-mock-kv-label {
+        @apply text-slate-500;
+      }
+
+      .orb-mock-kv-value {
+        @apply font-mono font-semibold text-right text-slate-800;
+      }
+    }
+
+    .orb-mock-used {
+      @apply flex font-semibold gap-1.5 items-center text-emerald-600 text-xs;
+    }
+
+    /* Batch processing */
+    &.orb-mock--dark {
+      @apply bg-slate-900 border-slate-800 font-mono text-slate-200;
+
+      .orb-mock-header {
+        @apply border-slate-800 text-slate-400;
+      }
+
+      .orb-mock-row {
+        @apply flex gap-3 items-center justify-between text-xs;
+
+        .orb-mock-row-status {
+          @apply font-sans gap-1.5 inline-flex items-center;
+        }
+
+        &.orb-mock-row--created {
+          @apply text-teal-400;
+        }
+
+        &.orb-mock-row--failed {
+          @apply text-rose-400;
+        }
+      }
+
+      .orb-mock-summary {
+        @apply border-slate-800 border-t font-sans font-semibold pt-3 text-slate-200;
+      }
+    }
+
+    /* Projects */
+    .orb-mock-projects {
+      @apply gap-3 grid grid-cols-1 sm:grid-cols-3;
+
+      .orb-mock-project {
+        @apply bg-slate-50 border border-slate-100 flex flex-col gap-1 p-4 rounded-xl;
+
+        .orb-mock-project-icon {
+          @apply text-brand-primary text-xl;
+        }
+
+        .orb-mock-project-name {
+          @apply font-bold text-slate-800;
+        }
+
+        .orb-mock-project-count {
+          @apply text-slate-500 text-xs;
+        }
+      }
+    }
+
+    /* Multilanguage */
+    .orb-mock-convo {
+      @apply flex flex-col gap-2;
+
+      .orb-mock-lang-code {
+        @apply bg-slate-100 font-bold px-2 py-0.5 rounded-md self-start text-slate-500 text-xs;
+      }
+
+      .orb-mock-bubble {
+        @apply font-medium max-w-[85%] px-4 py-2.5 rounded-2xl text-sm;
+
+        &.orb-mock-bubble--agent {
+          @apply bg-slate-50 border border-slate-100 rounded-tl-none self-start text-slate-800;
+        }
+
+        &.orb-mock-bubble--user {
+          @apply bg-brand-primary rounded-tr-none self-end text-white;
+        }
+      }
+    }
+
+    /* Usage dashboard */
+    .orb-mock-stats {
+      @apply gap-3 grid grid-cols-2;
+
+      .orb-mock-stat {
+        @apply bg-slate-50 border border-slate-100 flex flex-col p-3 rounded-xl;
+
+        .orb-mock-stat-value {
+          @apply font-extrabold text-2xl text-brand-primary;
+        }
+
+        .orb-mock-stat-label {
+          @apply text-slate-500 text-xs;
+        }
+      }
+    }
+
+    .orb-mock-rank {
+      @apply flex flex-col gap-1;
+
+      .orb-mock-rank-head {
+        @apply flex font-medium justify-between text-slate-600 text-xs;
+
+        .orb-mock-rank-value {
+          @apply font-semibold text-slate-800;
+        }
+      }
+
+      .orb-mock-bar {
+        @apply bg-slate-100 block h-2 overflow-hidden rounded-full w-full;
+
+        .orb-mock-bar-fill {
+          @apply bg-brand-primary block h-full rounded-full;
+        }
+      }
+    }
+  }
+}

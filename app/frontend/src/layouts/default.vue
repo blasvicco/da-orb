@@ -12,14 +12,14 @@
   import { useContactModal } from '@/modules/contact';
   import { useOrganization } from '@/modules/organization';
 
-  const route = useRoute();
-  const router = useRouter();
   const contactModal = useContactModal();
   const org = useOrganization();
+  const route = useRoute();
+  const router = useRouter();
 
   onMounted(() => org.load());
 
-  // The #features / #security sections only exist on the landing page, so
+  // The #platform / #features / #security sections only exist on the landing page, so
   // this needs to route there first when clicked from privacy/terms/chat.
   const goToAnchor = (hash) => {
     if (route.name !== 'landing') {
@@ -61,6 +61,11 @@
         <div class="orb-header-right">
           <!-- Main Nav -->
           <nav class="orb-nav">
+            <a
+              href="#platform"
+              class="orb-nav-link"
+              @click.prevent="goToAnchor('#platform')"
+            >{{ $t('landing.nav.platform') }}</a>
             <a
               href="#features"
               class="orb-nav-link"

@@ -188,13 +188,19 @@ else:
 	USE_X_FORWARDED_HOST = True
 
 # Email settings
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_FROM = CONFIG.get("EMAIL_FROM")
-EMAIL_HOST = CONFIG.get("EMAIL_HOST")
-EMAIL_HOST_PASSWORD = CONFIG.get("EMAIL_HOST_PASSWORD")
-EMAIL_HOST_USER = CONFIG.get("EMAIL_HOST_USER")
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
+MAILERS = {
+	"default": {
+		"BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+		"OPTIONS": {
+			"host": CONFIG.get("EMAIL_HOST"),
+			"password": CONFIG.get("EMAIL_HOST_PASSWORD"),
+			"port": 587,
+			"use_tls": True,
+			"username": CONFIG.get("EMAIL_HOST_USER"),
+		},
+	},
+}
 
 # Async task settings
 BROKER_URL = CONFIG.get("BROKER_URL")

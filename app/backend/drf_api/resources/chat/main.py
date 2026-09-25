@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 # Lib imports
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
-from django.db.models import Q, Sum
+from django.db.models import OuterRef, Q, Subquery, Sum
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
@@ -251,8 +251,27 @@ async def _release_and_refire(group_name):
 		await queue.close()
 
 
+def _with_list_annotations(queryset):
+	"""Annotate a MChatSession queryset with everything SChatSession derives per row, so listing N chats is a single query."""
+	# last_message_type is a correlated subquery (newest message first; id breaks a timestamp
+	# tie) and tokens_used a sum over the token_usage events: both ride along in the one SELECT
+	# that lists the chats, instead of one extra query per chat.
+	last_message_type = (
+		MChatMessage.objects.filter(session=OuterRef("pk"))
+		.order_by("-timestamp", "-pk")
+		.values("type")[:1]
+	)
+	return queryset.annotate(
+		last_message_type=Subquery(last_message_type),
+		tokens_used=Sum(
+			"usage_events__total_tokens",
+			filter=Q(usage_events__event_type="token_usage"),
+		),
+	)
+
+
 class VSChat(viewsets.ViewSet):
-	"""Chat View Set — session list, message history, session deletion, and n8n callback."""
+	"""Chat View Set — project-scoped session list, recent sessions, message history, session deletion, and n8n callback."""
 
 	authentication_classes = []
 	permission_classes = [PChat]
@@ -268,7 +287,11 @@ class VSChat(viewsets.ViewSet):
 		session_id = request.query_params.get("session_id")
 		org, _, connection_key = self._get_org_and_user(request)
 		session = get_object_or_404(
-			MChatSession, connection_key=connection_key, id=session_id, org=org
+			MChatSession,
+			connection_key=connection_key,
+			deleted_on__isnull=True,
+			id=session_id,
+			org=org,
 		)
 		self.check_object_permissions(request, session)
 		session.delete()
@@ -282,6 +305,7 @@ class VSChat(viewsets.ViewSet):
 		session = get_object_or_404(
 			MChatSession,
 			connection_key=connection_key,
+			deleted_on__isnull=True,
 			id=session_id,
 			org=org,
 			username=username,
@@ -382,24 +406,50 @@ class VSChat(viewsets.ViewSet):
 		return Response(status=200)
 
 	@action(detail=False, methods=["get"])
-	def sessions(self, request, *args, **kwargs):
-		"""Return the 15 most-recent chat sessions for the requesting user."""
+	def recent(self, request, *args, **kwargs):
+		"""Return the 3 most-recently-updated chat sessions across all of the requesting user's projects."""
 		org, username, connection_key = self._get_org_and_user(request)
 		if org is None or not username:
 			return Response([])
-		qs = MChatSession.objects.filter(
-			connection_key=connection_key,
-			deleted_on__isnull=True,
-			org=org,
-			username=username,
-		).annotate(
-			tokens_used=Sum(
-				"usage_events__total_tokens",
-				filter=Q(usage_events__event_type="token_usage"),
+		qs = (
+			_with_list_annotations(
+				MChatSession.objects.filter(
+					connection_key=connection_key,
+					deleted_on__isnull=True,
+					org=org,
+					username=username,
+				)
 			)
-		)[
-			:15
-		]
+			.select_related("project")
+			.order_by("-updated_on")[:3]
+		)
+		return Response(SChatSession(qs, many=True).data)
+
+	@action(detail=False, methods=["get"])
+	def sessions(self, request, *args, **kwargs):
+		"""Return the 50 most-recent chat sessions of one project (?project_id=) for the requesting user."""
+		org, username, connection_key = self._get_org_and_user(request)
+		project_id = request.query_params.get("project_id", "")
+		# project_id is required: an absent/garbled one is an empty list, not an
+		# accidental unfiltered match across every project.
+		if org is None or not username or not project_id.isdigit():
+			return Response([])
+		# Explicit order_by: the tokens_used aggregate makes this a GROUP BY query, for which
+		# Django ignores MChatSession's Meta.ordering, so the "most recent 50" would otherwise
+		# come back in arbitrary order (and the cap could drop the newest chats).
+		qs = (
+			_with_list_annotations(
+				MChatSession.objects.filter(
+					connection_key=connection_key,
+					deleted_on__isnull=True,
+					org=org,
+					project_id=project_id,
+					username=username,
+				)
+			)
+			.select_related("project")
+			.order_by("-updated_on")[:50]
+		)
 		return Response(SChatSession(qs, many=True).data)
 
 	def _get_org_and_user(self, request):

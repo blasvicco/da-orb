@@ -23,6 +23,11 @@
   @apply font-semibold pl-12 text-brand-primary text-xs truncate;
 }
 
+.orb-sidebar-project {
+  @apply font-medium pl-12 text-xs truncate;
+  color: var(--orb-history-date);
+}
+
 .orb-new-chat-btn {
   @apply bg-brand-primary cursor-pointer duration-200 flex font-semibold gap-2 hover:bg-brand-primary-hover hover:-translate-y-px items-center justify-center px-4 py-2.5 rounded-lg text-sm text-white transition-all w-full;
   box-shadow: var(--orb-new-chat-shadow);

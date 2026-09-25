@@ -4,6 +4,11 @@
   @apply flex-1 overflow-y-auto p-8;
 }
 
+/* The row of buttons/controls above a list: the same on every list page. */
+.orb-admin-actions {
+  @apply flex gap-3 items-center justify-end mb-4;
+}
+
 .orb-admin-title {
   @apply font-extrabold mb-6 text-2xl tracking-tight;
   color: var(--orb-header-title);

@@ -1,15 +1,17 @@
 <script setup>
   // Libs imports
-  import { ref, computed, onMounted, onUnmounted } from 'vue';
+  import { computed, onMounted, onUnmounted, ref } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
   import {
     ApiOutlined,
     AuditOutlined,
     DesktopOutlined,
+    DownloadOutlined,
     ExclamationCircleOutlined,
     GlobalOutlined,
     LockOutlined,
     MessageOutlined,
+    PaperClipOutlined,
     SafetyCertificateOutlined,
     SafetyOutlined,
     ThunderboltOutlined,
@@ -24,6 +26,7 @@
   import { useOrganization } from '@/modules/organization';
 
   // Components
+  import Showcase from '@/components/landing/showcase.vue';
   import Signin from '@/components/auth/signin.vue';
 
   // Assets
@@ -32,23 +35,61 @@
   // Styles
   import "@/views/landing.css";
 
-  const route = useRoute();
-  const router = useRouter();
   const auth = useAuth();
   const contactModal = useContactModal();
   const org = useOrganization();
+  const route = useRoute();
+  const router = useRouter();
+
+  const chatContainer = ref(null);
+
+  const chatScenario = [
+    // Step 1: User asks for an invoice PDF
+    {
+      delay: 1500,
+      textKey: 'landing.chat.step1.user',
+      type: 'user'
+    },
+    // Step 2: Agent starts generating it
+    {
+      delay: 2000,
+      textKey: 'landing.chat.step2.agent',
+      type: 'agent'
+    },
+    // Step 3: Agent shows the invoice data (an ordered list, so the rows keep their display order)
+    {
+      data: [
+        { label: 'landing.chat.step3.docType', value: 'landing.chat.step3.docTypeVal' },
+        { label: 'landing.chat.step3.docNumber', value: 'landing.chat.step3.docNumberVal' },
+        { label: 'landing.chat.step3.customer', value: 'landing.chat.step3.customerVal' },
+        { label: 'landing.chat.step3.total', value: 'landing.chat.step3.totalVal' },
+        { label: 'landing.chat.step3.format', value: 'landing.chat.step3.formatVal' },
+      ],
+      delay: 2500,
+      titleKey: 'landing.chat.step3.title',
+      type: 'sap-data'
+    },
+    // Step 4: Agent delivers the PDF, saved in the File Bucket
+    {
+      delay: 3500,
+      fileKey: 'landing.chat.step4.file',
+      textKey: 'landing.chat.step4.agent',
+      type: 'agent'
+    }
+  ];
+
+  const isTyping = ref(false);
+  const messages = ref([]);
+  let scenarioIndex = 0;
 
   // Modal shown when redirected back from a failed auth attempt
   const showAuthErrorModal = computed(() => !!route.query.error);
 
+  const showSigninModal = ref(false);
+  let timeoutId = null;
+
   const closeAuthErrorModal = () => {
     router.replace({ name: 'landing' });
-  };
-
-  const showSigninModal = ref(false);
-
-  const openSigninModal = () => {
-    showSigninModal.value = true;
   };
 
   const closeSigninModal = () => {
@@ -69,73 +110,8 @@
     }
   };
 
-  const chatContainer = ref(null);
-  const isTyping = ref(false);
-  const messages = ref([]);
-
-  const chatScenario = [
-    // Step 1: User asks for stock status
-    {
-      type: 'user',
-      textKey: 'landing.chat.step1.user',
-      delay: 1500
-    },
-    // Step 2: Agent responds
-    {
-      type: 'agent',
-      textKey: 'landing.chat.step2.agent',
-      delay: 2000
-    },
-    // Step 3: Agent shows SAP table
-    {
-      type: 'sap-data',
-      titleKey: 'landing.chat.step3.title',
-      data: {
-        'landing.chat.step3.itemCode': 'landing.chat.step3.itemCodeVal',
-        'landing.chat.step3.warehouse': 'landing.chat.step3.warehouseVal',
-        'landing.chat.step3.inStock': 'landing.chat.step3.inStockVal',
-        'landing.chat.step3.committed': 'landing.chat.step3.committedVal',
-        'landing.chat.step3.reorder': 'landing.chat.step3.reorderVal',
-      },
-      delay: 2500
-    },
-    // Step 4: User creates a draft requisition
-    {
-      type: 'user',
-      textKey: 'landing.chat.step4.user',
-      delay: 2000
-    },
-    // Step 5: Agent processes transaction
-    {
-      type: 'agent',
-      textKey: 'landing.chat.step5.agent',
-      delay: 2000
-    },
-    // Step 6: Agent shows successful document creation
-    {
-      type: 'sap-data',
-      titleKey: 'landing.chat.step6.title',
-      data: {
-        'landing.chat.step6.docType': 'landing.chat.step6.docTypeVal',
-        'landing.chat.step6.docNumber': 'landing.chat.step6.docNumberVal',
-        'landing.chat.step6.status': 'landing.chat.step6.statusVal',
-        'landing.chat.step6.qty': 'landing.chat.step6.qtyVal',
-        'landing.chat.step6.vendor': 'landing.chat.step6.vendorVal',
-        'landing.chat.step6.value': 'landing.chat.step6.valueVal',
-      },
-      delay: 3500
-    }
-  ];
-
-  let scenarioIndex = 0;
-  let timeoutId = null;
-
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      if (chatContainer.value) {
-        chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
-      }
-    }, 100);
+  const openSigninModal = () => {
+    showSigninModal.value = true;
   };
 
   const runScenarioStep = () => {
@@ -143,7 +119,7 @@
       // Pause at the end and restart the loop
       timeoutId = setTimeout(() => {
         messages.value = [];
-        scenarioIndex  = 0;
+        scenarioIndex = 0;
         runScenarioStep();
       }, 8000);
       return;
@@ -168,6 +144,14 @@
         runScenarioStep();
       }, step.delay);
     }
+  };
+
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      if (chatContainer.value) {
+        chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
+      }
+    }, 100);
   };
 
   onMounted(() => {
@@ -210,7 +194,7 @@
               {{ org.hasOrganization() === false ? $t('landing.cta.signup') : $t('landing.cta.signin') }} ➔
             </button>
             <a
-              href="#features"
+              href="#platform"
               class="orb-btn-secondary"
             >
               {{ $t('landing.cta.learnMore') }}
@@ -237,7 +221,7 @@
                 </div>
               </div>
               <div class="text-xs font-semibold px-2.5 py-1 bg-slate-100 rounded-full text-slate-500">
-                {{ $t('landing.chat.simulator.plant') }}
+                {{ $t('landing.chat.simulator.department') }}
               </div>
             </div>
 
@@ -265,6 +249,15 @@
                   class="orb-msg-agent"
                 >
                   {{ $t(msg.textKey) }}
+                  <!-- Generated file chip, same look as the real chat's document chip -->
+                  <div
+                    v-if="msg.fileKey"
+                    class="orb-msg-file"
+                  >
+                    <PaperClipOutlined />
+                    <span class="orb-msg-file-name">{{ $t(msg.fileKey) }}</span>
+                    <DownloadOutlined class="orb-msg-file-download" />
+                  </div>
                 </div>
 
                 <!-- SAP Data Object Bubble -->
@@ -278,14 +271,14 @@
                   </div>
                   <div class="grid grid-cols-2 gap-x-4 gap-y-1">
                     <template
-                      v-for="(valKey, labelKey) in msg.data"
-                      :key="labelKey"
+                      v-for="row in msg.data"
+                      :key="row.label"
                     >
                       <div class="text-slate-500 text-left font-sans">
-                        {{ $t(labelKey) }}:
+                        {{ $t(row.label) }}:
                       </div>
                       <div class="text-slate-200 text-right truncate">
-                        {{ $t(valKey) }}
+                        {{ $t(row.value) }}
                       </div>
                     </template>
                   </div>
@@ -316,17 +309,17 @@
       </div>
     </section>
 
-    <!-- Features Grid Section -->
+    <!-- Platform Grid Section -->
     <section
-      id="features"
+      id="platform"
       class="orb-features"
     >
       <div class="orb-container">
         <h2 class="orb-features-title">
-          {{ $t('landing.features.title') }}
+          {{ $t('landing.platform.title') }}
         </h2>
         <p class="orb-features-subtitle">
-          {{ $t('landing.features.subtitle') }}
+          {{ $t('landing.platform.subtitle') }}
         </p>
 
         <div class="orb-features-grid">
@@ -336,10 +329,10 @@
               <MessageOutlined />
             </div>
             <h3 class="orb-feature-title">
-              {{ $t('landing.features.naturalLanguage.title') }}
+              {{ $t('landing.platform.naturalLanguage.title') }}
             </h3>
             <p class="orb-feature-desc">
-              {{ $t('landing.features.naturalLanguage.desc') }}
+              {{ $t('landing.platform.naturalLanguage.desc') }}
             </p>
           </div>
 
@@ -349,10 +342,10 @@
               <ApiOutlined />
             </div>
             <h3 class="orb-feature-title">
-              {{ $t('landing.features.mcp.title') }}
+              {{ $t('landing.platform.mcp.title') }}
             </h3>
             <p class="orb-feature-desc">
-              {{ $t('landing.features.mcp.desc') }}
+              {{ $t('landing.platform.mcp.desc') }}
             </p>
           </div>
 
@@ -362,10 +355,10 @@
               <ThunderboltOutlined />
             </div>
             <h3 class="orb-feature-title">
-              {{ $t('landing.features.realtime.title') }}
+              {{ $t('landing.platform.realtime.title') }}
             </h3>
             <p class="orb-feature-desc">
-              {{ $t('landing.features.realtime.desc') }}
+              {{ $t('landing.platform.realtime.desc') }}
             </p>
           </div>
 
@@ -375,15 +368,18 @@
               <SafetyOutlined />
             </div>
             <h3 class="orb-feature-title">
-              {{ $t('landing.features.secure.title') }}
+              {{ $t('landing.platform.secure.title') }}
             </h3>
             <p class="orb-feature-desc">
-              {{ $t('landing.features.secure.desc') }}
+              {{ $t('landing.platform.secure.desc') }}
             </p>
           </div>
         </div>
       </div>
     </section>
+
+    <!-- Features Showcase Section -->
+    <Showcase />
 
     <!-- Security Section -->
     <section

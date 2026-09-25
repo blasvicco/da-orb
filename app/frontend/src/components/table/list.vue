@@ -36,7 +36,12 @@
     loading: {
       default: false,
       type: Boolean,
-    }
+    },
+    // antd's row selection config ({ selectedRowKeys, onChange, ... }); omit for a plain list.
+    rowSelection: {
+      default: undefined,
+      type: Object,
+    },
   });
   const { t } = useI18n({ useScope: 'global' });
   const data = ref([]);
@@ -60,9 +65,17 @@
     pageSize: 20,
   });
 
+  // The raw (untranslated) filters/sorter of the latest load: refresh() repeats exactly that
+  // view, so the data always matches what the table's own filter/sort UI is showing.
+  let lastFilters = {};
+  let lastSorter = {};
+
   const onChange = async (page = {}, filters = {}, sorter = {}) => {
     // on change table
     loadingData.value = true;
+    lastFilters = filters;
+    lastSorter = sorter;
+    const rawFilters = filters;
 
     // translate filters
     filters = Object.keys(filters).reduce((translated, key) => {
@@ -109,6 +122,12 @@
         message.error(t(`api.error.response.${error?.attr}.${code}`));
       });
       loadingData.value = false;
+      return;
+    }
+
+    // The requested page ran past the end (its rows were moved/removed meanwhile): show the last one.
+    if (!res.results.length && res.count > 0 && page.current > 1) {
+      await onChange({ ...page, current: Math.ceil(res.count / page.pageSize) }, rawFilters, sorter);
       return;
     }
 
@@ -180,11 +199,15 @@
   onChange(pagination.value);
 
   defineExpose({
-    refresh: () => onChange(pagination.value, {}, {}),
+    refresh: () => onChange(pagination.value, lastFilters, lastSorter),
   });
 </script>
 <template>
   <div class="list">
+    <!--
+      Size is pinned here, not inherited from the global ConfigProvider, so every list in the
+      app (seats, document templates, projects, a project's chats, ...) is the same size.
+    -->
     <a-table
       :key="key"
       :columns="localColumns"
@@ -192,6 +215,8 @@
       :loading="loading || loadingData"
       :pagination="pagination"
       :rowKey="(record) => record.id"
+      :rowSelection="rowSelection"
+      size="large"
       :sortDirections="['ascend', 'descend', 'ascend']"
       @change="onChange"
     />

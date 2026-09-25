@@ -34,6 +34,33 @@ describe('router auth guard', () => {
     expect(router.currentRoute.value.name).toBe('chat');
   });
 
+  it('lets any signed-in user, admin or not, onto the per-user projects route', async () => {
+    mockAuth.hasSession.mockReturnValue(true);
+    mockAuth.isAdmin.mockReturnValue(false);
+    await router.push('/projects');
+    expect(router.currentRoute.value.name).toBe('projects');
+  });
+
+  it('redirects an unauthenticated user away from the projects route, preserving the target', async () => {
+    await router.push('/projects');
+    expect(router.currentRoute.value.name).toBe('landing');
+    expect(router.currentRoute.value.query.redirect).toBe('/projects');
+  });
+
+  it('lets any signed-in user onto one project\'s chats, carrying its id', async () => {
+    mockAuth.hasSession.mockReturnValue(true);
+    mockAuth.isAdmin.mockReturnValue(false);
+    await router.push('/projects/8');
+    expect(router.currentRoute.value.name).toBe('project');
+    expect(router.currentRoute.value.params.id).toBe('8');
+  });
+
+  it('redirects an unauthenticated user away from a project\'s chats, preserving the target', async () => {
+    await router.push('/projects/8');
+    expect(router.currentRoute.value.name).toBe('landing');
+    expect(router.currentRoute.value.query.redirect).toBe('/projects/8');
+  });
+
   it('bounces a non-admin authenticated user away from an admin-only route', async () => {
     mockAuth.hasSession.mockReturnValue(true);
     mockAuth.isAdmin.mockReturnValue(false);

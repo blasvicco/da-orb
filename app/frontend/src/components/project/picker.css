@@ -1,0 +1,22 @@
+@reference "@/styles/main.css";
+
+/* The popover teleports to <body>, outside the themed layout, so neutral colors are used. */
+.orb-project-picker {
+  @apply flex flex-col gap-2 w-56;
+
+  .orb-project-picker-list {
+    @apply flex flex-col gap-0.5 max-h-52 overflow-y-auto scrollbar-thin;
+
+    .orb-project-picker-item {
+      @apply cursor-pointer px-2 py-1.5 rounded-md text-left text-slate-700 text-sm transition-colors truncate w-full;
+
+      &:hover {
+        background: rgba(15, 82, 186, 0.08);
+      }
+    }
+
+    .orb-project-picker-empty {
+      @apply italic px-2 py-1 text-slate-400 text-xs;
+    }
+  }
+}

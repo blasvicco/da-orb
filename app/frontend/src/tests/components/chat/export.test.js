@@ -8,7 +8,7 @@ import Export from '@/components/chat/export.vue';
 const USER_MESSAGE = { text: 'What is the stock level?', time: '10:00', type: 'user' };
 const AGENT_MESSAGE = { text: '**In stock**: 42 units', time: '10:01', type: 'agent' };
 const SAP_MESSAGE = {
-  data: { 'landing.chat.step3.inStock': 'landing.chat.step3.inStockVal' },
+  data: { 'landing.chat.step3.total': 'landing.chat.step3.totalVal' },
   time: '10:02',
   titleKey: 'landing.chat.step3.title',
   type: 'sap-data',

@@ -1,0 +1,30 @@
+@reference "@/styles/main.css";
+
+.orb-recent-section {
+  @apply flex flex-col gap-2 mt-4 w-full;
+
+  .orb-recent-title {
+    @apply font-bold px-1 text-xs tracking-wider uppercase;
+    color: var(--orb-history-label);
+  }
+
+  .orb-recent-list {
+    @apply flex flex-col gap-0.5 w-full;
+
+    .orb-recent-item {
+      @apply cursor-pointer duration-200 font-medium px-3 py-2 rounded-lg text-left text-xs transition-all truncate w-full;
+      color: var(--orb-history-text);
+
+      &:hover,
+      &.orb-recent-item--active {
+        background: var(--orb-history-hover-bg);
+        color: var(--orb-history-hover-text);
+      }
+    }
+
+    .orb-recent-empty {
+      @apply italic px-3 py-1 text-xs;
+      color: var(--orb-history-empty);
+    }
+  }
+}

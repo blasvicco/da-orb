@@ -27,8 +27,7 @@ class SapOAuthClient:
 		self.__client_secret = integration.get("client_secret")
 		base_url = integration.get("base_url", "")
 		self.__token_endpoint = (
-			integration.get("token_endpoint")
-			or f"{base_url.rstrip('/')}/oauth/token"
+			integration.get("token_endpoint") or f"{base_url.rstrip('/')}/oauth/token"
 		)
 
 	@staticmethod

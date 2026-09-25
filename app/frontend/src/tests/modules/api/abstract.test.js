@@ -88,6 +88,13 @@ describe('Abstract HTTP methods', () => {
     expect(url).not.toContain('role=');
   });
 
+  it('list() URL-encodes filter values, so user-typed text cannot corrupt the query', async () => {
+    const resource = new TestResource();
+    await resource.list({ filters: { name__icontains: 'a&b=c #1' } });
+    const [url] = globalThis.fetch.mock.calls[0];
+    expect(url).toContain('name__icontains=a%26b%3Dc%20%231&');
+  });
+
   it.each([
     ['ascending sorter appends a plain ordering param', 'ascend', 'ordering=name'],
     ['descending sorter appends a minus-prefixed ordering param', 'descend', 'ordering=-name'],

@@ -42,6 +42,26 @@ describe('ChatBubble', () => {
     expect(wrapper.emitted('process-select')[0]).toEqual(['Create PO']);
   });
 
+  it('shows the generated document as a chip on an agent message that carries an attachment', () => {
+    const wrapper = mount(ChatBubble, {
+      props: {
+        msg: { attachment: { id: 7, name: 'factura_1.pdf' }, text: 'Your invoice is ready.', time: '10:00', type: 'agent' },
+      },
+    });
+
+    const chip = wrapper.findComponent({ name: 'DocumentChip' });
+    expect(chip.exists()).toBe(true);
+    expect(chip.props('attachment')).toEqual({ id: 7, name: 'factura_1.pdf' });
+  });
+
+  it('omits the document chip on an agent message with no attachment', () => {
+    const wrapper = mount(ChatBubble, {
+      props: { msg: { text: 'hi', time: '10:00', type: 'agent' } },
+    });
+
+    expect(wrapper.findComponent({ name: 'DocumentChip' }).exists()).toBe(false);
+  });
+
   it('omits the process list on an agent message with no processes', () => {
     const wrapper = mount(ChatBubble, {
       props: { msg: { text: 'hi', time: '10:00', type: 'agent' } },
@@ -79,7 +99,7 @@ describe('ChatBubble', () => {
     const wrapper = mount(ChatBubble, {
       props: {
         msg: {
-          data: { 'landing.chat.step3.inStock': 'landing.chat.step3.inStockVal' },
+          data: { 'landing.chat.step3.total': 'landing.chat.step3.totalVal' },
           time: '10:00',
           titleKey: 'landing.chat.step3.title',
           type: 'sap-data',

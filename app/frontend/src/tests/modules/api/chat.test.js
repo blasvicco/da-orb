@@ -13,10 +13,17 @@ describe('Chat', () => {
     globalThis.fetch.mockResolvedValue({ json: async () => ([]), status: 200 });
   });
 
-  it('sessions() GETs the sessions endpoint', async () => {
-    await Chat.sessions();
+  it('sessions() GETs the sessions endpoint scoped to a project_id', async () => {
+    await Chat.sessions(3);
     const [url, opts] = globalThis.fetch.mock.calls[0];
-    expect(url).toBe(`${Chat.constants.ENDPOINT}/sessions/`);
+    expect(url).toBe(`${Chat.constants.ENDPOINT}/sessions/?project_id=3`);
+    expect(opts.credentials).toBe('include');
+  });
+
+  it('recent() GETs the recent endpoint', async () => {
+    await Chat.recent();
+    const [url, opts] = globalThis.fetch.mock.calls[0];
+    expect(url).toBe(`${Chat.constants.ENDPOINT}/recent/`);
     expect(opts.credentials).toBe('include');
   });
 

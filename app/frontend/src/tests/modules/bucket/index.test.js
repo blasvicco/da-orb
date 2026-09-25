@@ -80,10 +80,17 @@ describe('useBucket', () => {
       expect(bucket.pendingFiles).toEqual([file]);
     });
 
-    it('does nothing for an empty file list', async () => {
+    it.each([
+      ['an empty file list', []],
+      ['no file list', undefined],
+      ['a null file list', null],
+    ])('does nothing for %s', async (_label, fileList) => {
       const bucket = useBucket();
-      await bucket.addFiles(null, []);
+
+      expect(await bucket.addFiles(null, fileList)).toEqual([]);
+
       expect(bucket.pendingFiles).toEqual([]);
+      expect(mockBucket.upload).not.toHaveBeenCalled();
     });
 
     it('returns the uploaded file records when a sessionId is present', async () => {

@@ -15,6 +15,13 @@ import { buildRouter, mount } from '@/tests/helpers/mount';
 import { useContactModal } from '@/modules/contact';
 import DefaultLayout from '@/layouts/default.vue';
 
+// Fixtures
+const NAV_LINKS = [
+  ['Platform', 0, '#platform'],
+  ['Features', 1, '#features'],
+  ['Security', 2, '#security'],
+];
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockOrg.getContext.mockReturnValue({});
@@ -30,29 +37,29 @@ describe('DefaultLayout mount', () => {
 });
 
 describe('DefaultLayout nav anchors', () => {
-  it('navigates to the landing page with a hash when clicked from a non-landing route', async () => {
+  it.each(NAV_LINKS)('%s link navigates to the landing page with its hash when clicked from a non-landing route', async (_label, index, hash) => {
     const router = buildRouter('/terms');
     await router.isReady();
     const pushSpy = vi.spyOn(router, 'push');
     const wrapper = mount(DefaultLayout, { global: { router } });
 
-    await wrapper.find('.orb-nav-link').trigger('click');
+    await wrapper.findAll('.orb-nav-link')[index].trigger('click');
 
-    expect(pushSpy).toHaveBeenCalledWith({ hash: '#features', name: 'landing' });
+    expect(pushSpy).toHaveBeenCalledWith({ hash, name: 'landing' });
   });
 
-  it('scrolls the section into view when already on the landing page', async () => {
+  it.each(NAV_LINKS)('%s link scrolls its section into view when already on the landing page', async (_label, index, hash) => {
     const router = buildRouter('/');
     await router.isReady();
     const scrollIntoView = vi.fn();
-    // Scoped to '#features' only — antdv-next's own style-injection also calls
+    // Scoped to the clicked hash only — antdv-next's own style-injection also calls
     // document.querySelector internally, so a blanket stub breaks unrelated renders.
     const realQuerySelector = document.querySelector.bind(document);
     const querySelectorSpy = vi.spyOn(document, 'querySelector').mockImplementation((selector) =>
-      (selector === '#features' ? { scrollIntoView } : realQuerySelector(selector)));
+      (selector === hash ? { scrollIntoView } : realQuerySelector(selector)));
     const wrapper = mount(DefaultLayout, { global: { router } });
 
-    await wrapper.find('.orb-nav-link').trigger('click');
+    await wrapper.findAll('.orb-nav-link')[index].trigger('click');
 
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth' });
     querySelectorSpy.mockRestore();
@@ -66,10 +73,18 @@ describe('DefaultLayout nav anchors', () => {
       (selector === '#security' ? null : realQuerySelector(selector)));
     const wrapper = mount(DefaultLayout, { global: { router } });
 
-    await wrapper.findAll('.orb-nav-link')[1].trigger('click');
+    await wrapper.findAll('.orb-nav-link')[2].trigger('click');
 
     expect(querySelectorSpy).toHaveBeenCalledWith('#security');
     querySelectorSpy.mockRestore();
+  });
+
+  it('lists Platform, Features and Security, in that order, each pointing at its own section', () => {
+    const wrapper = mount(DefaultLayout);
+    const links = wrapper.findAll('.orb-nav-link');
+
+    expect(links.map((link) => link.attributes('href'))).toEqual(['#platform', '#features', '#security']);
+    expect(links.map((link) => link.text())).toEqual(['Platform', 'Features', 'Security']);
   });
 });
 

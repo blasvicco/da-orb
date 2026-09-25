@@ -2,7 +2,7 @@
   // Libs imports
   import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
   import { useI18n } from 'vue-i18n';
-  import { useRouter } from 'vue-router';
+  import { useRoute, useRouter } from 'vue-router';
 
   // Antd imports
   import { PlusOutlined } from '@antdv-next/icons';
@@ -10,6 +10,7 @@
   // App modules imports
   import { useAuth } from '@/modules/auth';
   import AppAPI from '@/modules/api';
+  import { useProject } from '@/modules/project';
   import Chat from '@/modules/websocket/chat';
 
   // App components imports
@@ -18,6 +19,8 @@
   import ChatHistory from '@/components/chat/history.vue';
   import ChatInput from '@/components/chat/input.vue';
   import ChatWelcome from '@/components/chat/welcome.vue';
+  import ProjectSelector from '@/components/project/selector.vue';
+  import RecentChats from '@/components/chat/recent-chats.vue';
   import UserDetail from '@/components/user/detail.vue';
   import ChatLayout from '@/layouts/chat.vue';
 
@@ -25,8 +28,10 @@
   import orbLogo from '@/assets/img/logo.svg?url';
 
   const { locale, t, te } = useI18n({ useScope: 'global' });
+  const route = useRoute();
   const router = useRouter();
   const auth = useAuth();
+  const projectStore = useProject();
 
   // User profile sourced from real SAP session
   const userProfile = computed(() => {
@@ -53,6 +58,7 @@
   const messages = ref([]);
   const pendingContextFiles = ref([]);
   const promptText = ref('');
+  const recentChatsRef = ref(null);
   const sessionId = ref(null);
   const sessions = ref([]);
   const statusText = ref(null);
@@ -117,9 +123,12 @@
   });
 
   // Single source of truth for the sidebar session list — re-fetched rather than
-  // accumulated client-side, so token totals can't drift on reconnect/replay.
+  // accumulated client-side, so token totals can't drift on reconnect/replay. The list is
+  // scoped to the selected project; the cross-project Recent Chats widget refreshes with it.
   const refreshSessions = async () => {
-    const result = await AppAPI.Chat.sessions();
+    // Not awaited: the widget is secondary, its failure must not hold up (or reject) the main list.
+    recentChatsRef.value?.refresh();
+    const result = await AppAPI.Chat.sessions(projectStore.currentProjectId());
     if (!result?.errors) sessions.value = result;
   };
 
@@ -130,7 +139,17 @@
     if (s) s.pending = pending;
   };
 
-  // Load and display messages for a past session, then reconnect WS to resume it
+  // Reconnect shortly after a disconnect. One timer only: a second request (a quick double
+  // click, or a linked chat that turns out not to exist) replaces the pending connect
+  // instead of opening a second socket.
+  let connectTimer = null;
+  const scheduleConnect = () => {
+    clearTimeout(connectTimer);
+    connectTimer = setTimeout(() => chat.connect(), 300);
+  };
+
+  // Load and display messages for a past session, then reconnect WS to resume it.
+  // Resolves to whether the chat's history could be loaded (false: it no longer exists).
   const loadSession = async (id) => {
     messages.value = [];
     // Don't blindly clear the typing indicator — if this chat is still waiting on
@@ -144,7 +163,7 @@
     statusText.value = null;
     chat.sessionId = id;
     chat.disconnect();
-    setTimeout(() => chat.connect(), 300);
+    scheduleConnect();
 
     const result = await AppAPI.Chat.messages(id);
     if (!result?.errors) {
@@ -164,12 +183,14 @@
       isTyping.value = !!last && last.type === 'user';
       scrollToBottom();
     }
+    return !result?.errors;
   };
 
   // Delete a past session and remove it from the sidebar
   const deleteSession = async (id) => {
     await AppAPI.Chat.deleteSession(id);
     sessions.value = sessions.value.filter((s) => s.id !== id);
+    recentChatsRef.value?.refresh();
     if (sessionId.value === id) {
       startNewChat();
     }
@@ -178,13 +199,39 @@
   // Start a fresh chat — disconnect current WS (clears resume id) and reconnect
   const startNewChat = () => {
     chat.disconnect();
+    // The project a brand-new chat lands in is fixed when the socket authenticates, so it
+    // is (re)set here, right before every reconnect that starts a new chat.
+    chat.projectId = projectStore.currentProjectId();
     chat.sessionId = null;
     isTyping.value = false;
     messages.value = [];
     pendingContextFiles.value = [];
     sessionId.value = null;
     statusText.value = null;
-    setTimeout(() => chat.connect(), 300);
+    scheduleConnect();
+  };
+
+  // Make a project the selected one and show its chats. Does not touch the open chat.
+  const activateProject = async (id) => {
+    const result = await projectStore.selectProject(id);
+    if (result?.errors) return false;
+    await refreshSessions();
+    return true;
+  };
+
+  // Project selector: the open chat belongs to the previous project (or doesn't exist yet,
+  // in which case its socket was authenticated against the previous project), so unless it
+  // is also in the new project's list, leave it for a fresh chat in the new project.
+  const switchProject = async (id) => {
+    if (id === projectStore.currentProjectId()) return;
+    if (!(await activateProject(id))) return;
+    if (!sessions.value.some((s) => s.id === sessionId.value)) startNewChat();
+  };
+
+  // Recent Chats widget: may point into another project — switch to it, then open the chat.
+  const openRecentChat = async ({ projectId, sessionId: id }) => {
+    if (projectId !== projectStore.currentProjectId() && !(await activateProject(projectId))) return;
+    await loadSession(id);
   };
 
   // Quick prompt selection handler
@@ -241,7 +288,20 @@
     router.push('/');
   };
 
-  onMounted(() => {
+  // /chat?project=<id>&session=<id> — the links in a project's chat list — opens that chat.
+  // Anything else (a missing, partial or garbled query) is just the normal Default-project start.
+  const linkedChat = () => {
+    const projectId = Number(route.query.project);
+    const id = Number(route.query.session);
+    return Number.isInteger(projectId) && projectId > 0 && Number.isInteger(id) && id > 0
+      ? { projectId, sessionId: id }
+      : null;
+  };
+
+  // Set on unmount so a connect still pending on the async project lookup is dropped.
+  let disposed = false;
+
+  onMounted(async () => {
     chat.on('auth', (data) => {
       // session_id is only present when resuming an existing session
       if (data.session_id) {
@@ -332,10 +392,32 @@
       statusText.value = (data.text && te(data.text)) ? t(data.text) : (data.text || null);
     });
 
+    // Every visit to the chat starts in the Default project (sign-in included); it has to
+    // be known before connecting, since a new chat's project is sent with the socket's auth.
+    await projectStore.loadDefault();
+    if (disposed) return;
+    const linked = linkedChat();
+    if (linked) {
+      // Consumed once, so a later reload doesn't keep re-opening this chat over wherever
+      // the user has moved on to since.
+      router.replace({ query: {} });
+      if (await activateProject(linked.projectId)) {
+        if (disposed) return;
+        chat.projectId = projectStore.currentProjectId();
+        // The chat may have been deleted since the link was rendered: start a fresh one in
+        // that project instead of resuming something that isn't there.
+        if (!(await loadSession(linked.sessionId))) startNewChat();
+        return;
+      }
+      if (disposed) return;
+    }
+    chat.projectId = projectStore.currentProjectId();
     chat.connect();
   });
 
   onUnmounted(() => {
+    disposed = true;
+    clearTimeout(connectTimer);
     chat.disconnect();
   });
 </script>
@@ -364,6 +446,12 @@
         >
           {{ userProfile.connection }}
         </span>
+        <span
+          v-if="projectStore.currentProject()"
+          class="orb-sidebar-project"
+        >
+          {{ projectStore.currentProject().name }}
+        </span>
       </div>
 
       <!-- New Chat Action -->
@@ -375,7 +463,17 @@
         {{ $t('chat.sidebar.newChat') }}
       </button>
 
-      <!-- History Ledger -->
+      <!-- Latest chats across every project -->
+      <RecentChats
+        ref="recentChatsRef"
+        :active-session-id="sessionId"
+        @select="openRecentChat"
+      />
+
+      <!-- Project switcher -->
+      <ProjectSelector @select="switchProject" />
+
+      <!-- History Ledger (the selected project's chats) -->
       <ChatHistory
         :sessions="sessions"
         :active-session-id="sessionId"

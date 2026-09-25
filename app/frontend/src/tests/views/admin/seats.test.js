@@ -215,6 +215,21 @@ describe('Seats table columns', () => {
     expect(revokeColumn.render(null, SEAT).props.disabled).toBe(false);
   });
 
+  it.each([
+    ['revoke', 'Revoke'],
+    ['demote', undefined],
+  ])('renders the %s switch with no text inside it', async (key, ariaLabel) => {
+    const wrapper = mount(Seats);
+    await flushPromises();
+    const column = wrapper.findComponent(List).props('columns').find((c) => c.key === key);
+
+    const { props } = column.render(null, SEAT);
+
+    expect(props).not.toHaveProperty('checkedChildren');
+    expect(props).not.toHaveProperty('unCheckedChildren');
+    expect(props['aria-label']).toBe(ariaLabel);
+  });
+
   it('reinstates a revoked seat when the revoke switch is turned on', async () => {
     const wrapper = mount(Seats);
     await flushPromises();

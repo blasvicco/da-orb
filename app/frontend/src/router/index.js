@@ -8,6 +8,8 @@ import { useAuth } from '@/modules/auth';
 import landing from '@/views/landing.vue';
 import chat from '@/views/chat.vue';
 import privacy from '@/views/privacy.vue';
+import project from '@/views/project.vue';
+import projects from '@/views/projects.vue';
 import documentTemplates from '@/views/admin/document-templates.vue';
 import seats from '@/views/admin/seats.vue';
 import terms from '@/views/terms.vue';
@@ -52,6 +54,22 @@ const router = createRouter({
     path: '/chat',
     name: 'chat',
     component: chat,
+    meta: {
+      auth: true,
+    },
+  }, {
+    // Per-user, not org-admin: any signed-in user manages their own projects.
+    path: '/projects',
+    name: 'projects',
+    component: projects,
+    meta: {
+      auth: true,
+    },
+  }, {
+    // One project's chats (also per-user, not org-admin).
+    path: '/projects/:id',
+    name: 'project',
+    component: project,
     meta: {
       auth: true,
     },

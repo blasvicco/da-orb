@@ -14,7 +14,14 @@ from django.utils import timezone
 from rest_framework.test import APIRequestFactory
 
 # App imports
-from drf_api.models import MChatMessage, MChatSession, MOrganization, MSeat, MUsageEvent
+from drf_api.models import (
+	MChatMessage,
+	MChatSession,
+	MOrganization,
+	MProject,
+	MSeat,
+	MUsageEvent,
+)
 from drf_api.resources.chat.main import (
 	VSChat,
 	_collect_and_record_usage,
@@ -57,10 +64,24 @@ def test_sessions_scoped_by_connection_key():
 	with step("Arrange: Two sessions for the same org/username, different databases."):
 		org = _make_org()
 		matching = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
-		MChatSession.objects.create(connection_key="OTHERDB", org=org, username="bob")
-		request = _make_request("get", org, connection_key="TESTDB", username="bob")
+		MChatSession.objects.create(
+			connection_key="OTHERDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "OTHERDB"),
+			username="bob",
+		)
+		request = _make_request(
+			"get",
+			org,
+			connection_key="TESTDB",
+			query={"project_id": matching.project_id},
+			username="bob",
+		)
 
 	with step("Act: Call sessions."):
 		response = VSChat.as_view({"get": "sessions"})(request)
@@ -81,9 +102,16 @@ def test_sessions_includes_n8n_state_for_reloaded_intention_graph():
 				"intention_nodes": {"p1#0": {"id": "p1#0", "status": "completed"}}
 			},
 			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
 			username="bob",
 		)
-		request = _make_request("get", org, connection_key="TESTDB", username="bob")
+		request = _make_request(
+			"get",
+			org,
+			connection_key="TESTDB",
+			query={"project_id": session.project_id},
+			username="bob",
+		)
 
 	with step("Act: Call sessions."):
 		response = VSChat.as_view({"get": "sessions"})(request)
@@ -104,7 +132,10 @@ def test_sessions_returns_tokens_used_sum():
 	):
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		now = timezone.now()
 		MUsageEvent.objects.create(
@@ -133,7 +164,13 @@ def test_sessions_returns_tokens_used_sum():
 			session=session,
 			username="bob",
 		)
-		request = _make_request("get", org, connection_key="TESTDB", username="bob")
+		request = _make_request(
+			"get",
+			org,
+			connection_key="TESTDB",
+			query={"project_id": session.project_id},
+			username="bob",
+		)
 
 	with step("Act: Call sessions."):
 		response = VSChat.as_view({"get": "sessions"})(request)
@@ -172,8 +209,19 @@ def test_sessions_returns_zero_tokens_when_no_usage_events():
 
 	with step("Arrange: A session with no MUsageEvent rows."):
 		org = _make_org()
-		MChatSession.objects.create(connection_key="TESTDB", org=org, username="bob")
-		request = _make_request("get", org, connection_key="TESTDB", username="bob")
+		session = MChatSession.objects.create(
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
+		)
+		request = _make_request(
+			"get",
+			org,
+			connection_key="TESTDB",
+			query={"project_id": session.project_id},
+			username="bob",
+		)
 
 	with step("Act: Call sessions."):
 		response = VSChat.as_view({"get": "sessions"})(request)
@@ -189,7 +237,10 @@ def test_messages_404_on_mismatched_connection_key():
 	with step("Arrange: A session scoped to TESTDB, request scoped to OTHERDB."):
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		request = _make_request(
 			"get",
@@ -212,7 +263,10 @@ def test_messages_returns_matching_session():
 	with step("Arrange: A session and message scoped to TESTDB."):
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		MChatMessage.objects.create(
 			session=session, text="hello", timestamp=timezone.now(), type="user"
@@ -240,7 +294,10 @@ def test_delete_session_404_on_mismatched_connection_key():
 	with step("Arrange: A session scoped to TESTDB, request scoped to OTHERDB."):
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		request = _make_request(
 			"delete",
@@ -263,7 +320,10 @@ def test_delete_session_soft_deletes_matching_session():
 	with step("Arrange: A session scoped to TESTDB/bob."):
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		request = _make_request(
 			"delete",
@@ -290,15 +350,25 @@ def test_sessions_excludes_soft_deleted_session():
 	):
 		org = _make_org()
 		active = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		MChatSession.objects.create(
 			connection_key="TESTDB",
 			deleted_on=timezone.now(),
 			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
 			username="bob",
 		)
-		request = _make_request("get", org, connection_key="TESTDB", username="bob")
+		request = _make_request(
+			"get",
+			org,
+			connection_key="TESTDB",
+			query={"project_id": active.project_id},
+			username="bob",
+		)
 
 	with step("Act: Call sessions."):
 		response = VSChat.as_view({"get": "sessions"})(request)
@@ -349,7 +419,10 @@ def test_n8n_callback_fires_background_usage_collection_when_root_execution_id_p
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		request = _make_usage_request(org, session, root_execution_id="7530")
 
@@ -396,7 +469,10 @@ def test_n8n_callback_records_no_token_usage_event_when_tree_walk_finds_nothing(
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		request = _make_usage_request(org, session, root_execution_id="7530")
 
@@ -429,7 +505,10 @@ def test_n8n_callback_skips_usage_collection_when_root_execution_id_absent(setti
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		request = _make_usage_request(org, session)
 
@@ -456,7 +535,10 @@ def test_n8n_callback_records_process_execution_event(settings):
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		request = _make_callback_request(
 			{
@@ -491,7 +573,10 @@ def test_n8n_callback_records_process_execution_event_prefers_definition_name(se
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		request = _make_callback_request(
 			{
@@ -533,7 +618,10 @@ def test_n8n_callback_records_no_usage_event_when_nothing_to_report(settings):
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		request = _make_callback_request(
 			{
@@ -564,7 +652,10 @@ def test_n8n_callback_reset_process_clears_active_node_id(settings):
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		group_name = f"chat_reset_node_{session.id}_{uuid4()}"
 		first_request = _make_callback_request(
@@ -615,7 +706,10 @@ def test_n8n_callback_persists_intention_nodes(settings):
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		group_name = f"chat_nodes_{session.id}_{uuid4()}"
 		first_request = _make_callback_request(
@@ -695,6 +789,7 @@ def test_n8n_callback_persists_message_for_soft_deleted_session(settings):
 			connection_key="TESTDB",
 			deleted_on=timezone.now(),
 			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
 			username="bob",
 		)
 		request = _make_callback_request(
@@ -726,7 +821,10 @@ def test_n8n_callback_rejects_a_field_it_does_not_declare(settings):
 		settings.N8N_CALLBACK_SECRET = "test-secret"
 		org = _make_org()
 		session = MChatSession.objects.create(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB",
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
+			username="bob",
 		)
 		request = _make_callback_request(
 			{

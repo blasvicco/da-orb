@@ -174,11 +174,12 @@
     {
       dataIndex: 'revoke',
       key: 'revoke',
+      // No text inside the switch itself (the status badge next to it already says it);
+      // the label is for assistive tech only.
       render: (_value, record) => h(Switch, {
+        'aria-label': t('admin.seats.revoke'),
         checked: record.status === 'active',
-        checkedChildren: t('admin.seats.statusActive'),
         disabled: record.username === currentUsername.value,
-        unCheckedChildren: t('admin.seats.statusRevoked'),
         onChange: (checked) => (checked ? reinstate(record.username) : revoke(record.username)),
       }),
       title: t('admin.seats.revoke'),

@@ -1,0 +1,6 @@
+@reference "@/styles/main.css";
+
+/* Fills whatever width its container gives it: the sidebar's, or a fixed one in a view. */
+.orb-project-select {
+  @apply w-full;
+}

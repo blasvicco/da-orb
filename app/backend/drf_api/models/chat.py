@@ -7,6 +7,7 @@ from django.db import models
 from drf_api.models.base import MBase
 from drf_api.models.base_soft_delete import MBaseSoftDelete
 from drf_api.models.organization import MOrganization
+from drf_api.models.project import MProject
 
 
 class MChatSession(MBaseSoftDelete):
@@ -15,10 +16,17 @@ class MChatSession(MBaseSoftDelete):
 	Soft-deleted (deleted_on set): stays queryable by pk for any in-flight process still
 	holding the id (e.g. an n8n execution fired before the delete, or a background
 	usage-recording walk) -- only user-facing listing/resume paths (VSChat.sessions,
-	CChat._load_session) filter it out."""
+	CChat._load_session) filter it out.
+
+	Always belongs to exactly one project (see MProject.resolve_for_chat)."""
 
 	org = models.ForeignKey(
 		MOrganization,
+		on_delete=models.CASCADE,
+		related_name="chat_sessions",
+	)
+	project = models.ForeignKey(
+		MProject,
 		on_delete=models.CASCADE,
 		related_name="chat_sessions",
 	)

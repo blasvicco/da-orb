@@ -1,6 +1,11 @@
 @reference "@/styles/main.css";
 
 div.list {
+	/* One text size for every list, set here rather than left to each view's cell content. */
+	.ant-table {
+		font-size: var(--ant-font-size, 14px);
+	}
+
 	td {
 		vertical-align: top;
 	}

@@ -12,7 +12,7 @@ from django.db import IntegrityError
 from django.utils import timezone
 
 # App imports
-from drf_api.models import MChatMessage, MChatSession, MOrganization
+from drf_api.models import MChatMessage, MChatSession, MOrganization, MProject
 from drf_api.tests.factories.bucket_file import FBucketFile
 from web_socket.consumers.abstract import CAbstract
 from web_socket.consumers.chat import (
@@ -62,13 +62,16 @@ def test_create_session_persists_connection_key():
 	with step("Arrange: An organization to attach the session to."):
 		org = _make_org()
 
+		project = MProject.get_or_create_default(org, "bob", "TESTDB")
+
 	with step("Act: Call _create_session."):
 		session = async_to_sync(_create_session)(
-			connection_key="TESTDB", org=org, username="bob"
+			connection_key="TESTDB", org=org, project=project, username="bob"
 		)
 
-	with step("Assert: The row was persisted with the connection_key."):
+	with step("Assert: The row was persisted with the connection_key and project."):
 		assert session.connection_key == "TESTDB"
+		assert session.project_id == project.id
 
 
 @pytest.mark.django_db(transaction=True)
@@ -107,6 +110,9 @@ def test_load_session_scoped_by_connection_key(payload):
 			connection_key=payload["row_connection_key"],
 			deleted_on=timezone.now() if payload["deleted"] else None,
 			org=org,
+			project=MProject.get_or_create_default(
+				org, "bob", payload["row_connection_key"]
+			),
 			username="bob",
 		)
 
@@ -168,7 +174,11 @@ def test_save_message_persists_row():
 
 	with step("Arrange: A persisted session."):
 		org = _make_org()
-		session = MChatSession.objects.create(org=org, username="bob")
+		session = MChatSession.objects.create(
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", ""),
+			username="bob",
+		)
 
 	with step("Act: Call _save_message."):
 		async_to_sync(_save_message)(
@@ -187,7 +197,12 @@ def test_set_session_title_updates_db_and_instance():
 
 	with step("Arrange: A persisted session with a blank title."):
 		org = _make_org()
-		session = MChatSession.objects.create(org=org, title="", username="bob")
+		session = MChatSession.objects.create(
+			org=org,
+			project=MProject.get_or_create_default(org, "bob", ""),
+			title="",
+			username="bob",
+		)
 
 	with step("Act: Call _set_session_title."):
 		async_to_sync(_set_session_title)(session, "New title")
@@ -271,6 +286,36 @@ def test_auth_init_captures_resume_session_id_before_delegating(mocker):
 		mock_super_auth_init.assert_awaited_once_with({"session_id": 99})
 
 
+@pytest.mark.parametrize(
+	"payload",
+	[
+		{"content": {"project_id": 7}, "description": "an integer id", "expected": 7},
+		{"content": {}, "description": "no id", "expected": None},
+		{
+			"content": {"project_id": "7"},
+			"description": "a string id",
+			"expected": None,
+		},
+		{"content": {"project_id": None}, "description": "a null id", "expected": None},
+	],
+)
+def test_auth_init_captures_resume_project_id_before_delegating(payload, mocker):
+	"""Test CChat.auth_init keeps only an integer project_id, so junk falls back to the Default project"""
+
+	with step(
+		f"Arrange: A consumer and a mocked parent auth_init, with {payload['description']}."
+	):
+		consumer = _make_consumer()
+		mocker.patch.object(CAbstract, "auth_init", AsyncMock())
+
+	with step("Act: Call auth_init."):
+		async_to_sync(consumer.auth_init)(payload["content"])
+
+	with step("Assert: Only a real integer id was captured."):
+		captured = consumer._resume_project_id  # pylint: disable=protected-access
+		assert captured == payload["expected"]
+
+
 # ---------------------------------------------------------------------------
 # _resolve_process_selection
 # ---------------------------------------------------------------------------
@@ -350,7 +395,9 @@ def test_broadcast_persists_message_for_non_ephemeral_types(msg_type):
 	with step("Arrange: A consumer with a persisted chat_session."):
 		consumer = _make_consumer()
 		consumer.chat_session = MChatSession.objects.create(
-			org=consumer.organization, username="bob"
+			org=consumer.organization,
+			project=MProject.get_or_create_default(consumer.organization, "bob", ""),
+			username="bob",
 		)
 
 	with step(f"Act: Call _broadcast with a '{msg_type}' message."):
@@ -462,13 +509,80 @@ def test_ensure_session_creates_and_announces_when_none_exists():
 
 
 @pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize(
+	"payload",
+	[
+		{
+			"description": "no project requested",
+			"expected": "Default",
+			"requested": None,
+		},
+		{
+			"description": "an owned project requested",
+			"expected": "Work",
+			"requested": {"name": "Work"},
+		},
+		{
+			"description": "another user's project requested",
+			"expected": "Default",
+			"requested": {"name": "Theirs", "username": "alice"},
+		},
+		{
+			"description": "a soft-deleted project requested",
+			"expected": "Default",
+			"requested": {"deleted_on": timezone.now(), "name": "Gone"},
+		},
+		{
+			"description": "an unknown project id requested",
+			"expected": "Default",
+			"requested": {"missing": True},
+		},
+	],
+)
+def test_ensure_session_lands_in_the_requested_project_or_the_default(payload):
+	"""Test _ensure_session files a new chat under the requested owned project, else the Default project"""
+
+	with step(
+		f"Arrange: A consumer with no chat_session yet and {payload['description']}."
+	):
+		consumer = _make_consumer()
+		consumer.connection_key = "TESTDB"
+		consumer.chat_session = None
+		requested = dict(payload["requested"] or {})
+		project_id = None
+		if requested.pop("missing", False):
+			project_id = 999999
+		elif requested:
+			project_id = MProject.objects.create(
+				**{
+					"connection_key": "TESTDB",
+					"org": consumer.organization,
+					"username": "bob",
+					**requested,
+				}
+			).id
+		consumer._resume_project_id = project_id  # pylint: disable=protected-access
+
+	with step("Act: Call _ensure_session."):
+		async_to_sync(consumer._ensure_session)()  # pylint: disable=protected-access
+
+	with step("Assert: The new session belongs to the expected project."):
+		assert consumer.chat_session.project.name == payload["expected"]
+
+
+@pytest.mark.django_db(transaction=True)
 def test_ensure_session_is_a_noop_when_a_session_already_exists():
 	"""Test _ensure_session neither recreates nor re-announces an existing chat_session"""
 
 	with step("Arrange: A consumer with an existing chat_session."):
 		consumer = _make_consumer()
 		existing = MChatSession.objects.create(
-			connection_key="TESTDB", org=consumer.organization, username="bob"
+			connection_key="TESTDB",
+			org=consumer.organization,
+			project=MProject.get_or_create_default(
+				consumer.organization, "bob", "TESTDB"
+			),
+			username="bob",
 		)
 		consumer.chat_session = existing
 
@@ -530,6 +644,30 @@ def test_ensure_session_rekeys_group_for_a_brand_new_chat():
 		mock_queue.assert_called_once_with(group_name=new_group_name)
 		assert consumer.n8n_state is mock_state.return_value
 		assert consumer.n8n_queue is mock_queue.return_value
+
+
+def test_rekey_group_is_a_noop_when_the_group_name_is_unchanged():
+	"""Test _rekey_group leaves the connection alone when it already sits on its session-id group"""
+
+	with step(
+		"Arrange: A consumer whose group is already its session's deterministic group."
+	):
+		consumer = _make_consumer(resume_session_id=42)
+		consumer.chat_session = SimpleNamespace(id=42)
+		consumer.group_name = consumer.get_group_name()
+		old_n8n_state = consumer.n8n_state
+		old_n8n_queue = consumer.n8n_queue
+
+	with step("Act: Call _rekey_group."):
+		async_to_sync(consumer._rekey_group)()  # pylint: disable=protected-access
+
+	with step("Assert: No group membership changed and the Redis helpers were kept."):
+		consumer.channel_layer.group_add.assert_not_awaited()
+		consumer.channel_layer.group_discard.assert_not_awaited()
+		old_n8n_state.close.assert_not_awaited()
+		old_n8n_queue.close.assert_not_awaited()
+		assert consumer.n8n_state is old_n8n_state
+		assert consumer.n8n_queue is old_n8n_queue
 
 
 @pytest.mark.django_db(transaction=True)
@@ -1019,6 +1157,9 @@ def test_message_send_retitles_session_after_process_selection(mocker):
 		consumer.chat_session = MChatSession.objects.create(
 			connection_key="TESTDB",
 			org=consumer.organization,
+			project=MProject.get_or_create_default(
+				consumer.organization, "bob", "TESTDB"
+			),
 			title="old title",
 			username="bob",
 		)
@@ -1045,7 +1186,12 @@ def test_message_send_queues_when_execution_already_in_flight(mocker):
 		consumer = _make_consumer()
 		consumer.connection_key = "TESTDB"
 		consumer.chat_session = MChatSession.objects.create(
-			connection_key="TESTDB", org=consumer.organization, username="bob"
+			connection_key="TESTDB",
+			org=consumer.organization,
+			project=MProject.get_or_create_default(
+				consumer.organization, "bob", "TESTDB"
+			),
+			username="bob",
 		)
 		consumer.n8n_queue = MagicMock(
 			set_pending=AsyncMock(), try_start=AsyncMock(return_value=False)
@@ -1080,7 +1226,12 @@ def test_message_send_forwards_expertise_level_to_fire_n8n(mocker):
 		consumer = _make_consumer()
 		consumer.connection_key = "TESTDB"
 		consumer.chat_session = MChatSession.objects.create(
-			connection_key="TESTDB", org=consumer.organization, username="bob"
+			connection_key="TESTDB",
+			org=consumer.organization,
+			project=MProject.get_or_create_default(
+				consumer.organization, "bob", "TESTDB"
+			),
+			username="bob",
 		)
 		consumer.n8n_queue = MagicMock(try_start=AsyncMock(return_value=True))
 		mock_fire = mocker.patch.object(consumer, "_fire_n8n", AsyncMock())
@@ -1142,7 +1293,12 @@ def test_message_send_forwards_bucket_file_ids_to_fire_n8n(mocker):
 		consumer = _make_consumer()
 		consumer.connection_key = "TESTDB"
 		consumer.chat_session = MChatSession.objects.create(
-			connection_key="TESTDB", org=consumer.organization, username="bob"
+			connection_key="TESTDB",
+			org=consumer.organization,
+			project=MProject.get_or_create_default(
+				consumer.organization, "bob", "TESTDB"
+			),
+			username="bob",
 		)
 		consumer.n8n_queue = MagicMock(try_start=AsyncMock(return_value=True))
 		mock_fire = mocker.patch.object(consumer, "_fire_n8n", AsyncMock())
@@ -1172,7 +1328,12 @@ def test_message_send_forwards_language_to_fire_n8n(mocker):
 		consumer = _make_consumer()
 		consumer.connection_key = "TESTDB"
 		consumer.chat_session = MChatSession.objects.create(
-			connection_key="TESTDB", org=consumer.organization, username="bob"
+			connection_key="TESTDB",
+			org=consumer.organization,
+			project=MProject.get_or_create_default(
+				consumer.organization, "bob", "TESTDB"
+			),
+			username="bob",
 		)
 		consumer.n8n_queue = MagicMock(try_start=AsyncMock(return_value=True))
 		mock_fire = mocker.patch.object(consumer, "_fire_n8n", AsyncMock())
@@ -1198,7 +1359,12 @@ def test_message_send_rejects_batch_over_the_aggregate_size_cap(mocker, settings
 		consumer = _make_consumer()
 		consumer.connection_key = "TESTDB"
 		consumer.chat_session = MChatSession.objects.create(
-			connection_key="TESTDB", org=consumer.organization, username="bob"
+			connection_key="TESTDB",
+			org=consumer.organization,
+			project=MProject.get_or_create_default(
+				consumer.organization, "bob", "TESTDB"
+			),
+			username="bob",
 		)
 		file_a = FBucketFile(session=consumer.chat_session, size=15 * 1024 * 1024)
 		file_b = FBucketFile(session=consumer.chat_session, size=10 * 1024 * 1024)
@@ -1230,7 +1396,12 @@ def test_message_send_allows_batch_within_the_aggregate_size_cap(mocker, setting
 		consumer = _make_consumer()
 		consumer.connection_key = "TESTDB"
 		consumer.chat_session = MChatSession.objects.create(
-			connection_key="TESTDB", org=consumer.organization, username="bob"
+			connection_key="TESTDB",
+			org=consumer.organization,
+			project=MProject.get_or_create_default(
+				consumer.organization, "bob", "TESTDB"
+			),
+			username="bob",
 		)
 		file_a = FBucketFile(session=consumer.chat_session, size=5 * 1024 * 1024)
 		file_b = FBucketFile(session=consumer.chat_session, size=5 * 1024 * 1024)
@@ -1265,7 +1436,12 @@ def test_message_send_persists_bucket_file_ids_as_extra_when_present(mocker):
 		consumer = _make_consumer()
 		consumer.connection_key = "TESTDB"
 		consumer.chat_session = MChatSession.objects.create(
-			connection_key="TESTDB", org=consumer.organization, username="bob"
+			connection_key="TESTDB",
+			org=consumer.organization,
+			project=MProject.get_or_create_default(
+				consumer.organization, "bob", "TESTDB"
+			),
+			username="bob",
 		)
 		consumer.n8n_queue = MagicMock(try_start=AsyncMock(return_value=True))
 		mocker.patch.object(consumer, "_fire_n8n", AsyncMock())
@@ -1297,7 +1473,12 @@ def test_message_send_queues_bucket_file_ids_when_execution_in_flight(mocker):
 		consumer = _make_consumer()
 		consumer.connection_key = "TESTDB"
 		consumer.chat_session = MChatSession.objects.create(
-			connection_key="TESTDB", org=consumer.organization, username="bob"
+			connection_key="TESTDB",
+			org=consumer.organization,
+			project=MProject.get_or_create_default(
+				consumer.organization, "bob", "TESTDB"
+			),
+			username="bob",
 		)
 		consumer.n8n_queue = MagicMock(
 			set_pending=AsyncMock(), try_start=AsyncMock(return_value=False)
@@ -1333,7 +1514,12 @@ def test_message_send_queues_language_when_execution_in_flight(mocker):
 		consumer = _make_consumer()
 		consumer.connection_key = "TESTDB"
 		consumer.chat_session = MChatSession.objects.create(
-			connection_key="TESTDB", org=consumer.organization, username="bob"
+			connection_key="TESTDB",
+			org=consumer.organization,
+			project=MProject.get_or_create_default(
+				consumer.organization, "bob", "TESTDB"
+			),
+			username="bob",
 		)
 		consumer.n8n_queue = MagicMock(
 			set_pending=AsyncMock(), try_start=AsyncMock(return_value=False)
@@ -1568,6 +1754,7 @@ def test_resolve_context_restores_n8n_state_for_a_resumed_session():
 			connection_key="TESTDB",
 			n8n_state={"active_node_id": "n1"},
 			org=org,
+			project=MProject.get_or_create_default(org, "bob", "TESTDB"),
 			username="bob",
 		)
 		consumer = CChat()

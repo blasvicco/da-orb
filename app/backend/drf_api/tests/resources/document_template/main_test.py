@@ -395,6 +395,100 @@ def test_update_template_rejects_unsupported_document_type():
 		assert template.document_type == "invoice"
 
 
+def test_update_template_retypes_to_another_supported_document_type(mocker):
+	"""Test update_template moves a template to another supported document_type"""
+
+	with step("Arrange: An invoice template and a second supported document type."):
+		org = _make_org()
+		mocker.patch.dict(
+			"drf_api.resources.document_template.main.SUPPORTED_DOCUMENT_TYPES",
+			{"credit_note": "credit_note_default.rpt"},
+		)
+		template = MDocumentTemplate.objects.create(
+			document_type="invoice", name="inv", org=org
+		)
+		request = _make_request(
+			"patch",
+			org,
+			data={"document_type": "credit_note", "template_id": template.id},
+		)
+
+	with step("Act: Call update_template."):
+		response = VSDocumentTemplate.as_view({"patch": "update_template"})(request)
+
+	with step("Assert: 200 is returned and the row now has the new document type."):
+		assert response.status_code == 200
+		template.refresh_from_db()
+		assert template.document_type == "credit_note"
+
+
+@pytest.mark.parametrize(
+	"payload",
+	[
+		{
+			"description": "a file that is not an .rpt",
+			"expected_error": "INVALID_FILE_TYPE",
+			"filename": "new.txt",
+			"max_size_mb": None,
+			"storage_error": None,
+		},
+		{
+			"description": "a file over the configured size limit",
+			"expected_error": "FILE_TOO_LARGE",
+			"filename": "new.rpt",
+			"max_size_mb": 0,
+			"storage_error": None,
+		},
+		{
+			"description": "a storage driver that fails to upload",
+			"expected_error": "boom",
+			"filename": "new.rpt",
+			"max_size_mb": None,
+			"storage_error": StorageError("boom"),
+		},
+	],
+)
+def test_update_template_rejects_a_replacement_file_that_cannot_be_stored(
+	mocker, payload, settings
+):
+	"""Test update_template returns 400 and leaves the row unchanged when the replacement file is refused"""
+
+	with step(f"Arrange: An existing template and {payload['description']}."):
+		if payload["max_size_mb"] is not None:
+			settings.TEMPLATE_MAX_FILE_SIZE_MB = payload["max_size_mb"]
+		org = _make_org()
+		template = MDocumentTemplate.objects.create(
+			document_type="invoice",
+			name="inv",
+			org=org,
+			original_filename="old.rpt",
+			storage_path="acme/document_templates/invoice/1_inv.rpt",
+		)
+		mock_fstorage = mocker.patch(
+			"drf_api.resources.document_template.main.FStorage"
+		)
+		mock_fstorage.get_instance.return_value.upload.side_effect = payload[
+			"storage_error"
+		]
+		request = _make_request(
+			"patch",
+			org,
+			data={
+				"file": SimpleUploadedFile(payload["filename"], b"bytes"),
+				"template_id": template.id,
+			},
+		)
+
+	with step("Act: Call update_template."):
+		response = VSDocumentTemplate.as_view({"patch": "update_template"})(request)
+
+	with step("Assert: 400 is returned with the reason and the row is unchanged."):
+		assert response.status_code == 400
+		assert response.data["error"] == payload["expected_error"]
+		template.refresh_from_db()
+		assert template.original_filename == "old.rpt"
+
+
 def test_update_template_replaces_the_file(mocker):
 	"""Test update_template writes a replacement file to the same storage key"""
 
@@ -457,6 +551,36 @@ def test_remove_deletes_the_storage_object_and_the_row(mocker):
 			template.storage_path
 		)
 		assert not MDocumentTemplate.objects.filter(id=template.id).exists()
+
+
+def test_remove_returns_400_and_keeps_the_row_when_storage_delete_fails(mocker):
+	"""Test remove keeps the MDocumentTemplate row when the driver's delete raises StorageError"""
+
+	with step(
+		"Arrange: An existing template and a storage driver that fails to delete."
+	):
+		org = _make_org()
+		template = MDocumentTemplate.objects.create(
+			document_type="invoice",
+			name="inv",
+			org=org,
+			storage_path="acme/document_templates/invoice/1_inv.rpt",
+		)
+		mock_fstorage = mocker.patch(
+			"drf_api.resources.document_template.main.FStorage"
+		)
+		mock_fstorage.get_instance.return_value.delete.side_effect = StorageError(
+			"boom"
+		)
+		request = _make_request("delete", org, query={"template_id": template.id})
+
+	with step("Act: Call remove."):
+		response = VSDocumentTemplate.as_view({"delete": "remove"})(request)
+
+	with step("Assert: 400 is returned with the reason and the row still exists."):
+		assert response.status_code == 400
+		assert response.data["error"] == "boom"
+		assert MDocumentTemplate.objects.filter(id=template.id).exists()
 
 
 def test_set_default_unsets_any_other_default_for_the_same_document_type():

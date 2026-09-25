@@ -8,6 +8,7 @@ export default class Abstract {
     }
     this.endpoint = endpoint;
     this.handlers = {}; // keyed by message type
+    this.projectId = null; // project a brand-new chat should land in (ignored when resuming a session)
     this.reconnectDelay = 3000;
     this.sessionId = null; // set to resume an existing session on next connect
     this.shouldReconnect = true;
@@ -66,6 +67,7 @@ export default class Abstract {
       password: session.user?.password || '',
       database: session.database || '',
     };
+    if (this.projectId) payload.project_id = this.projectId;
     if (this.sessionId) payload.session_id = this.sessionId;
     this.send(payload);
   }
