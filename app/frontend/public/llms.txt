@@ -1,0 +1,28 @@
+# Orb
+
+> Orb is a conversational execution platform by D'Arch Systems. It gives an organization's team a single natural-language interface to run SAP Business One processes (checking stock, creating and approving purchase requests, generating invoices) without menus, transaction codes or waiting on a specialist. Every action is reviewed and confirmed before it runs, and every conversation is logged.
+
+SAP Business One is the system Orb connects to today. More systems are planned, and they are onboarded through configuration rather than code, using the Model Context Protocol (MCP).
+
+Orb is a multi-tenant web application: each organization has its own isolated workspace. Users sign in through SAP's identity provider (OAuth2 / OpenID Connect) or with their SAP Business One credentials, and organizations that do not have a workspace yet can request one from the home page. The interface and Orb's replies are available in English and Spanish.
+
+What Orb does:
+
+- Natural-language operations on SAP Business One: stock checks, purchase requisitions, approvals, invoices and vendor lookups.
+- Batch processing from chat or from files: one transaction per record, with a summary of what succeeded and what failed.
+- File content extraction from CSV, Excel, ODS, PDF, HTML, JSON, RTF and plain text, to answer questions or pre-fill forms.
+- Intention Graph: interrupted tasks are paused and resumed automatically.
+- Projects to group related chats, and a File Bucket for uploaded and Orb-generated documents.
+- A usage dashboard for organization admins, measured against seat and token limits.
+
+Security: Orb runs in an isolated private network on AWS infrastructure certified against SOC 1 Type II, SOC 2 Type II and ISO 27001/27017/27018. Conversations, sessions and configuration are encrypted at rest and in transit. Connecting Orb to SAP Business One never requires opening a customer's network to the internet (VPN, Direct Connect, PrivateLink or VPC Peering).
+
+## Pages
+
+- [Home](https://orb.darchsystems.com/): Product overview, capabilities and security.
+- [Privacy Policy](https://orb.darchsystems.com/privacy): What data Orb processes and how; privacy requests go to privacy@darchsystems.com.
+- [Terms of Service](https://orb.darchsystems.com/terms): Terms for using Orb.
+
+## Optional
+
+- [D'Arch Systems](https://darchsystems.com/): The company that builds and operates Orb.

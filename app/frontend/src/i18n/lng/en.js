@@ -449,7 +449,7 @@ export default {
         title: 'Third Parties & Subprocessors',
       },
       s6: {
-        body: "[Placeholder — retention period to be defined.] Conversation history is retained according to your organization's configuration so you can revisit or audit past operations.",
+        body: "Conversation history is retained according to your organization's configuration so you can revisit or audit past operations.",
         title: 'Data Retention',
       },
       s7: {

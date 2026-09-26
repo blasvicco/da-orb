@@ -1,50 +1,195 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>Orb - Conversational Execution Platform</title>
     <meta charset="utf-8" />
-    <meta name="description" content="Orb gives everyone in your organization a single natural-language interface to get things done across every tool you use. Live today with SAP Business One, with more systems rolling out soon. Every action is reviewed and confirmed before it runs.">
-    <meta name="keywords" content="Orb, conversational AI, natural language automation, enterprise AI assistant, SAP chatbot, SAP AI assistant, conversational SAP, ERP chat, MCP server, business process automation, D'Arch Systems">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+    <!--     Search engines     -->
+    <title>Orb | Conversational Execution Platform for SAP Business One</title>
+    <meta name="description" content="Orb is a conversational execution platform: one natural-language interface for your team to get work done across your systems, starting with SAP Business One. Every action is reviewed and confirmed before it runs.">
+    <meta name="keywords" content="Orb, conversational AI, natural language automation, enterprise AI assistant, SAP Business One, SAP B1, SAP chatbot, SAP AI assistant, conversational SAP, ERP chat, MCP server, Model Context Protocol, business process automation, asistente conversacional SAP Business One, IA para SAP, D'Arch Systems">
+    <meta name="author" content="D'Arch Systems">
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+
+    <link rel="canonical" href="https://orb.darchsystems.com/" id="canonical">
+
+    <!--     Social previews (Open Graph, X/Twitter, LinkedIn, Slack, WhatsApp)     -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Orb">
+    <meta property="og:title" content="Orb: One conversation. Every SAP Business One process.">
+    <meta property="og:description" content="Orb is a conversational execution platform: one natural-language interface for your team to get work done across your systems, starting with SAP Business One. Every action is reviewed and confirmed before it runs.">
+    <meta property="og:url" content="https://orb.darchsystems.com/">
+    <meta property="og:image" content="https://orb.darchsystems.com/og-image.png">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Orb, a conversational execution platform by D'Arch Systems. One conversation. Every SAP Business One process.">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:locale:alternate" content="es_LA">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Orb: One conversation. Every SAP Business One process.">
+    <meta name="twitter:description" content="Orb is a conversational execution platform: one natural-language interface for your team to get work done across your systems, starting with SAP Business One. Every action is reviewed and confirmed before it runs.">
+    <meta name="twitter:image" content="https://orb.darchsystems.com/og-image.png">
+    <meta name="twitter:image:alt" content="Orb, a conversational execution platform by D'Arch Systems. One conversation. Every SAP Business One process.">
+
+    <!--
+      One HTML shell serves every route, so the canonical and og:url are corrected to the page actually loaded (path only:
+      no query string or hash). They always use the public origin, so tenant subdomains (<org>.orb.darchsystems.com) are
+      not indexed as duplicates of it. This must stay below both tags, which it reads while the head is still being parsed.
+      Crawlers that do not run JavaScript keep the static values, the home page.
+    -->
+    <script>
+      (function () {
+        var url = 'https://orb.darchsystems.com' + (location.pathname.replace(/\/+$/, '') || '/');
+        document.getElementById('canonical').href = url;
+        document.querySelector('meta[property="og:url"]').content = url;
+      })();
+    </script>
+
+    <!--     Structured data (schema.org): who publishes Orb, the website, and the application itself     -->
     <script type="application/ld+json">
       {
-        "@context": "https://schema.org/",
-        "@type": "SoftwareApplication",
-        "name": "Orb",
-        "description": "Conversational execution platform giving organizations a single natural-language interface to run processes across every connected tool, starting with SAP Business One.",
-        "applicationCategory": "BusinessApplication",
-        "operatingSystem": "All",
-        "creator": {
-          "@type": "Organization",
-          "name": "D'Arch Systems",
-          "url": "https://darchsystems.com/"
-        }
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://darchsystems.com/#organization",
+            "name": "D'Arch Systems",
+            "url": "https://darchsystems.com/",
+            "contactPoint": {
+              "@type": "ContactPoint",
+              "contactType": "privacy",
+              "email": "privacy@darchsystems.com"
+            }
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://orb.darchsystems.com/#website",
+            "url": "https://orb.darchsystems.com/",
+            "name": "Orb",
+            "description": "Conversational execution platform giving organizations a single natural-language interface to run processes across every connected tool, starting with SAP Business One.",
+            "inLanguage": ["en", "es"],
+            "publisher": { "@id": "https://darchsystems.com/#organization" }
+          },
+          {
+            "@type": "WebApplication",
+            "@id": "https://orb.darchsystems.com/#application",
+            "url": "https://orb.darchsystems.com/",
+            "name": "Orb",
+            "alternateName": "Orb Conversational Execution Platform",
+            "description": "Orb gives your team a single natural-language interface to run SAP Business One: checking stock, creating purchase requisitions, approving requests and generating invoices, without menus, transaction codes or waiting on a specialist. Every action is reviewed and confirmed before it runs. SAP Business One is live today, with more systems planned.",
+            "image": "https://orb.darchsystems.com/og-image.png",
+            "applicationCategory": "BusinessApplication",
+            "operatingSystem": "Web",
+            "browserRequirements": "Requires a modern web browser with JavaScript enabled",
+            "inLanguage": ["en", "es"],
+            "isPartOf": { "@id": "https://orb.darchsystems.com/#website" },
+            "creator": { "@id": "https://darchsystems.com/#organization" },
+            "publisher": { "@id": "https://darchsystems.com/#organization" },
+            "featureList": [
+              "Natural-language operations on SAP Business One: stock checks, purchase requisitions, approvals and invoices",
+              "Every action is reviewed and confirmed before it runs, and every conversation is logged",
+              "Batch processing from chat or from files, one transaction per record, with a summary of what succeeded and what failed",
+              "File content extraction from CSV, Excel, ODS, PDF, HTML, JSON, RTF and plain text, to answer questions or pre-fill forms",
+              "Intention Graph: interrupted tasks are paused and resumed automatically",
+              "Projects to group related chats, and a File Bucket for uploaded and generated documents",
+              "Usage dashboard for organization admins, measured against seat and token limits",
+              "English and Spanish interface, with replies in the selected language",
+              "Model Context Protocol (MCP) architecture: new systems are onboarded through configuration, not code",
+              "Multi-tenant: each organization has its own isolated environment"
+            ]
+          }
+        ]
       }
     </script>
 
+    <!--     Icons and web app manifest     -->
+    <meta name="application-name" content="Orb">
+    <meta name="apple-mobile-web-app-title" content="Orb">
+    <meta name="theme-color" content="#0F52BA">
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
     <style>
-      .for-bots {
-        visibility: hidden;
-        width: 0;
-        height: 0;
-        position: absolute;
-        top: -1000px;
-        left: -1000px;
+      /* Shown only if the app has not replaced it after a moment (slow network or JavaScript blocked). */
+      .seo-fallback {
+        animation: seo-fallback-reveal 0s 1.5s forwards;
+        color: #1e293b;
+        font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+        line-height: 1.6;
+        margin: 0 auto;
+        max-width: 48rem;
+        opacity: 0;
+        padding: 2rem 1.25rem;
+      }
+      @keyframes seo-fallback-reveal {
+        to { opacity: 1; }
       }
     </style>
-
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-    <!--     Favicon     -->
-    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
-
   </head>
 
   <body>
-    <div id="app"></div>
-    <div class="for-bots">
-      <a href="/terms">Terms</a>
-      <a href="/privacy">Privacy</a>
+    <!--
+      Content for crawlers that do not run JavaScript (most AI and social crawlers fetch the raw HTML only). Vue clears
+      #app when it mounts, so this never appears next to the real page. It mirrors the landing.* keys in
+      src/i18n/lng/en.js and es.js: update it when that copy changes.
+    -->
+    <div id="app">
+      <div class="seo-fallback">
+        <main>
+          <h1>Orb: One conversation. Every SAP Business One process.</h1>
+          <p>Orb is a conversational execution platform by <a href="https://darchsystems.com/">D'Arch Systems</a>.</p>
+          <p>Orb gives your team a single natural-language interface to run SAP Business One — checking stock, creating purchase requisitions, approving requests, generating invoices — without menus, transaction codes, or waiting on a specialist. Every action is reviewed and confirmed before it runs.</p>
+
+          <h2>Every process. One conversation.</h2>
+          <p>Today, Orb turns complex SAP Business One workflows into a single guided conversation.</p>
+          <ul>
+            <li><strong>Natural Language Operations.</strong> Ask for inventory, draft a purchase requisition, or check a vendor status in plain language. No menus, no transaction codes, no specialist required.</li>
+            <li><strong>MCP Server Driven.</strong> Orb connects to SAP Business One today through the Model Context Protocol (MCP) — the same architecture that lets future systems be onboarded through configuration, not code, as the roadmap grows.</li>
+            <li><strong>Real-Time Insights.</strong> Get live data and status updates straight from your connected systems in seconds, without logging into a separate platform.</li>
+            <li><strong>Governed &amp; Auditable.</strong> Every action is reviewed and confirmed before it's submitted, and every conversation is logged — so nothing runs without approval, and nothing is untraceable.</li>
+          </ul>
+
+          <h2>Built for how work really happens</h2>
+          <ul>
+            <li><strong>Batch Processing.</strong> Type your requests in the chat or attach the file. Orb turns every record into its own transaction, runs them all and reports back, for example "2 created, 1 failed".</li>
+            <li><strong>File Content Extraction.</strong> Attach a spreadsheet, PDF or export and Orb reads it for you, answering questions about the content or using it to fill in forms. Supports CSV, Excel, ODS, PDF, HTML, JSON, RTF and plain text.</li>
+            <li><strong>Intention Graph.</strong> Halfway through a purchase request when someone needs a vendor list? Just ask. Orb parks what you were doing, answers the new request, and picks the first one back up automatically.</li>
+            <li><strong>Projects.</strong> Group related chats into projects, such as the Q4 restock or month-end close.</li>
+            <li><strong>File Bucket.</strong> Upload documents to your chat's File Bucket and reuse them whenever you need. Documents Orb generates for you, like PDFs, land there too.</li>
+            <li><strong>Multilanguage.</strong> Switch the whole interface between English and Spanish at any moment. Orb answers in the language you've chosen.</li>
+            <li><strong>Usage Dashboard.</strong> A built-in usage dashboard for organization admins: who's active, which processes run most and where AI usage goes, measured against your plan's seat and token limits.</li>
+          </ul>
+
+          <h2>Enterprise-Grade Security</h2>
+          <ul>
+            <li><strong>Private by Design.</strong> Orb runs inside an isolated private network in the cloud. The only thing ever exposed to the internet is the chat interface itself.</li>
+            <li><strong>Encrypted Everywhere.</strong> Every conversation, session, and configuration value is encrypted at rest and in transit. Credentials are kept in a secure vault, never in code or config files.</li>
+            <li><strong>Independently Audited.</strong> Orb runs on AWS infrastructure certified against SOC 1 Type II, SOC 2 Type II, and ISO 27001/27017/27018.</li>
+            <li><strong>Zero-Exposure Integrations.</strong> Connecting Orb to your SAP Business One environment never requires opening your network to the internet. VPN, Direct Connect, PrivateLink, or VPC Peering keep every connection private and revocable at any time.</li>
+          </ul>
+
+          <section lang="es">
+            <h2>Orb: Una conversación. Todos los procesos de SAP Business One.</h2>
+            <p>Orb, la Plataforma de Ejecución Conversacional de D'Arch Systems, le da a tu equipo una única interfaz en lenguaje natural para operar SAP Business One: consultar stock, crear solicitudes de compra, aprobarlas y generar facturas, sin menús, sin códigos de transacción y sin depender de un especialista. Cada acción se revisa y se confirma antes de ejecutarse.</p>
+            <ul>
+              <li><strong>Operaciones en lenguaje natural.</strong> Consulta inventarios, crea una solicitud de compra o revisa el estado de un proveedor con tus propias palabras.</li>
+              <li><strong>Arquitectura basada en MCP.</strong> Hoy Orb se conecta a SAP Business One mediante el Model Context Protocol (MCP), la misma arquitectura que permitirá incorporar nuevos sistemas por configuración, sin código.</li>
+              <li><strong>Información en tiempo real.</strong> Obtén datos y estados actualizados directamente de tus sistemas conectados, en segundos.</li>
+              <li><strong>Gobernado y auditable.</strong> Cada acción se revisa y se confirma antes de enviarse, y cada conversación queda registrada.</li>
+            </ul>
+          </section>
+        </main>
+        <footer>
+          <p>
+            <a href="/privacy">Privacy Policy</a> ·
+            <a href="/terms">Terms of Service</a> ·
+            <a href="https://darchsystems.com/">D'Arch Systems</a>
+          </p>
+        </footer>
+      </div>
     </div>
     <script type="module" src="/src/main.js"></script>
   </body>

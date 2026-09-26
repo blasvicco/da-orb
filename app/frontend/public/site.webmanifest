@@ -1,0 +1,23 @@
+{
+  "name": "Orb - Conversational Execution Platform",
+  "short_name": "Orb",
+  "description": "Orb is a conversational execution platform: one natural-language interface for your team to get work done across your systems, starting with SAP Business One. Every action is reviewed and confirmed before it runs.",
+  "lang": "en",
+  "start_url": "/",
+  "scope": "/",
+  "display": "browser",
+  "background_color": "#0d0b2e",
+  "theme_color": "#0F52BA",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+# Orb: the public pages are open to search engines and AI crawlers (Googlebot, Bingbot, GPTBot, ClaudeBot,
+# PerplexityBot, Google-Extended, CCBot, ...); they all fall under the wildcard group below.
+# The signed-in application is not crawlable content and is excluded.
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /auth/
+Disallow: /chat
+Disallow: /projects
+
+Sitemap: https://orb.darchsystems.com/sitemap.xml

@@ -1,0 +1,29 @@
+<!--
+  Source of public/og-image.png, the 1200x630 card shown when a link to Orb is shared (Open Graph / X / LinkedIn / Slack).
+  Social networks do not accept SVG, hence the PNG. Regenerate from this folder:
+    rsvg-convert -w 1200 -h 630 og-image.svg -o ../public/og-image.png
+  Keep the text here in sync with the og:image:alt tag in index.html.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#a5b4fc"/>
+      <stop offset="1" stop-color="#c4b5fd"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#0d0b2e"/>
+  <g transform="translate(72 64) scale(0.88)">
+    <circle cx="50" cy="50" r="36" fill="none" stroke="#3730a3" stroke-width="3"/>
+    <circle cx="50" cy="50" r="22" fill="#2d1b8c"/>
+    <circle cx="50" cy="50" r="13" fill="#6c5ce7"/>
+    <circle cx="44" cy="44" r="3.5" fill="#ffffff" opacity="0.3"/>
+  </g>
+  <g font-family="Plus Jakarta Sans, Helvetica Neue, Helvetica, Arial, sans-serif">
+    <text x="180" y="128" fill="#ffffff" font-size="56" font-weight="700">Orb</text>
+    <text x="72" y="320" fill="url(#accent)" font-size="96" font-weight="800">One conversation.</text>
+    <text x="72" y="396" fill="#ffffff" font-size="52" font-weight="600">Every SAP Business One process.</text>
+    <rect x="72" y="440" width="72" height="4" rx="2" fill="#6c5ce7"/>
+    <text x="72" y="498" fill="#c7d2fe" font-size="28" font-weight="600" letter-spacing="3">CONVERSATIONAL EXECUTION PLATFORM</text>
+    <text x="72" y="574" fill="#8b93c9" font-size="26" font-weight="500">by D'Arch Systems</text>
+  </g>
+</svg>

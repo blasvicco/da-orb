@@ -449,7 +449,7 @@ export default {
         title: 'Terceros y Subencargados',
       },
       s6: {
-        body: '[Marcador de posición — período de retención por definir.] El historial de conversación se conserva según la configuración de tu organización, para que puedas revisar o auditar operaciones pasadas.',
+        body: 'El historial de conversación se conserva según la configuración de tu organización, para que puedas revisar o auditar operaciones pasadas.',
         title: 'Retención de Datos',
       },
       s7: {
